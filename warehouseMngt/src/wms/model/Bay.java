@@ -20,7 +20,7 @@ public class Bay {
      * Creates a bay identified by warehouse, aisle and bay number.
      * Capacity defaults to 0 (meaning unconfigured/unlimited until set).
      */
-    public Bay(String warehouseId, int aisle, int bayNumber, Comparator<Box> fefoComparator) {
+    public Bay(String warehouseId, int aisle, int bayNumber) {
         this.warehouseId = warehouseId;
         this.aisle = aisle;
         this.bayNumber = bayNumber;
@@ -58,6 +58,25 @@ public class Bay {
      */
     public boolean hasSpace() {
         return capacityBoxes <= 0 || boxes.size() < capacityBoxes; // capacity 0 means not configured yet
+    }
+
+    /**
+     * Inserts the given box preserving FEFO ordering using binary search to find the position.
+     * If equal by comparator, inserts after equal range to keep stable ordering.
+     */
+    public void insertBoxFefo(Box box) {
+        BoxFefoComparator fefoComparator  = new BoxFefoComparator();
+        // Binary search insertion to keep FEFO order stable
+        int pos = Collections.binarySearch(boxes, box, fefoComparator);
+        if (pos < 0) {
+            pos = -pos - 1;
+        } else {
+            // If equal by comparator, insert after equals to keep stable ordering by insertion
+            while (pos < boxes.size() && fefoComparator.compare(boxes.get(pos), box) == 0) {
+                pos++;
+            }
+        }
+        boxes.add(pos, box);
     }
 
 

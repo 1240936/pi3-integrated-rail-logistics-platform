@@ -1,7 +1,5 @@
 package wms.model;
 
-import java.util.Objects;
-
 public class Item {
     private final String sku;
     private final String name;

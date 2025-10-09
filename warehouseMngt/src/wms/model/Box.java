@@ -2,7 +2,6 @@ package wms.model;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.Objects;
 
 /**
  * Represents a physical box of a specific SKU stored in a warehouse.
