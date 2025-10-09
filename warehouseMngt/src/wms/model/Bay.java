@@ -14,17 +14,19 @@ public class Bay {
     private final int aisle;
     private final int bayNumber;
     private final List<Box> boxes;
+    private final Comparator<Box> fefoComparator;
     private int capacityBoxes; // number of boxes that can be stored in this bay
 
     /**
      * Creates a bay identified by warehouse, aisle and bay number.
      * Capacity defaults to 0 (meaning unconfigured/unlimited until set).
      */
-    public Bay(String warehouseId, int aisle, int bayNumber) {
+    public Bay(String warehouseId, int aisle, int bayNumber, Comparator<Box> fefoComparator) {
         this.warehouseId = warehouseId;
         this.aisle = aisle;
         this.bayNumber = bayNumber;
         this.boxes = new ArrayList<>();
+        this.fefoComparator = fefoComparator;
         this.capacityBoxes = 0; // default until defined
     }
 
