@@ -14,7 +14,6 @@ public class Bay {
     private final int aisle;
     private final int bayNumber;
     private final List<Box> boxes;
-    private final Comparator<Box> fefoComparator;
     private int capacityBoxes; // number of boxes that can be stored in this bay
 
     /**
@@ -26,7 +25,6 @@ public class Bay {
         this.aisle = aisle;
         this.bayNumber = bayNumber;
         this.boxes = new ArrayList<>();
-        this.fefoComparator = fefoComparator;
         this.capacityBoxes = 0; // default until defined
     }
 
@@ -62,23 +60,6 @@ public class Bay {
         return capacityBoxes <= 0 || boxes.size() < capacityBoxes; // capacity 0 means not configured yet
     }
 
-    /**
-     * Inserts the given box preserving FEFO ordering using binary search to find the position.
-     * If equal by comparator, inserts after equal range to keep stable ordering.
-     */
-    public void insertBoxFefo(Box box) {
-        // Binary search insertion to keep FEFO order stable
-        int idx = Collections.binarySearch(boxes, box, fefoComparator);
-        if (idx < 0) {
-            idx = -idx - 1;
-        } else {
-            // If equal by comparator, insert after equals to keep stable ordering by insertion
-            while (idx < boxes.size() && fefoComparator.compare(boxes.get(idx), box) == 0) {
-                idx++;
-            }
-        }
-        boxes.add(idx, box);
-    }
 
     /**
      * Removes the specified box if its quantity is zero or below.

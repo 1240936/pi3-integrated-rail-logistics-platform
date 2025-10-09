@@ -38,10 +38,10 @@ public class Box {
                String warehouseId,
                int aisle,
                int bay) {
-        this.boxId = Objects.requireNonNull(boxId, "boxId");
-        this.sku = Objects.requireNonNull(sku, "sku");
-        this.expiryDate = expiryDate; // can be null
-        this.receivedAt = Objects.requireNonNull(receivedAt, "receivedAt");
+        this.boxId = boxId;
+        this.sku = sku;
+        this.expiryDate = expiryDate;
+        this.receivedAt = receivedAt;
         this.quantity = quantity;
         this.warehouseId = warehouseId;
         this.aisle = aisle;

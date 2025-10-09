@@ -11,7 +11,7 @@ public class Item {
     private final double unitWeight;
 
     public Item(String sku, String name, String category, String unit, double volume, double unitWeight) {
-        this.sku = Objects.requireNonNull(sku, "sku");
+        this.sku = sku;
         this.name = name;
         this.category = category;
         this.unit = unit;
