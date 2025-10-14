@@ -1,9 +1,35 @@
 package wms.io;
 
+import wms.service.InventoryService;
+
+import java.io.*;
 import java.util.ArrayList;
 import java.util.List;
 
 public class BayCsvLoader {
+    public static CsvValidatorResult<String> load(String csvPath, InventoryService inv) throws IOException {
+        CsvValidatorResult<String> result = new CsvValidatorResult<>();
+        try (BufferedReader br = new BufferedReader(new FileReader(csvPath))) {
+            br.readLine(); // header
+            String line;
+            int NLinha = 1;
+            while ((line = br.readLine()) != null) {
+                NLinha++;
+
+                if (line.trim().isEmpty()) continue;
+
+                String[] f = splitFlexible(line);
+                String warehouseId = f[0].trim();
+                int aisle = Integer.parseInt(f[1].trim());
+                int bay = Integer.parseInt(f[2].trim());
+                int capacity = Integer.parseInt(f[3].trim());
+
+                inv.defineBayCapacity(warehouseId, aisle, bay, capacity);
+                result.addRecord(warehouseId + ":" + aisle + ":" + bay);
+            }
+        }
+        return result;
+    }
 
     private static String[] splitFlexible(String line) {  // flexible method for reading lines with both "," and ";"
         List<String> parts = new ArrayList<>();
