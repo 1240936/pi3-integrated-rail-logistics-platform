@@ -1,9 +1,6 @@
 package wms.service;
 
-import wms.model.BoxFefoComparator;
-import wms.model.Warehouse;
-import wms.model.Item;
-import wms.model.Bay;
+import wms.model.*;
 
 import java.util.*;
 
@@ -81,6 +78,72 @@ public class InventoryService {
         }
         for (Item item : items) {
             bySku.put(item.getSku(), item);
+        }
+    }
+
+    /**
+     * Inserts a box into its bay using FEFO ordering and updates SKU index.
+     * Enforces uniqueness of boxId within a warehouse.
+     */
+    public void insertBox(Box box) {
+        // enforce unique boxId per warehouse
+        String boxKey = box.getWarehouseId() + "#" + box.getBoxId();
+        if (boxIdsInWarehouse.contains(boxKey)) {
+            throw new IllegalArgumentException("Duplicate boxId in warehouse: " + box.getBoxId());
+        }
+        Bay bay = getOrCreateBay(box.getWarehouseId(), box.getAisle(), box.getBay());
+        if (!bay.hasSpace()) {
+            throw new IllegalStateException("Bay is at capacity: " + box.getWarehouseId() + "/" + box.getAisle() + "/" + box.getBay());
+        }
+        bay.insertBoxFefo(box);
+        indexSkuBox(box.getSku(), box.getWarehouseId(), box.getAisle(), bay.getBayNumber());
+        boxIdsInWarehouse.add(boxKey);
+    }
+
+    /**
+     * Adds a bay number to the SKU index for quick lookup by SKU/warehouse/aisle.
+     */
+    private void indexSkuBox(String sku, String warehouseId, int aisle, int bayNumber) {
+        Map<String, Map<Integer, SortedSet<Integer>>> byWarehouse = skuIndex.get(sku);
+        if (byWarehouse == null) {
+            byWarehouse = new HashMap<>();
+            skuIndex.put(sku, byWarehouse);
+        }
+        Map<Integer, SortedSet<Integer>> byAisle = byWarehouse.get(warehouseId);
+        if (byAisle == null) {
+            byAisle = new HashMap<>();
+            byWarehouse.put(warehouseId, byAisle);
+        }
+        SortedSet<Integer> bays = byAisle.get(aisle);
+        if (bays == null) {
+            bays = new TreeSet<>();
+            byAisle.put(aisle, bays);
+        }
+        bays.add(bayNumber);
+    }
+
+    /**
+     * Returns true if the SKU exists in the loaded item master data for the warehouse.
+     */
+    public boolean isKnownSku(String warehouseId, String sku) {
+        Map<String, Item> bySku = itemsByWarehouse.get(warehouseId);
+        return bySku != null && bySku.containsKey(sku);
+    }
+
+    /**
+     * Removes a bay number from the SKU index only if the bay no longer holds any box of that SKU.
+     * Keeps empty bays in the index if other boxes with the SKU still exist there (policy choice).
+     */
+    private void cleanupSkuIndex(String sku, String warehouseId, int aisle, int bayNumber) {
+        Map<String, Map<Integer, SortedSet<Integer>>> byWarehouse = skuIndex.getOrDefault(sku, Collections.emptyMap());
+        Map<Integer, SortedSet<Integer>> byAisle = byWarehouse.getOrDefault(warehouseId, Collections.emptyMap());
+        SortedSet<Integer> bays = byAisle.getOrDefault(aisle, null);
+        if (bays == null) return;
+        // keep bay even if empty per requirements; only remove from index if truly no boxes of SKU exist there
+        Bay bay = getOrCreateBay(warehouseId, aisle, bayNumber);
+        boolean hasSku = bay.getBoxes().stream().anyMatch(b -> b.getSku().equals(sku));
+        if (!hasSku) {
+            bays.remove(bayNumber);
         }
     }
 }
