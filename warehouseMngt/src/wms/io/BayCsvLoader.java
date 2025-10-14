@@ -12,17 +12,33 @@ public class BayCsvLoader {
         try (BufferedReader br = new BufferedReader(new FileReader(csvPath))) {
             br.readLine(); // header
             String line;
-            int NLinha = 1;
+            int Nlinha = 1;
             while ((line = br.readLine()) != null) {
-                NLinha++;
+                Nlinha++;
 
                 if (line.trim().isEmpty()) continue;
 
                 String[] f = splitFlexible(line);
+                if (f.length < 4) {
+                    result.addError("bays.csv line " + Nlinha + ": expected 4 columns, got " + f.length);
+                    continue;
+                }
                 String warehouseId = f[0].trim();
-                int aisle = Integer.parseInt(f[1].trim());
-                int bay = Integer.parseInt(f[2].trim());
-                int capacity = Integer.parseInt(f[3].trim());
+                int aisle;
+                int bay;
+                int capacity;
+                try {
+                    aisle = Integer.parseInt(f[1].trim());
+                    bay = Integer.parseInt(f[2].trim());
+                    capacity = Integer.parseInt(f[3].trim());
+                } catch (Exception e) {
+                    result.addError("bays.csv line " + Nlinha + ": invalid integers: " + e.getMessage());
+                    continue;
+                }
+                if (warehouseId.isEmpty() || aisle <= 0 || bay <= 0 || capacity < 0) {
+                    result.addError("bays.csv line " + Nlinha + ": invalid values");
+                    continue;
+                }
 
                 inv.defineBayCapacity(warehouseId, aisle, bay, capacity);
                 result.addRecord(warehouseId + ":" + aisle + ":" + bay);
