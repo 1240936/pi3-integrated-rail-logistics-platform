@@ -72,4 +72,15 @@ public class InventoryService {
         Bay bay = getOrCreateBay(warehouseId, aisle, bayNumber);
         bay.setCapacityBoxes(capacityBoxes);
     }
+
+    public void loadItemsForWarehouse(String warehouseId, Iterable<Item> items) {
+        Map<String, Item> bySku = itemsByWarehouse.get(warehouseId);
+        if (bySku == null) {
+            bySku = new HashMap<>();
+            itemsByWarehouse.put(warehouseId, bySku);
+        }
+        for (Item item : items) {
+            bySku.put(item.getSku(), item);
+        }
+    }
 }

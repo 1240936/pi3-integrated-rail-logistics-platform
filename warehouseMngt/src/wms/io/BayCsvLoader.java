@@ -23,10 +23,12 @@ public class BayCsvLoader {
                     result.addError("bays.csv line " + Nlinha + ": expected 4 columns, got " + f.length);
                     continue;
                 }
+
                 String warehouseId = f[0].trim();
                 int aisle;
                 int bay;
                 int capacity;
+
                 try {
                     aisle = Integer.parseInt(f[1].trim());
                     bay = Integer.parseInt(f[2].trim());

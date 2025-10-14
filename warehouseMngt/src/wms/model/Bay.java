@@ -27,7 +27,7 @@ public class Bay {
         this.bayNumber = bayNumber;
         this.boxes = new ArrayList<>();
         this.fefoComparator = fefoComparator;
-        this.capacityBoxes = 0; // default until defined
+        this.capacityBoxes = 0; // default ate ser definido
     }
 
     public String getWarehouseId() {
