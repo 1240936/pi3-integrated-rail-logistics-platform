@@ -180,4 +180,40 @@ public class InventoryService {
         }
         return quantityUnits - remaining;
     }
+
+    /**
+     * Moves a box identified by boxId to a new location, updating indexes and FEFO order.
+     * If the box is not found, the method returns silently.
+     */
+    public void relocate(String boxId, String newWarehouseId, int newAisle, int newBayNumber) {
+        // encontra box pelo boxid, percorrendo as warehouses, as aisles e as bays, ate encontrar a box.
+        Box found = null;
+        Bay originBay = null;
+        for (Warehouse w : warehouses.values()) {
+            for (Map<Integer, Bay> bays : w.getAisles().values()) {
+                for (Bay bay : bays.values()) {
+                    for (Box b : bay.getBoxes()) {
+                        if (b.getBoxId().equals(boxId)) {
+                            found = b;
+                            originBay = bay;
+                            break;
+                        }
+                    }
+                    if (found != null) break;
+                }
+                if (found != null) break;
+            }
+            if (found != null) break;
+        }
+        if (found == null) return;
+        originBay.getBoxes().remove(found);
+        boxIdsInWarehouse.remove(originBay.getWarehouseId() + "#" + found.getBoxId());
+        cleanupSkuIndex(found.getSku(), originBay.getWarehouseId(), originBay.getAisle(), originBay.getBayNumber());
+
+        found.setWarehouseId(newWarehouseId);
+        found.setAisle(newAisle);
+        found.setBay(newBayNumber);
+
+        insertBox(found); // atribui o fefo
+    }
 }
