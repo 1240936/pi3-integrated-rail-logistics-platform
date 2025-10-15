@@ -18,7 +18,7 @@ public class WagonCsvLoader {
     public static CsvValidatorResult<Box> load(String csvPath, String defaultWarehouseId, int defaultAisle, InventoryService inv) throws IOException {
         CsvValidatorResult<Box> result = new CsvValidatorResult<>();
         try (BufferedReader br = new BufferedReader(new FileReader(csvPath))) {
-            br.readLine(); // optional header, intentionally ignored
+            br.readLine();
             String line;
             int lineNo = 1;
             while ((line = br.readLine()) != null) {
@@ -29,7 +29,7 @@ public class WagonCsvLoader {
                     result.addError("wagons.csv line " + lineNo + ": expected at least 6 columns");
                     continue;
                 }
-                // Schema: wagonId, boxId, sku, qty, expiryDate (optional), receivedAt
+                // Estrutura para ler: wagonId, boxId, sku, qty, expiryDate (optional), receivedAt
                 String wagonId = trimmer(f, 0);
                 String boxId = trimmer(f, 1);
                 String sku = trimmer(f, 2);
@@ -100,7 +100,7 @@ public class WagonCsvLoader {
                     bay = autoAssignBay(inv, defaultWarehouseId, aisle);
                 }
 
-                // Validate SKU known (items must be loaded beforehand)
+                // AC validar sku (item ja tem que estar carregado)
                 if (!inv.isKnownSku(defaultWarehouseId, sku)) {
                     result.addError("wagons.csv line " + lineNo + ": unknown SKU '" + sku + "' (wagon " + wagonId + ")");
                     continue;

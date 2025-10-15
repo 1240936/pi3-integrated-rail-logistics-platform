@@ -146,4 +146,38 @@ public class InventoryService {
             bays.remove(bayNumber);
         }
     }
+
+    /**
+     * Dispatches up to quantityUnits of a SKU from the specified warehouse/aisle.
+     * Consumes from bays in increasing bay number order and from boxes in FEFO order.
+     * @return number of units actually dispatched.
+     */
+    public int dispatch(String warehouseId, String sku, int aisle, int quantityUnits) {
+        Map<Integer, SortedSet<Integer>> byAisle = skuIndex
+                .getOrDefault(sku, Collections.emptyMap()) // procura o sku, se nao tiver retorna um mapa vazio de modo a evitar nullPointer
+                .getOrDefault(warehouseId, Collections.emptyMap());
+        SortedSet<Integer> bayNumbers = byAisle.getOrDefault(aisle, new TreeSet<>());
+        int remaining = quantityUnits;
+        for (Integer bayNumber : new ArrayList<>(bayNumbers)) {
+            if (remaining <= 0) break;
+            Bay bay = getOrCreateBay(warehouseId, aisle, bayNumber);
+            List<Box> boxes = bay.getBoxes();
+            int i = 0;
+            while (i < boxes.size() && remaining > 0) {
+                Box box = boxes.get(i);
+                if (!box.getSku().equals(sku)) {
+                    i++; continue; }
+                int use = Math.min(remaining, box.getQuantity());
+                box.setQuantity(box.getQuantity() - use);
+                remaining -= use;
+                if (box.getQuantity() == 0) {
+                    boxes.remove(i);
+                } else {
+                    i++;
+                }
+            }
+            cleanupSkuIndex(sku, warehouseId, aisle, bayNumber);
+        }
+        return quantityUnits - remaining;
+    }
 }
