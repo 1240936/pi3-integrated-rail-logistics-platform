@@ -1,4 +1,4 @@
-package wms.model;
+package domain;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -95,3 +95,5 @@ public class Box {
         this.bay = bay;
     }
 }
+
+

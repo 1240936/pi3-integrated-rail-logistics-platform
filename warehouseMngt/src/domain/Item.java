@@ -1,4 +1,4 @@
-package wms.model;
+package domain;
 
 public class Item {
     private final String sku;
@@ -24,3 +24,5 @@ public class Item {
     public double getVolume() { return volume; }
     public double getUnitWeight() { return unitWeight; }
 }
+
+

@@ -1,4 +1,4 @@
-package wms.io;
+package repositories;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
@@ -8,8 +8,8 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
-import wms.model.*;
-import wms.service.InventoryService;
+import domain.*;
+import controller.InventoryService;
 
 public class WagonCsvLoader {
     private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("yyyy-MM-dd");
@@ -180,3 +180,5 @@ public class WagonCsvLoader {
         }
     }
 }
+
+

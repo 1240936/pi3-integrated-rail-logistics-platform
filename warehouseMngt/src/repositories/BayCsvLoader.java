@@ -1,46 +1,49 @@
-package wms.io;
+package repositories;
 
-import wms.model.Item;
+import controller.InventoryService;
 
-import java.io.BufferedReader;
-import java.io.FileReader;
-import java.io.IOException;
+import java.io.*;
 import java.util.ArrayList;
 import java.util.List;
 
-public class ItemsCsvLoader {
-    public static CsvValidatorResult<Item> load(String csvPath) throws IOException {
-        CsvValidatorResult<Item> result = new CsvValidatorResult<>();
+public class BayCsvLoader {
+    public static CsvValidatorResult<String> load(String csvPath, InventoryService inv) throws IOException {
+        CsvValidatorResult<String> result = new CsvValidatorResult<>();
         try (BufferedReader br = new BufferedReader(new FileReader(csvPath))) {
-            br.readLine();
+            br.readLine(); // header
             String line;
-            int lineNo = 1;
+            int Nlinha = 1;
             while ((line = br.readLine()) != null) {
-                lineNo++;
+                Nlinha++;
+
                 if (line.trim().isEmpty()) continue;
+
                 String[] f = splitFlexible(line);
-                if (f.length < 6) {
-                    result.addError("items.csv line " + lineNo + ": expected 6 columns, got " + f.length);
+                if (f.length < 4) {
+                    result.addError("bays.csv line " + Nlinha + ": expected 4 columns, got " + f.length);
                     continue;
                 }
-                String sku = f[0].trim();
-                String name = f[1].trim();
-                String category = f[2].trim();   // separar as string em nos seus headers
-                String unit = f[3].trim();
-                double volume;
-                double unitWeight;
+
+                String warehouseId = f[0].trim();
+                int aisle;
+                int bay;
+                int capacity;
+
                 try {
-                    volume = Double.parseDouble(f[4].trim());
-                    unitWeight = Double.parseDouble(f[5].trim());
+                    aisle = Integer.parseInt(f[1].trim());
+                    bay = Integer.parseInt(f[2].trim());
+                    capacity = Integer.parseInt(f[3].trim());
                 } catch (Exception e) {
-                    result.addError("items.csv line " + lineNo + ": invalid numeric values: " + e.getMessage());
+                    result.addError("bays.csv line " + Nlinha + ": invalid integers: " + e.getMessage());
                     continue;
                 }
-                if (sku.isEmpty()) {
-                    result.addError("items.csv line " + lineNo + ": missing SKU");
+                if (warehouseId.isEmpty() || aisle <= 0 || bay <= 0 || capacity < 0) {
+                    result.addError("bays.csv line " + Nlinha + ": invalid values");
                     continue;
                 }
-                result.addRecord(new Item(sku, name, category, unit, volume, unitWeight));
+
+                inv.defineBayCapacity(warehouseId, aisle, bay, capacity);
+                result.addRecord(warehouseId + ":" + aisle + ":" + bay);
             }
         }
         return result;
@@ -73,3 +76,5 @@ public class ItemsCsvLoader {
         return t;
     }
 }
+
+

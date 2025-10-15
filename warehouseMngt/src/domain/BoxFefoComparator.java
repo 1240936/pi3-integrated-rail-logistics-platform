@@ -1,4 +1,4 @@
-package wms.model;
+package domain;
 
 import java.util.Comparator;
 
@@ -27,3 +27,5 @@ public class BoxFefoComparator implements Comparator<Box> {
         return a.getBoxId().compareTo(b.getBoxId());
     }
 }
+
+

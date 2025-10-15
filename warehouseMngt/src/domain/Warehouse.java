@@ -1,4 +1,4 @@
-package wms.model;
+package domain;
 
 import java.util.Map;
 import java.util.TreeMap;
@@ -24,3 +24,5 @@ public class Warehouse {
 
     public Map<Integer, Map<Integer, Bay>> getAisles() { return aisles; }
 }
+
+

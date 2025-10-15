@@ -1,4 +1,4 @@
-package wms.model;
+package domain;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -94,3 +94,5 @@ public class Bay {
         return null;
     }
 }
+
+

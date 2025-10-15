@@ -1,6 +1,6 @@
-package wms.service;
+package controller;
 
-import wms.model.*;
+import domain.*;
 
 import java.util.*;
 
@@ -217,3 +217,5 @@ public class InventoryService {
         insertBox(found); // atribui o fefo
     }
 }
+
+

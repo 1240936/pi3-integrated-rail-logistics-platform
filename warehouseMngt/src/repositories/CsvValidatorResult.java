@@ -1,4 +1,4 @@
-package wms.io;
+package repositories;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -15,3 +15,5 @@ public class CsvValidatorResult<T> {  // se os dados lidos no csv a ler forem co
     public List<String> getErrors() { return Collections.unmodifiableList(errors); }
     public boolean hasErrors() { return !errors.isEmpty(); }
 }
+
+
