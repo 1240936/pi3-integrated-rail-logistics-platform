@@ -170,11 +170,11 @@ public class InventoryService {
                 int use = Math.min(remaining, box.getQuantity());
                 box.setQuantity(box.getQuantity() - use);
                 remaining -= use;
-                if (box.getQuantity() == 0) {
-                    boxes.remove(i);
-                } else {
+                Box removedBox = bay.removeFrontBoxIfEmpty(box);
+                if (removedBox == null) {
                     i++;
                 }
+                // If box was removed, don't increment i since the next box shifts to current position
             }
             cleanupSkuIndex(sku, warehouseId, aisle, bayNumber);
         }
