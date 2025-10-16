@@ -216,6 +216,129 @@ public class InventoryService {
 
         insertBox(found); // atribui o fefo
     }
+
+    /**
+     * Plans allocations for a list of order lines without mutating inventory.
+     * Orders are sorted by priority ASC, dueDate ASC, orderId ASC; lines by lineNo ASC.
+     * Allocation traverses boxes by FEFO within each bay and bays by ascending bay number within the same aisle.
+     */
+
+    public AllocationResult planAllocations(String warehouseId,
+                                            List<OrderLine> orderLines,
+                                            AllocationMode mode,
+                                            int aisleFilter) {
+
+        List<OrderLine> lines = new ArrayList<>(orderLines);
+
+        // Ordena as linhas pela prioridade, data limite e ID
+        lines.sort(Comparator
+                .comparingInt(OrderLine::getPriority)
+                .thenComparing(OrderLine::getDueDate)
+                .thenComparing(OrderLine::getOrderId)
+                .thenComparingInt(OrderLine::getLineNo));
+
+        List<LineEligibility> eligibilities = new ArrayList<>();
+        List<AllocationRow> allocations = new ArrayList<>();
+
+        // Percorre cada linha da encomenda
+        for (OrderLine line : lines) {
+
+            int remaining = line.getRequestedQty(); // quantidade que ainda falta alocar
+            List<AllocationRow> lineAllocs = new ArrayList<>();
+
+            // Procura os bays do SKU
+            Map<Integer, SortedSet<Integer>> byAisle = skuIndex
+                    .getOrDefault(line.getSku(), Collections.emptyMap())
+                    .getOrDefault(warehouseId, Collections.emptyMap());
+
+            SortedSet<Integer> bayNumbers = byAisle.getOrDefault(aisleFilter, new TreeSet<>());
+
+            // Percorre todos os bays desse corredor
+            for (Integer bayNumber : bayNumbers) {
+                if (remaining <= 0) break;
+
+                Bay bay = getOrCreateBay(warehouseId, aisleFilter, bayNumber);
+                List<Box> boxes = bay.getBoxes(); // caixas dentro do bay
+
+                for (Box box : boxes) {
+                    if (remaining <= 0) break;
+                    if (!box.getSku().equals(line.getSku())) continue; // ignora se for outro SKU
+
+                    // Define quantas unidades tirar desta caixa
+                    int take = Math.min(remaining, box.getQuantity());
+                    if (take <= 0) continue;
+
+                    lineAllocs.add(new AllocationRow(
+                            line.getOrderId(),
+                            line.getLineNo(),
+                            line.getSku(),
+                            take,
+                            box.getBoxId(),
+                            aisleFilter,
+                            bayNumber));
+
+                    remaining -= take; // atualiza o que falta alocar
+                }
+            }
+
+            int allocated = line.getRequestedQty() - remaining;
+
+            if (mode == AllocationMode.STRICT) {
+                // Modo strict: só é válido se conseguir tudo
+                if (remaining == 0) {
+                    eligibilities.add(new LineEligibility(
+                            line.getOrderId(),
+                            line.getLineNo(),
+                            line.getSku(),
+                            line.getRequestedQty(),
+                            allocated,
+                            LineStatus.ELIGIBLE));
+                    allocations.addAll(lineAllocs);
+                } else {
+                    eligibilities.add(new LineEligibility(
+                            line.getOrderId(),
+                            line.getLineNo(),
+                            line.getSku(),
+                            line.getRequestedQty(),
+                            0,
+                            LineStatus.UNDISPATCHABLE));
+                }
+
+            } else { // Modo PARCIAL
+                if (allocated == 0) {
+                    // Nenhuma unidade encontrada
+                    eligibilities.add(new LineEligibility(
+                            line.getOrderId(),
+                            line.getLineNo(),
+                            line.getSku(),
+                            line.getRequestedQty(),
+                            0,
+                            LineStatus.UNDISPATCHABLE));
+                } else if (remaining == 0) {
+                    // Tudo alocado
+                    eligibilities.add(new LineEligibility(
+                            line.getOrderId(),
+                            line.getLineNo(),
+                            line.getSku(),
+                            line.getRequestedQty(),
+                            allocated,
+                            LineStatus.ELIGIBLE));
+                    allocations.addAll(lineAllocs);
+                } else {
+                    eligibilities.add(new LineEligibility(
+                            line.getOrderId(),
+                            line.getLineNo(),
+                            line.getSku(),
+                            line.getRequestedQty(),
+                            allocated,
+                            LineStatus.PARTIAL));
+                    allocations.addAll(lineAllocs);
+                }
+            }
+        }
+        return new AllocationResult(eligibilities, allocations);
+    }
+
 }
 
 
