@@ -44,6 +44,13 @@ public class InventoryService {
     }
 
     /**
+     * Returns all warehouses in the system.
+     */
+    public Map<String, Warehouse> getAllWarehouses() {
+        return new HashMap<>(warehouses);
+    }
+
+    /**
      * Returns an existing bay or creates it (and its aisle) as needed.
      */
     public Bay getOrCreateBay(String warehouseId, int aisle, int bayNumber) {
