@@ -10,6 +10,8 @@ import java.io.IOException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.List;
 
 public class WagonCsvLoader {
     private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("yyyy-MM-dd");
@@ -23,6 +25,7 @@ public class WagonCsvLoader {
     ) throws IOException {
 
         CsvValidatorResult<Box> result = new CsvValidatorResult<>();
+        List<Box> allBoxes = new ArrayList<>(); // Collect all boxes first for global FEFO sorting
 
         try (BufferedReader br = new BufferedReader(new FileReader(csvPath))) {
             br.readLine(); // skip header
@@ -46,8 +49,7 @@ public class WagonCsvLoader {
                 String qtyRaw = trimmer(f, 3);
                 String expiryRaw = trimmer(f, 4);
                 String receivedRaw = trimmer(f, 5);
-                String aisleRaw = f.length > 6 ? f[6] : "";
-                String bayRaw = f.length > 7 ? f[7] : "";
+                // Note: aisle and bay will be assigned globally after FEFO sorting
 
                 if (sku.isEmpty()) {
                     result.addError("wagons.csv line " + lineNo + ": missing SKU (wagon " + wagonId + ")");
@@ -81,59 +83,98 @@ public class WagonCsvLoader {
                     continue;
                 }
 
-                int aisle = defaultAisle;
-                if (!aisleRaw.trim().isEmpty()) {
-                    try {
-                        aisle = Integer.parseInt(aisleRaw.trim());
-                    } catch (Exception e) {
-                        result.addError("wagons.csv line " + lineNo + ": invalid aisle (box " + boxId + ")");
-                        continue;
-                    }
-                }
-
-                int bay;
-                if (!bayRaw.trim().isEmpty()) {
-                    try {
-                        bay = Integer.parseInt(bayRaw.trim());
-                    } catch (Exception e) {
-                        result.addError("wagons.csv line " + lineNo + ": invalid bay (box " + boxId + ")");
-                        continue;
-                    }
-                } else {
-                    bay = autoAssignBay(inv, defaultWarehouseId, aisle);
-                }
-
                 // Validate SKU against known items
                 if (!inv.isKnownSku(defaultWarehouseId, sku)) {
                     result.addError("wagons.csv line " + lineNo + ": unknown SKU '" + sku + "' (wagon " + wagonId + ")");
                     continue;
                 }
 
+                // Create box with temporary aisle/bay (will be assigned later)
                 try {
-                    Box box = new Box(boxId, sku, expiry, receivedAt, qty, defaultWarehouseId, aisle, bay);
-                    inv.insertBox(box);
-                    result.addRecord(box);
+                    Box box = new Box(boxId, sku, expiry, receivedAt, qty, defaultWarehouseId, 0, 0);
+                    allBoxes.add(box);
                 } catch (Exception e) {
                     result.addError("wagons.csv line " + lineNo + ": " + e.getMessage() + " (box " + boxId + ")");
                 }
             }
         }
 
+        // Sort all boxes globally using FEFO ordering
+        allBoxes.sort(new BoxFefoComparator());
+
+        // Now assign boxes to aisles and bays in FEFO order
+        for (Box box : allBoxes) {
+            int aisle = defaultAisle;
+            if (box.getAisle() != 0) { // If aisle was specified in CSV
+                aisle = box.getAisle();
+            } else {
+                // If no aisle specified, distribute boxes across available aisles
+                aisle = distributeAcrossAisles(inv, defaultWarehouseId, 0);
+            }
+
+            int bay = autoAssignBay(inv, defaultWarehouseId, aisle);
+
+            // Update box with final aisle and bay
+            box.setAisle(aisle);
+            box.setBay(bay);
+
+            try {
+                inv.insertBox(box);
+                result.addRecord(box);
+            } catch (Exception e) {
+                result.addError("Error inserting box " + box.getBoxId() + ": " + e.getMessage());
+            }
+        }
+
         return result;
     }
 
+    private static int distributeAcrossAisles(InventoryService inv, String warehouseId, int lineNo) {
+        // Get all available aisles from the warehouse
+        var warehouse = inv.getOrCreateWarehouse(warehouseId);
+        var aisles = warehouse.getAisles();
+        
+        if (aisles.isEmpty()) {
+            return 1; // fallback to aisle 1
+        }
+        
+        // Find the first aisle that has available space (sequential filling)
+        for (var aisleEntry : aisles.entrySet()) {
+            int aisleNum = aisleEntry.getKey();
+            var bays = aisleEntry.getValue();
+            
+            // Check if this aisle has any bays with available space
+            for (var bay : bays.values()) {
+                if (bay.hasSpace()) {
+                    return aisleNum; // Return the first aisle with available space
+                }
+            }
+        }
+        
+        // If all aisles are full, return the first aisle as fallback
+        return aisles.keySet().iterator().next();
+    }
+
     private static int autoAssignBay(InventoryService inv, String warehouseId, int aisle) {
+        // Find the first bay with available capacity (sequential filling)
         int next = 1;
-        while (true) {
-            if (inv.getOrCreateBay(warehouseId, aisle, next).getBoxes().isEmpty()) {
-                return next;
+        while (next <= 100) { // reasonable limit to prevent infinite loop
+            Bay bay = inv.getOrCreateBay(warehouseId, aisle, next);
+            if (bay.hasSpace()) {
+                return next; // Return the first bay with available space
             }
             next++;
         }
+        // If no bay has space, return 1 as fallback
+        return 1;
     }
 
     private static String trimmer(String[] f, int idx) {
-        return idx < f.length ? f[idx].trim() : "";
+        if (idx < f.length) {
+            return f[idx].trim();
+        } else {
+            return "";
+        }
     }
 
     private static LocalDate parseOptionalExpiry(String raw) {
