@@ -189,6 +189,85 @@ public class InventoryService {
     }
 
     /**
+     * Checks if a box with the given ID exists in the system.
+     * @param boxId the box ID to search for
+     * @return true if the box exists, false otherwise
+     */
+    public boolean boxExists(String boxId) {
+        for (Warehouse w : warehouses.values()) {
+            for (Map<Integer, Bay> bays : w.getAisles().values()) {
+                for (Bay bay : bays.values()) {
+                    for (Box b : bay.getBoxes()) {
+                        if (b.getBoxId().equals(boxId)) {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Checks if a warehouse exists in the system.
+     * @param warehouseId the warehouse ID to check
+     * @return true if the warehouse exists, false otherwise
+     */
+    public boolean warehouseExists(String warehouseId) {
+        return warehouses.containsKey(warehouseId);
+    }
+
+    /**
+     * Checks if a bay has capacity for an additional box.
+     * @param warehouseId the warehouse ID
+     * @param aisle the aisle number
+     * @param bayNumber the bay number
+     * @return true if the bay has capacity, false otherwise
+     */
+    public boolean bayHasCapacity(String warehouseId, int aisle, int bayNumber) {
+        Bay bay = getOrCreateBay(warehouseId, aisle, bayNumber);
+        return bay.hasSpace();
+    }
+
+    /**
+     * Checks if a specific bay exists in the system (without creating it).
+     * @param warehouseId the warehouse ID
+     * @param aisle the aisle number
+     * @param bayNumber the bay number
+     * @return true if the bay exists, false otherwise
+     */
+    public boolean bayExists(String warehouseId, int aisle, int bayNumber) {
+        Warehouse warehouse = warehouses.get(warehouseId);
+        if (warehouse == null) {
+            return false;
+        }
+        
+        Map<Integer, Map<Integer, Bay>> aisles = warehouse.getAisles();
+        Map<Integer, Bay> bays = aisles.get(aisle);
+        if (bays == null) {
+            return false;
+        }
+        
+        return bays.containsKey(bayNumber);
+    }
+
+    /**
+     * Checks if a specific aisle exists in a warehouse.
+     * @param warehouseId the warehouse ID
+     * @param aisle the aisle number
+     * @return true if the aisle exists, false otherwise
+     */
+    public boolean aisleExists(String warehouseId, int aisle) {
+        Warehouse warehouse = warehouses.get(warehouseId);
+        if (warehouse == null) {
+            return false;
+        }
+        
+        Map<Integer, Map<Integer, Bay>> aisles = warehouse.getAisles();
+        return aisles.containsKey(aisle);
+    }
+
+    /**
      * Moves a box identified by boxId to a new location, updating indexes and FEFO order.
      * If the box is not found, the method returns silently.
      */

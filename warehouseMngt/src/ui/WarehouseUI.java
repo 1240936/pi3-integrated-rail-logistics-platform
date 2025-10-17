@@ -1,8 +1,9 @@
 package ui;
 
+import controller.InventoryService;
 import repositories.*;
 import domain.*;
-import controller.InventoryService;
+
 
 import java.util.*;
 
@@ -250,9 +251,41 @@ public class WarehouseUI {
         System.out.println("\n=== RELOCATE BOX ===");
 
         String boxId = getStringInput("Enter box ID to relocate: ");
+        
+        // Validate that the box exists
+        if (!inventoryService.boxExists(boxId)) {
+            System.out.println("Error: Box with ID '" + boxId + "' does not exist in the system.");
+            return;
+        }
+        
         String newWarehouseId = getStringInput("Enter new warehouse ID: ");
         int newAisle = getIntInput("Enter new aisle number: ");
         int newBay = getIntInput("Enter new bay number: ");
+
+        // Validate that the destination warehouse exists
+        if (!inventoryService.warehouseExists(newWarehouseId)) {
+            System.out.println("Error: Warehouse '" + newWarehouseId + "' does not exist in the system.");
+            return;
+        }
+
+        // Validate that the destination aisle exists
+        if (!inventoryService.aisleExists(newWarehouseId, newAisle)) {
+            System.out.println("Error: Aisle " + newAisle + " does not exist in warehouse '" + newWarehouseId + "'.");
+            return;
+        }
+
+        // Validate that the destination bay exists
+        if (!inventoryService.bayExists(newWarehouseId, newAisle, newBay)) {
+            System.out.println("Error: Bay " + newBay + " does not exist in warehouse '" + newWarehouseId + "', aisle " + newAisle + ".");
+            return;
+        }
+
+        // Validate destination bay has capacity
+        if (!inventoryService.bayHasCapacity(newWarehouseId, newAisle, newBay)) {
+            System.out.println("Error: Destination bay " + newWarehouseId + "/" + newAisle + "/" + newBay + 
+                             " is at capacity and cannot accept additional boxes.");
+            return;
+        }
 
         try {
             inventoryService.relocate(boxId, newWarehouseId, newAisle, newBay);
