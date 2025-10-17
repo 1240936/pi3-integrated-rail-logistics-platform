@@ -17,6 +17,7 @@ public class WarehouseUI {
     private boolean dataLoaded = false;
     private String currentWarehouseId = "W1";
     private int currentAisle = 1;
+    private List<OrderLine> loadedOrderLines = new ArrayList<>();
 
     public WarehouseUI() {
         this.inventoryService = new InventoryService();
@@ -131,6 +132,7 @@ public class WarehouseUI {
                 System.out.println("Orders import errors:");
                 for (String err : orders.getErrors()) System.out.println(" - " + err);
             }
+            
 
             // Load order lines
             java.util.Map<String, OrderHeader> headers = new java.util.HashMap<String, OrderHeader>();
@@ -144,6 +146,9 @@ public class WarehouseUI {
                 System.out.println("Order lines import errors:");
                 for (String err : orderLines.getErrors()) System.out.println(" - " + err);
             }
+            
+            // Store loaded order lines
+            loadedOrderLines = new ArrayList<>(orderLines.getRecords());
 
             dataLoaded = true;
             System.out.println("\n All CSV data loaded successfully.");
@@ -323,11 +328,14 @@ public class WarehouseUI {
         }
 
         try {
-            System.out.println("Note: This demo uses sample order lines. In production, use loaded order data.");
+            if (loadedOrderLines.isEmpty()) {
+                System.out.println("Error: No order lines have been loaded. Please load CSV data first.");
+                return;
+            }
 
-            List<OrderLine> sampleOrderLines = createSampleOrderLines();
+            System.out.println("Using " + loadedOrderLines.size() + " loaded order lines for allocation planning.");
 
-            AllocationResult result = inventoryService.planAllocations(warehouseId, sampleOrderLines, mode, aisle);
+            AllocationResult result = inventoryService.planAllocations(warehouseId, loadedOrderLines, mode, aisle);
 
             System.out.println("\n=== ALLOCATION RESULTS ===");
             System.out.println("Eligibility results:");
@@ -365,13 +373,6 @@ public class WarehouseUI {
         System.out.println("Settings updated. Current warehouse: " + currentWarehouseId + ", Aisle: " + currentAisle);
     }
 
-    private List<OrderLine> createSampleOrderLines() {
-        List<OrderLine> orderLines = new ArrayList<OrderLine>();
-        orderLines.add(new OrderLine("ORD001", 1, "SKU001", 10, 1, java.time.LocalDate.now().plusDays(7)));
-        orderLines.add(new OrderLine("ORD001", 2, "SKU002", 5, 2, java.time.LocalDate.now().plusDays(7)));
-        orderLines.add(new OrderLine("ORD002", 1, "SKU001", 15, 1, java.time.LocalDate.now().plusDays(14)));
-        return orderLines;
-    }
 
     private String getStringInput(String prompt) {
         System.out.print(prompt);
