@@ -10,17 +10,17 @@ import java.util.stream.Collectors;
  * Handles trolley assignment with weight capacity constraints.
  */
 public class PickingService {
-    
+
     /**
      * Creates a picking plan from allocation results using the specified heuristic.
      */
-    public PickPlan createPickPlan(List<AllocationRow> allocations, 
-                                 PackingHeuristic heuristic, 
-                                 double trolleyCapacity,
-                                 boolean allowSplitting) {
-        
+    public PickPlan createPickPlan(List<AllocationRow> allocations,
+                                   PackingHeuristic heuristic,
+                                   double trolleyCapacity,
+                                   boolean allowSplitting) {
+
         List<PickItem> pickItems = convertAllocationsToPickItems(allocations);
-        
+
         switch (heuristic) {
             case FIRST_FIT:
                 return createFirstFitPlan(pickItems, trolleyCapacity, allowSplitting);
@@ -32,18 +32,18 @@ public class PickingService {
                 throw new IllegalArgumentException("Unknown packing heuristic: " + heuristic);
         }
     }
-    
+
     /**
      * First Fit (FF): Place items in the first available trolley where they fit.
-     * Items are processed in the order they appear in the allocation results.
      */
     private PickPlan createFirstFitPlan(List<PickItem> items, double trolleyCapacity, boolean allowSplitting) {
         List<Trolley> trolleys = new ArrayList<>();
         List<String> skippedItems = new ArrayList<>();
-        
-        for (PickItem item : items) {
+
+        for (int i = 0; i < items.size(); i++) {
+            PickItem item = items.get(i);
             boolean placed = false;
-            
+
             // Try to place in existing trolleys
             for (Trolley trolley : trolleys) {
                 if (trolley.canFit(item)) {
@@ -55,16 +55,15 @@ public class PickingService {
                     if (maxQuantity > 0) {
                         int remaining = trolley.addPartialItem(item, maxQuantity);
                         if (remaining > 0) {
-                            // Create new item with remaining quantity for next trolley
                             PickItem remainingItem = item.withQuantity(remaining);
-                            items.add(items.indexOf(item) + 1, remainingItem);
+                            items.add(i + 1, remainingItem);
                         }
                         placed = true;
                         break;
                     }
                 }
             }
-            
+
             // If not placed, create new trolley
             if (!placed) {
                 Trolley newTrolley = new Trolley("T" + (trolleys.size() + 1), trolleyCapacity);
@@ -79,50 +78,50 @@ public class PickingService {
                         trolleys.add(newTrolley);
                         if (remaining > 0) {
                             PickItem remainingItem = item.withQuantity(remaining);
-                            items.add(items.indexOf(item) + 1, remainingItem);
+                            items.add(i + 1, remainingItem);
                         }
                         placed = true;
                     }
                 }
             }
-            
+
             if (!placed) {
-                skippedItems.add("SKIPPED DUE TO CAPACITY: " + item.toString());
+                skippedItems.add("SKIPPED DUE TO CAPACITY: " + item);
             }
         }
-        
+
         return new PickPlan(trolleys, skippedItems, "First Fit");
     }
-    
+
     /**
-     * First Fit Decreasing (FFD): Sort items by weight (largest first) and place in first available trolley.
+     * First Fit Decreasing (FFD): Sort items by weight (largest first).
      */
     private PickPlan createFirstFitDecreasingPlan(List<PickItem> items, double trolleyCapacity, boolean allowSplitting) {
-        // Sort by weight descending
         List<PickItem> sortedItems = items.stream()
                 .sorted((a, b) -> Double.compare(b.getWeight(), a.getWeight()))
                 .collect(Collectors.toList());
-        
+
         return createFirstFitPlan(sortedItems, trolleyCapacity, allowSplitting);
     }
-    
+
     /**
      * Best Fit Decreasing (BFD): Sort items by weight (largest first) and place in trolley with smallest remaining capacity.
      */
     private PickPlan createBestFitDecreasingPlan(List<PickItem> items, double trolleyCapacity, boolean allowSplitting) {
         List<Trolley> trolleys = new ArrayList<>();
         List<String> skippedItems = new ArrayList<>();
-        
+
         // Sort by weight descending
         List<PickItem> sortedItems = items.stream()
                 .sorted((a, b) -> Double.compare(b.getWeight(), a.getWeight()))
                 .collect(Collectors.toList());
-        
-        for (PickItem item : sortedItems) {
+
+        for (int i = 0; i < sortedItems.size(); i++) {
+            PickItem item = sortedItems.get(i);
             Trolley bestTrolley = null;
             double bestRemainingCapacity = Double.MAX_VALUE;
-            
-            // Find the trolley with the smallest remaining capacity that can fit the item
+
+            // Find trolley with smallest remaining capacity that can fit
             for (Trolley trolley : trolleys) {
                 if (trolley.canFit(item)) {
                     double remainingCapacity = trolley.getRemainingCapacity() - item.getWeight();
@@ -142,8 +141,9 @@ public class PickingService {
                     }
                 }
             }
-            
+
             boolean placed = false;
+
             if (bestTrolley != null) {
                 if (bestTrolley.canFit(item)) {
                     bestTrolley.addItem(item);
@@ -154,14 +154,14 @@ public class PickingService {
                         int remaining = bestTrolley.addPartialItem(item, maxQuantity);
                         if (remaining > 0) {
                             PickItem remainingItem = item.withQuantity(remaining);
-                            sortedItems.add(sortedItems.indexOf(item) + 1, remainingItem);
+                            sortedItems.add(i + 1, remainingItem);
                         }
                         placed = true;
                     }
                 }
             }
-            
-            // If not placed, create new trolley
+
+            // If not placed, create a new trolley
             if (!placed) {
                 Trolley newTrolley = new Trolley("T" + (trolleys.size() + 1), trolleyCapacity);
                 if (newTrolley.canFit(item)) {
@@ -175,47 +175,45 @@ public class PickingService {
                         trolleys.add(newTrolley);
                         if (remaining > 0) {
                             PickItem remainingItem = item.withQuantity(remaining);
-                            sortedItems.add(sortedItems.indexOf(item) + 1, remainingItem);
+                            sortedItems.add(i + 1, remainingItem);
                         }
                         placed = true;
                     }
                 }
             }
-            
+
             if (!placed) {
-                skippedItems.add("SKIPPED DUE TO CAPACITY: " + item.toString());
+                skippedItems.add("SKIPPED DUE TO CAPACITY: " + item);
             }
         }
-        
+
         return new PickPlan(trolleys, skippedItems, "Best Fit Decreasing");
     }
-    
+
     /**
      * Converts allocation rows to pick items.
-     * For now, assumes a default weight per unit (this should be configurable).
      */
     private List<PickItem> convertAllocationsToPickItems(List<AllocationRow> allocations) {
         List<PickItem> pickItems = new ArrayList<>();
-        
+
         for (AllocationRow allocation : allocations) {
-            // Default weight per unit (this should be configurable based on SKU)
-            double weightPerUnit = 1.0; // kg per unit
+            double weightPerUnit = 1.0; // Default weight per unit (should be configurable)
             double totalWeight = allocation.getQty() * weightPerUnit;
-            
+
             PickItem pickItem = new PickItem(
-                allocation.getOrderId(),
-                allocation.getLineNo(),
-                allocation.getSku(),
-                allocation.getQty(),
-                totalWeight,
-                allocation.getBoxId(),
-                allocation.getAisle(),
-                allocation.getBay()
+                    allocation.getOrderId(),
+                    allocation.getLineNo(),
+                    allocation.getSku(),
+                    allocation.getQty(),
+                    totalWeight,
+                    allocation.getBoxId(),
+                    allocation.getAisle(),
+                    allocation.getBay()
             );
-            
+
             pickItems.add(pickItem);
         }
-        
+
         return pickItems;
     }
 }
