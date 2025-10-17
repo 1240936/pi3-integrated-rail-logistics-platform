@@ -1,6 +1,7 @@
 package ui;
 
 import controller.InventoryService;
+import controller.PickingService;
 import repositories.*;
 import domain.*;
 
@@ -13,6 +14,7 @@ import java.util.*;
  */
 public class WarehouseUI {
     private InventoryService inventoryService;
+    private PickingService pickingService;
     private Scanner scanner;
     private boolean dataLoaded = false;
     private String currentWarehouseId = "W1";
@@ -21,6 +23,7 @@ public class WarehouseUI {
 
     public WarehouseUI() {
         this.inventoryService = new InventoryService();
+        this.pickingService = new PickingService();
         this.scanner = new Scanner(System.in);
     }
 
@@ -65,6 +68,13 @@ public class WarehouseUI {
                     }
                     break;
                 case 6:
+                    if (dataLoaded) {
+                        createPickingPlan();
+                    } else {
+                        System.out.println("Please load CSV data first.");
+                    }
+                    break;
+                case 7:
                     changeWarehouseSettings();
                     break;
                 case 0:
@@ -83,7 +93,8 @@ public class WarehouseUI {
         System.out.println("3. Perform Dispatch");
         System.out.println("4. Relocate Box");
         System.out.println("5. Plan Allocations");
-        System.out.println("6. Change Warehouse Settings");
+        System.out.println("6. Create Picking Plan");
+        System.out.println("7. Change Warehouse Settings");
         System.out.println("0. Exit");
         System.out.println("Current warehouse: " + currentWarehouseId + ", Aisle: " + currentAisle);
     }
@@ -373,6 +384,114 @@ public class WarehouseUI {
         System.out.println("Settings updated. Current warehouse: " + currentWarehouseId + ", Aisle: " + currentAisle);
     }
 
+    private void createPickingPlan() {
+        System.out.println("\n=== CREATE PICKING PLAN ===");
+
+        String warehouseId = getStringInput("Enter warehouse ID (or press Enter for current: " + currentWarehouseId + "): ");
+        if (warehouseId.isEmpty()) {
+            warehouseId = currentWarehouseId;
+        }
+
+        int aisle = getIntInput("Enter aisle number (or press Enter for current: " + currentAisle + "): ");
+        if (aisle == -1) {
+            aisle = currentAisle;
+        }
+
+        System.out.println("Packing heuristics:");
+        System.out.println("1. First Fit (FF) - Place items in first available trolley");
+        System.out.println("2. First Fit Decreasing (FFD) - Sort by weight, then first fit");
+        System.out.println("3. Best Fit Decreasing (BFD) - Sort by weight, then tightest fit");
+
+        int heuristicChoice = getIntInput("Choose packing heuristic (1-3): ");
+        PackingHeuristic heuristic;
+        switch (heuristicChoice) {
+            case 1:
+                heuristic = PackingHeuristic.FIRST_FIT;
+                break;
+            case 2:
+                heuristic = PackingHeuristic.FIRST_FIT_DECREASING;
+                break;
+            case 3:
+                heuristic = PackingHeuristic.BEST_FIT_DECREASING;
+                break;
+            default:
+                System.out.println("Invalid choice. Using First Fit.");
+                heuristic = PackingHeuristic.FIRST_FIT;
+        }
+
+        double trolleyCapacity = getDoubleInput("Enter trolley weight capacity (kg): ");
+        boolean allowSplitting = getStringInput("Allow splitting items across trolleys? (y/n): ").toLowerCase().startsWith("y");
+
+        try {
+            if (loadedOrderLines.isEmpty()) {
+                System.out.println("Error: No order lines have been loaded. Please load CSV data first.");
+                return;
+            }
+
+            System.out.println("Using " + loadedOrderLines.size() + " loaded order lines for allocation planning.");
+
+            // First, plan allocations
+            AllocationResult allocationResult = inventoryService.planAllocations(warehouseId, loadedOrderLines, AllocationMode.PARTIAL, aisle);
+
+            if (allocationResult.getAllocations().isEmpty()) {
+                System.out.println("No allocations found. Cannot create picking plan.");
+                return;
+            }
+
+            // Create picking plan from allocations
+            PickPlan pickPlan = pickingService.createPickPlan(allocationResult.getAllocations(), heuristic, trolleyCapacity, allowSplitting);
+
+            // Display results
+            System.out.println("\n=== PICKING PLAN RESULTS ===");
+            System.out.println("Heuristic: " + pickPlan.getPackingHeuristic());
+            System.out.println("Trolleys: " + pickPlan.getTrolleyCount());
+            System.out.println("Total Weight: " + String.format("%.2f", pickPlan.getTotalWeight()) + " kg");
+            System.out.println("Total Items: " + pickPlan.getTotalItems());
+            System.out.println("Weight Utilization: " + String.format("%.1f", pickPlan.getWeightUtilization() * 100) + "%");
+            System.out.println("Average Trolley Weight: " + String.format("%.2f", pickPlan.getAverageTrolleyWeight()) + " kg");
+
+            System.out.println("\n=== TROLLEY ASSIGNMENTS ===");
+            for (Trolley trolley : pickPlan.getTrolleys()) {
+                System.out.println("\n" + trolley.toString());
+                System.out.println("  Items:");
+                for (PickItem item : trolley.getItems()) {
+                    System.out.println("    " + item.toString());
+                }
+                if (!trolley.getLogs().isEmpty()) {
+                    System.out.println("  Logs:");
+                    for (String log : trolley.getLogs()) {
+                        System.out.println("    " + log);
+                    }
+                }
+            }
+
+            if (!pickPlan.getSkippedItems().isEmpty()) {
+                System.out.println("\n=== SKIPPED ITEMS ===");
+                for (String skipped : pickPlan.getSkippedItems()) {
+                    System.out.println("  " + skipped);
+                }
+            }
+
+        } catch (Exception e) {
+            System.out.println("Error creating picking plan: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    private double getDoubleInput(String prompt) {
+        while (true) {
+            try {
+                System.out.print(prompt);
+                String input = scanner.nextLine().trim();
+                if (input.isEmpty()) {
+                    return -1.0;
+                }
+                return Double.parseDouble(input);
+            } catch (NumberFormatException e) {
+                System.out.println("Invalid number. Please try again.");
+            }
+        }
+    }
 
     private String getStringInput(String prompt) {
         System.out.print(prompt);
