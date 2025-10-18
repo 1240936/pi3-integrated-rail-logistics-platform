@@ -35,15 +35,15 @@ INSERT INTO WAGONMODEL (ID, MODEL, GAUGEWIDTH, WAGONTYPE, PAYLOAD, LENGTH, WIDTH
 (1245, 'Tadgs 32 94 082 3', 1668, 'Cereal wagon', 56.0, 17240, 3072, 4270, 75.0, 24.0),
 (1278, 'Tdgs 41 94 074 1', 1668, 'Cereal wagon', 26.2, 9640, 3120, 4165.5, 38.0, 13.8),
 (1325, 'Gabs 81 94 181 1', 1668, 'Covered wagon with sliding door', 50.2, 21700, 3180, 4170, 110.0, 29.8),
-(1104, 'Regmms 32 94 356 3', 1668, 'Container wagon (max 40'' HC)', 60.6, 14040, 3104, 2535, 76.3, 21.2),
-(985,  'Lgs 22 94 441 6', 1668, 'Container wagon (max 40'' HC)', 28.1, 13860, 2850, 1060, 76.3, 11.9),
-(987,  'Sgnss 12 94 455 2', 1668, 'Container wagon (max 40'' HC)', 68.4, 18116, 2950, 1030, 76.3, 21.6),
-(988,  'Sgnss 12 94 455 2', 1435, 'Container wagon (max 40'' HC)', 68.4, 18116, 2950, 1030, 76.3, 21.6)
+(1104, 'Regmms 32 94 356 3', 1668, 'Container wagon (max 40" HC)', 60.6, 14040, 3104, 2535, 76.3, 21.2),
+(985,  'Lgs 22 94 441 6', 1668, 'Container wagon (max 40" HC)', 28.1, 13860, 2850, 1060, 76.3, 11.9),
+(987,  'Sgnss 12 94 455 2', 1668, 'Container wagon (max 40" HC)', 68.4, 18116, 2950, 1030, 76.3, 21.6),
+(988,  'Sgnss 12 94 455 2', 1435, 'Container wagon (max 40" HC)', 68.4, 18116, 2950, 1030, 76.3, 21.6)
 
 INSERT INTO WAGONTYPE (TYPE, TANKCARTYPE) VALUES
 ('Cereal wagon', NULL),
 ('Covered wagon with sliding door', NULL),
-('Container wagon (max 40'' HC)', NULL)
+('Container wagon (max 40" HC)', NULL)
 
 INSERT INTO LOCOMOTIVE (ID, MODELNAME, TRAINOPERATORNAME) VALUES
 (5621, 'Eurosprinter', 'Medway'),
