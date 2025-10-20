@@ -216,4 +216,20 @@ public class PickingService {
 
         return pickItems;
     }
+    
+    /**
+     * Computes optimal pick path using Strategy A: Deterministic Sweep
+     */
+    public PickSequenceResult computeDeterministicSweep(PickPlan pickPlan) {
+        PickPathService pathService = new PickPathService();
+        return pathService.computeDeterministicSweep(pickPlan);
+    }
+    
+    /**
+     * Computes optimal pick path using Strategy B: Nearest-Neighbour Greedy
+     */
+    public PickSequenceResult computeNearestNeighbor(PickPlan pickPlan) {
+        PickPathService pathService = new PickPathService();
+        return pathService.computeNearestNeighbor(pickPlan);
+    }
 }
