@@ -111,13 +111,13 @@ public class WarehouseUI {
         System.out.println("\n=== LOAD CSV DATA ===");
 
         try {
-            System.out.println("Enter paths to CSV files (or press Enter for default paths):");
+            System.out.println("Enter paths to CSV files (all paths are required):");
 
-            String itemsPath = getStringInput("Items CSV path: ");
-            String baysPath = getStringInput("Bays CSV path: ");
-            String wagonsPath = getStringInput("Wagons CSV path: ");
-            String ordersPath = getStringInput("Orders CSV path: ");
-            String orderLinesPath = getStringInput("Order Lines CSV path: ");
+            String itemsPath = getValidFilePath("Items CSV path: ", "items CSV");
+            String baysPath = getValidFilePath("Bays CSV path: ", "bays CSV");
+            String wagonsPath = getValidFilePath("Wagons CSV path: ", "wagons CSV");
+            String ordersPath = getValidFilePath("Orders CSV path: ", "orders CSV");
+            String orderLinesPath = getValidFilePath("Order Lines CSV path: ", "order lines CSV");
 
             // Load items
             CsvValidatorResult<Item> items = ItemsCsvLoader.load(itemsPath);
@@ -587,6 +587,38 @@ public class WarehouseUI {
     private String getStringInput(String prompt) {
         System.out.print(prompt);
         return scanner.nextLine().trim();
+    }
+
+
+    private String getValidFilePath(String prompt, String fileType) {
+        while (true) {
+            System.out.print(prompt);
+            String input = scanner.nextLine().trim();
+            
+            if (input.isEmpty()) {
+                System.out.println("Error: This field is required. Please enter a valid path.");
+                continue;
+            }
+            
+            // Check if file exists
+            java.io.File file = new java.io.File(input);
+            if (!file.exists()) {
+                System.out.println("Error: File '" + input + "' does not exist. Please enter a valid " + fileType + " file path.");
+                continue;
+            }
+            
+            if (!file.isFile()) {
+                System.out.println("Error: '" + input + "' is not a file. Please enter a valid " + fileType + " file path.");
+                continue;
+            }
+            
+            if (!file.canRead()) {
+                System.out.println("Error: Cannot read file '" + input + "'. Please check file permissions.");
+                continue;
+            }
+            
+            return input;
+        }
     }
 
     private int getIntInput(String prompt) {
