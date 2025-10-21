@@ -16,10 +16,7 @@ public class TestPlanAllocations {
      * Expected: Orders processed by priority ASC, dueDate ASC, orderId ASC
      */
     public void testPlanAllocations_OrderProcessingOrder() {
-        // TODO: Implement test
-        // Setup: Create orders with different priorities, due dates, and IDs
-        // Action: Call planAllocations
-        // Verify: Orders processed in correct order (priority ASC, dueDate ASC, orderId ASC)
+
     }
     
     /**
@@ -27,10 +24,7 @@ public class TestPlanAllocations {
      * Expected: Within order, lines processed by lineNo ASC (input order)
      */
     public void testPlanAllocations_LineProcessingOrder() {
-        // TODO: Implement test
-        // Setup: Create order with multiple lines (different lineNo)
-        // Action: Call planAllocations
-        // Verify: Lines processed by lineNo ASC
+
     }
     
     /**
@@ -38,10 +32,7 @@ public class TestPlanAllocations {
      * Expected: Allocation walks SKU's boxes in FEFO/FIFO order
      */
     public void testPlanAllocations_FefoAllocationOrder() {
-        // TODO: Implement test
-        // Setup: Create multiple boxes with same SKU in FEFO order
-        // Action: Call planAllocations for order requiring that SKU
-        // Verify: Boxes allocated in FEFO order
+
     }
     
     /**
@@ -49,10 +40,7 @@ public class TestPlanAllocations {
      * Expected: Line is ELIGIBLE only if entire requested quantity is allocated
      */
     public void testPlanAllocations_StrictModeEligible() {
-        // TODO: Implement test
-        // Setup: Create order line with sufficient inventory
-        // Action: Call planAllocations with STRICT mode
-        // Verify: Line marked as ELIGIBLE with full allocation
+
     }
     
     /**
@@ -60,10 +48,7 @@ public class TestPlanAllocations {
      * Expected: Line is UNDISPATCHABLE if entire quantity cannot be allocated
      */
     public void testPlanAllocations_StrictModeUndispatchable() {
-        // TODO: Implement test
-        // Setup: Create order line with insufficient inventory
-        // Action: Call planAllocations with STRICT mode
-        // Verify: Line marked as UNDISPATCHABLE with no allocations
+
     }
     
     /**
@@ -71,10 +56,7 @@ public class TestPlanAllocations {
      * Expected: Line marked as PARTIAL when 0 < allocated < requested
      */
     public void testPlanAllocations_PartialModePartial() {
-        // TODO: Implement test
-        // Setup: Create order line with partial inventory
-        // Action: Call planAllocations with PARTIAL mode
-        // Verify: Line marked as PARTIAL with partial allocation
+
     }
     
     /**
@@ -82,10 +64,7 @@ public class TestPlanAllocations {
      * Expected: Line marked as UNDISPATCHABLE when allocated = 0
      */
     public void testPlanAllocations_PartialModeUndispatchable() {
-        // TODO: Implement test
-        // Setup: Create order line with no inventory
-        // Action: Call planAllocations with PARTIAL mode
-        // Verify: Line marked as UNDISPATCHABLE with no allocations
+
     }
     
     /**
@@ -93,10 +72,7 @@ public class TestPlanAllocations {
      * Expected: Allocation takes min(remainingQty, box.qtyAvailable) from each box
      */
     public void testPlanAllocations_AllocationAcrossMultipleBoxes() {
-        // TODO: Implement test
-        // Setup: Create order requiring more than single box capacity
-        // Action: Call planAllocations
-        // Verify: Allocation spans multiple boxes with correct quantities
+
     }
     
     /**
@@ -104,10 +80,7 @@ public class TestPlanAllocations {
      * Expected: Eligibility results contain orderId, lineNo, sku, requestedQty, allocatedQty, status
      */
     public void testPlanAllocations_EligibilityResultsStructure() {
-        // TODO: Implement test
-        // Setup: Create order lines with various scenarios
-        // Action: Call planAllocations
-        // Verify: Eligibility results have correct structure and values
+
     }
     
     /**
@@ -115,10 +88,7 @@ public class TestPlanAllocations {
      * Expected: Allocation rows contain orderId, lineNo, sku, qty, boxId, aisle, bay
      */
     public void testPlanAllocations_AllocationRowsStructure() {
-        // TODO: Implement test
-        // Setup: Create order lines with allocations
-        // Action: Call planAllocations
-        // Verify: Allocation rows have correct structure and values
+
     }
     
     /**
@@ -126,10 +96,7 @@ public class TestPlanAllocations {
      * Expected: Lines with non-existent SKU marked as UNDISPATCHABLE
      */
     public void testPlanAllocations_NonExistentSku() {
-        // TODO: Implement test
-        // Setup: Create order line with non-existent SKU
-        // Action: Call planAllocations
-        // Verify: Line marked as UNDISPATCHABLE
+
     }
     
     /**
@@ -137,9 +104,6 @@ public class TestPlanAllocations {
      * Expected: Empty order lines list handled gracefully
      */
     public void testPlanAllocations_EmptyOrderLines() {
-        // TODO: Implement test
-        // Setup: Create empty order lines list
-        // Action: Call planAllocations
-        // Verify: Returns empty results gracefully
+
     }
 }
