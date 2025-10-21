@@ -75,6 +75,13 @@ public class WarehouseUI {
                     }
                     break;
                 case 7:
+                    if (dataLoaded) {
+                        computePickPathSequence();
+                    } else {
+                        System.out.println("Please load CSV data first.");
+                    }
+                    break;
+                case 8:
                     changeWarehouseSettings();
                     break;
                 case 0:
@@ -94,7 +101,8 @@ public class WarehouseUI {
         System.out.println("4. Relocate Box");
         System.out.println("5. Plan Allocations");
         System.out.println("6. Create Picking Plan");
-        System.out.println("7. Change Warehouse Settings");
+        System.out.println("7. Compute Pick Path Sequence");
+        System.out.println("8. Change Warehouse Settings");
         System.out.println("0. Exit");
         System.out.println("Current warehouse: " + currentWarehouseId + ", Aisle: " + currentAisle);
     }
@@ -365,6 +373,89 @@ public class WarehouseUI {
 
         } catch (Exception e) {
             System.out.println("Error planning allocations: " + e.getMessage());
+        }
+    }
+
+    private void computePickPathSequence() {
+        System.out.println("\n=== COMPUTE PICK PATH SEQUENCE ===");
+
+        String warehouseId = getStringInput("Enter warehouse ID (or press Enter for current: " + currentWarehouseId + "): ");
+        if (warehouseId.isEmpty()) {
+            warehouseId = currentWarehouseId;
+        }
+
+        int aisle = getIntInput("Enter aisle number (or press Enter for current: " + currentAisle + "): ");
+        if (aisle == -1) {
+            aisle = currentAisle;
+        }
+
+        try {
+            if (loadedOrderLines.isEmpty()) {
+                System.out.println("Error: No order lines have been loaded. Please load CSV data first.");
+                return;
+            }
+
+            System.out.println("Using " + loadedOrderLines.size() + " loaded order lines for allocation planning.");
+
+            // First, plan allocations
+            AllocationResult allocationResult = inventoryService.planAllocations(warehouseId, loadedOrderLines, AllocationMode.PARTIAL, aisle);
+
+            if (allocationResult.getAllocations().isEmpty()) {
+                System.out.println("No allocations found. Cannot compute pick path sequence.");
+                return;
+            }
+
+            // Create a basic picking plan for sequencing
+            PickPlan pickPlan = pickingService.createPickPlan(allocationResult.getAllocations(), PackingHeuristic.FIRST_FIT, 1000.0, true);
+
+            System.out.println("\n=== PICK PATH SEQUENCING RESULTS ===");
+            System.out.println("Total bays to visit: " + pickPlan.getTrolleys().stream()
+                    .flatMap(t -> t.getItems().stream())
+                    .map(item -> new Coordinate(item.getAisle(), item.getBay()))
+                    .distinct()
+                    .count());
+
+            // Strategy A: Deterministic Sweep
+            System.out.println("\n--- Strategy A: Deterministic Sweep ---");
+            PickSequenceResult sweepResult = pickingService.computeDeterministicSweep(pickPlan);
+            System.out.println("Strategy: " + sweepResult.getStrategyName());
+            System.out.println("Total Distance: " + String.format("%.2f", sweepResult.getTotalDistance()));
+            System.out.println("Bays Visited: " + sweepResult.getTotalBays());
+            System.out.println("Path Sequence:");
+            for (int i = 0; i < sweepResult.getSequence().size(); i++) {
+                Coordinate coord = sweepResult.getSequence().get(i);
+                System.out.printf("  %d. Bay %s%n", i + 1, coord.toString());
+            }
+
+            // Strategy B: Nearest-Neighbour Greedy
+            System.out.println("\n--- Strategy B: Nearest-Neighbour Greedy ---");
+            PickSequenceResult nearestResult = pickingService.computeNearestNeighbor(pickPlan);
+            System.out.println("Strategy: " + nearestResult.getStrategyName());
+            System.out.println("Total Distance: " + String.format("%.2f", nearestResult.getTotalDistance()));
+            System.out.println("Bays Visited: " + nearestResult.getTotalBays());
+            System.out.println("Path Sequence:");
+            for (int i = 0; i < nearestResult.getSequence().size(); i++) {
+                Coordinate coord = nearestResult.getSequence().get(i);
+                System.out.printf("  %d. Bay %s%n", i + 1, coord.toString());
+            }
+
+            // Comparison
+            System.out.println("\n--- Comparison ---");
+            System.out.printf("Deterministic Sweep Distance: %.2f%n", sweepResult.getTotalDistance());
+            System.out.printf("Nearest-Neighbour Distance:   %.2f%n", nearestResult.getTotalDistance());
+            if (sweepResult.getTotalDistance() < nearestResult.getTotalDistance()) {
+                System.out.println("Deterministic Sweep is more efficient by " + 
+                    String.format("%.2f", nearestResult.getTotalDistance() - sweepResult.getTotalDistance()) + " units");
+            } else if (nearestResult.getTotalDistance() < sweepResult.getTotalDistance()) {
+                System.out.println("Nearest-Neighbour is more efficient by " + 
+                    String.format("%.2f", sweepResult.getTotalDistance() - nearestResult.getTotalDistance()) + " units");
+            } else {
+                System.out.println("Both strategies have the same efficiency");
+            }
+
+        } catch (Exception e) {
+            System.out.println("Error computing pick path sequence: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
