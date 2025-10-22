@@ -272,9 +272,10 @@ public class InventoryService {
      * If the box is not found, the method returns silently.
      */
     public void relocate(String boxId, String newWarehouseId, int newAisle, int newBayNumber) {
-        // encontra box pelo boxid, percorrendo as warehouses, as aisles e as bays, ate encontrar a box.
         Box found = null;
         Bay originBay = null;
+
+        // Search for the box
         for (Warehouse w : warehouses.values()) {
             for (Map<Integer, Bay> bays : w.getAisles().values()) {
                 for (Bay bay : bays.values()) {
@@ -291,17 +292,31 @@ public class InventoryService {
             }
             if (found != null) break;
         }
-        if (found == null) return;
+
+        if (found == null) {
+            throw new IllegalArgumentException("Box with ID '" + boxId + "' not found.");
+        }
+
+        // Check if destination bay exists
+        if (!bayExists(newWarehouseId, newAisle, newBayNumber)) {
+            throw new IllegalStateException("Destination bay does not exist: " + newWarehouseId + "/" + newAisle + "/" + newBayNumber);
+        }
+
+        // Remove from origin
         originBay.getBoxes().remove(found);
         boxIdsInWarehouse.remove(originBay.getWarehouseId() + "#" + found.getBoxId());
         cleanupSkuIndex(found.getSku(), originBay.getWarehouseId(), originBay.getAisle(), originBay.getBayNumber());
 
+        // Update box location
         found.setWarehouseId(newWarehouseId);
         found.setAisle(newAisle);
         found.setBay(newBayNumber);
 
-        insertBox(found); // atribui o fefo
+        // Insert into destination (FEFO)
+        insertBox(found);
     }
+
+
 
     /**
      * Plans allocations for a list of order lines without mutating inventory.
