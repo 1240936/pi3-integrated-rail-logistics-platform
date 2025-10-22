@@ -9,7 +9,6 @@ import org.junit.Test;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
 
 import static org.junit.Assert.*;
 
@@ -107,18 +106,28 @@ public class TestDispatch {
 
         // Verify bay 100 is empty
         Bay bay100 = service.getOrCreateBay(warehouseId, aisle, 100);
-        boolean boxAExists = bay100.getBoxes().stream()
-                .anyMatch(b -> b.getBoxId().equals("BA") && b.getQuantity() > 0);
+        boolean boxAExists = false;
+        for (Box b : bay100.getBoxes()) {
+            if (b.getBoxId().equals("BA") && b.getQuantity() > 0) {
+                boxAExists = true;
+                break;
+            }
+        }
         assertFalse(boxAExists);
 
         // Verify bay 101 has 2 units remaining
         Bay bay101 = service.getOrCreateBay(warehouseId, aisle, 101);
-        Optional<Box> boxBRemaining = bay101.getBoxes().stream()
-                .filter(b -> b.getBoxId().equals("BB"))
-                .findFirst();
-        assertTrue(boxBRemaining.isPresent());
-        assertEquals(2, boxBRemaining.get().getQuantity());
+        Box boxBRemaining = null;
+        for (Box b : bay101.getBoxes()) {
+            if (b.getBoxId().equals("BB")) {
+                boxBRemaining = b;
+                break;
+            }
+        }
+        assertNotNull(boxBRemaining);
+        assertEquals(2, boxBRemaining.getQuantity());
     }
+
 
     /**
      * Test Case 3: Empty bay handling
@@ -269,10 +278,16 @@ public class TestDispatch {
 
         // Verify that the known box is still intact
         Bay bay = service.getOrCreateBay(warehouseId, aisle, bayNumber);
-        Optional<Box> boxPresent = bay.getBoxes().stream()
-                .filter(b -> b.getBoxId().equals("BX-KNOWN"))
-                .findFirst();
-        assertTrue(boxPresent.isPresent());
-        assertEquals(5, boxPresent.get().getQuantity());
+        Box foundBox = null;
+        for (Box b : bay.getBoxes()) {
+            if (b.getBoxId().equals("BX-KNOWN")) {
+                foundBox = b;
+                break;
+            }
+        }
+
+        assertNotNull(foundBox);
+        assertEquals(5, foundBox.getQuantity());
     }
+
 }
