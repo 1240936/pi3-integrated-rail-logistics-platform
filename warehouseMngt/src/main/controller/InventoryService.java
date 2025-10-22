@@ -108,6 +108,73 @@ public class InventoryService {
     }
 
     /**
+     * Reorders all boxes in the entire inventory to ensure proper FEFO ordering.
+     * This should be called after loading new data to maintain correct FEFO sequence.
+     */
+    public void reorderInventoryFefo() {
+        // Collect all boxes from all bays
+        List<Box> allBoxes = new ArrayList<>();
+        for (Warehouse warehouse : warehouses.values()) {
+            for (Map<Integer, Bay> bays : warehouse.getAisles().values()) {
+                for (Bay bay : bays.values()) {
+                    allBoxes.addAll(bay.getBoxes());
+                }
+            }
+        }
+        
+        // Sort all boxes globally using FEFO comparator
+        allBoxes.sort(fefoComparator);
+        
+        // Redistribute boxes back to bays maintaining FEFO order
+        redistributeBoxesFefo(allBoxes);
+    }
+
+    /**
+     * Redistributes boxes back to bays maintaining FEFO order.
+     * Boxes are distributed to bays in FEFO order, respecting bay capacities.
+     */
+    private void redistributeBoxesFefo(List<Box> sortedBoxes) {
+        // Clear all bays first
+        for (Warehouse warehouse : warehouses.values()) {
+            for (Map<Integer, Bay> bays : warehouse.getAisles().values()) {
+                for (Bay bay : bays.values()) {
+                    bay.getBoxes().clear();
+                }
+            }
+        }
+        
+        // Redistribute boxes maintaining FEFO order
+        for (Box box : sortedBoxes) {
+            // Find the first available bay in the same warehouse and aisle
+            Bay targetBay = findFirstAvailableBay(box.getWarehouseId(), box.getAisle());
+            
+            if (targetBay != null) {
+                // Update box location to the target bay
+                box.setWarehouseId(targetBay.getWarehouseId());
+                box.setAisle(targetBay.getAisle());
+                box.setBay(targetBay.getBayNumber());
+                
+                // Add box to the target bay
+                targetBay.getBoxes().add(box);
+            }
+        }
+    }
+    
+    /**
+     * Finds the first available bay in the same warehouse and aisle.
+     * This ensures boxes are distributed in FEFO order across bays.
+     */
+    private Bay findFirstAvailableBay(String warehouseId, int aisle) {
+        for (int bayNumber = 1; bayNumber <= 50; bayNumber++) {
+            Bay bay = getOrCreateBay(warehouseId, aisle, bayNumber);
+            if (bay.hasSpace()) {
+                return bay;
+            }
+        }
+        return null; // No available bay found
+    }
+
+    /**
      * Adds a bay number to the SKU index for quick lookup by SKU/warehouse/aisle.
      */
     private void indexSkuBox(String sku, String warehouseId, int aisle, int bayNumber) {
