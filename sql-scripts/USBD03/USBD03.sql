@@ -36,6 +36,7 @@ CREATE TABLE LocomotiveModel (
   make           varchar2(255) NOT NULL, 
   power          double precision NOT NULL, 
   acceleration   double precision, 
+  maxSpeed       double precision NOT NULL, 
   length         double precision NOT NULL, 
   width          double precision NOT NULL, 
   height         double precision NOT NULL, 

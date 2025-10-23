@@ -77,9 +77,9 @@ INSERT INTO LOCOMOTIVETYPE (TYPE) VALUES
 ('Diesel'),
 ('Electric');
 
-INSERT INTO LocomotiveModel (name, locomotivetype, yearEIS, make, power, acceleration, length, width, height, maxweight, fuelCapacity, numberOfBogies) VALUES
-('Eurosprinter', 'Electric', 1996, 'Siemens', 5600, NULL, 19.2, 3.0, 4.375, 87, NULL, 2),
-('CP 1900', 'Diesel', 1981, 'Sorefame - Alsthom', 1623, NULL, 19.084, 3.062, 4.31, 117, 4882, 2);
+INSERT INTO LocomotiveModel (name, locomotivetype, yearEIS, make, power, acceleration, maxSpeed, length, width, height, maxweight, fuelCapacity, numberOfBogies) VALUES
+('Eurosprinter', 'Electric', 1996, 'Siemens', 5600, NULL, 220.0, 19.2, 3.0, 4.375, 87, NULL, 2),
+('CP 1900', 'Diesel', 1981, 'Sorefame - Alsthom', 1623, NULL, 100.0, 19.084, 3.062, 4.31, 117, 4882, 2);
 
 INSERT INTO LOCOMOTIVEMODEL_GAUGE (LOCOMOTIVEMODELNAME, GAUGEWIDTH) VALUES
 ('Eurosprinter', 1668),
