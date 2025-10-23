@@ -1,9 +1,9 @@
 package main.domain;
 
-/*
+/**
 
 Represents the result of inspecting a returned item.
-Contains information about what action was taken and quantities involved.*/
+Contains information about what action was taken and quantities involved.**/
 public class InspectionResult {
     private final String returnId;
     private final String sku;
@@ -12,7 +12,7 @@ public class InspectionResult {
     private final int quantityRestocked;
     private final int quantityDiscarded;
 
-    /*
+    /**
 
     Creates an inspection result.
     @param returnId the return ID that was inspected
@@ -20,7 +20,7 @@ public class InspectionResult {
     @param action the action taken (Restocked or Discarded)
     @param totalQuantity total quantity in the return
     @param quantityRestocked quantity that was restocked (0 if discarded)
-    @param quantityDiscarded quantity that was discarded (0 if fully restocked)*/
+    @param quantityDiscarded quantity that was discarded (0 if fully restocked)**/
     public InspectionResult(String returnId, String sku, InspectionAction action,
                             int totalQuantity, int quantityRestocked, int quantityDiscarded) {
         this.returnId = returnId;
