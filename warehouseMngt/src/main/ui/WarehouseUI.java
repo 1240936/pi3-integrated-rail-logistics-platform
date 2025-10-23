@@ -2,6 +2,7 @@ package main.ui;
 
 import main.controller.InventoryService;
 import main.controller.PickingService;
+import main.controller.QuarantineService;
 import main.repositories.*;
 import main.domain.*;
 
@@ -15,6 +16,7 @@ import java.util.*;
 public class WarehouseUI {
     private InventoryService inventoryService;
     private PickingService pickingService;
+    private QuarantineService quarantineService;
     private Scanner scanner;
     private boolean dataLoaded = false;
     private String currentWarehouseId = "W1";
@@ -24,6 +26,7 @@ public class WarehouseUI {
     public WarehouseUI() {
         this.inventoryService = new InventoryService();
         this.pickingService = new PickingService();
+        this.quarantineService = new QuarantineService(inventoryService, "audit_log.txt");
         this.scanner = new Scanner(System.in);
     }
 
@@ -40,11 +43,7 @@ public class WarehouseUI {
                     loadCsvData();
                     break;
                 case 2:
-                    if (dataLoaded) {
-                        viewInventory();
-                    } else {
-                        System.out.println("Please load CSV data first.");
-                    }
+                    viewInventory();
                     break;
                 case 3:
                     if (dataLoaded) {
@@ -82,6 +81,9 @@ public class WarehouseUI {
                     }
                     break;
                 case 8:
+                    manageReturnsAndQuarantine();
+                    break;
+                case 9:
                     changeWarehouseSettings();
                     break;
                 case 0:
@@ -102,7 +104,8 @@ public class WarehouseUI {
         System.out.println("5. Plan Allocations");
         System.out.println("6. Create Picking Plan");
         System.out.println("7. Compute Pick Path Sequence");
-        System.out.println("8. Change Warehouse Settings");
+        System.out.println("8. Returns & Quarantine");
+        System.out.println("9. Change Warehouse Settings");
         System.out.println("0. Exit");
         System.out.println("Current warehouse: " + currentWarehouseId + ", Aisle: " + currentAisle);
     }
@@ -151,7 +154,7 @@ public class WarehouseUI {
                 System.out.println("Orders import errors:");
                 for (String err : orders.getErrors()) System.out.println(" - " + err);
             }
-            
+
 
             // Load order lines
             java.util.Map<String, OrderHeader> headers = new java.util.HashMap<String, OrderHeader>();
@@ -165,11 +168,15 @@ public class WarehouseUI {
                 System.out.println("Order lines import errors:");
                 for (String err : orderLines.getErrors()) System.out.println(" - " + err);
             }
-            
+
             // Store loaded order lines
             loadedOrderLines = new ArrayList<>(orderLines.getRecords());
 
             dataLoaded = true;
+
+            // Reorder entire inventory to ensure proper FEFO ordering after loading new data
+            inventoryService.reorderInventoryFefo();
+
             System.out.println("\n All CSV data loaded successfully.");
 
         } catch (Exception e) {
@@ -253,9 +260,51 @@ public class WarehouseUI {
             warehouseId = currentWarehouseId;
         }
 
-        String sku = getStringInput("Enter SKU to dispatch: ");
-        int aisle = getIntInput("Enter aisle number: ");
-        int quantity = getIntInput("Enter quantity to dispatch: ");
+        // Validate and get SKU
+        String sku;
+        while (true) {
+            sku = getStringInput("Enter SKU to dispatch: ");
+            if (sku.isEmpty()) {
+                System.out.println("Error: SKU cannot be empty. Please enter a valid SKU.");
+                continue;
+            }
+            if (!inventoryService.isKnownSku(warehouseId, sku)) {
+                System.out.println("Error: SKU '" + sku + "' is not known in warehouse '" + warehouseId + "'. Please enter a valid SKU.");
+                continue;
+            }
+            break;
+        }
+
+        // Get aisle (use current as default)
+        int aisle;
+        while (true) {
+            String aisleInput = getStringInput("Enter aisle number (or press Enter for current: " + currentAisle + "): ");
+            if (aisleInput.isEmpty()) {
+                aisle = currentAisle;
+                break;
+            }
+            try {
+                aisle = Integer.parseInt(aisleInput);
+                if (aisle <= 0) {
+                    System.out.println("Error: Aisle number must be positive. Please enter a valid aisle number.");
+                    continue;
+                }
+                break;
+            } catch (NumberFormatException e) {
+                System.out.println("Error: Invalid aisle number format. Please enter a valid number.");
+            }
+        }
+
+        // Validate and get quantity
+        int quantity;
+        while (true) {
+            quantity = getIntInput("Enter quantity to dispatch: ");
+            if (quantity <= 0) {
+                System.out.println("Error: Quantity must be positive. Please enter a valid quantity.");
+                continue;
+            }
+            break;
+        }
 
         try {
             int dispatched = inventoryService.dispatch(warehouseId, sku, aisle, quantity);
@@ -275,13 +324,13 @@ public class WarehouseUI {
         System.out.println("\n=== RELOCATE BOX ===");
 
         String boxId = getStringInput("Enter box ID to relocate: ");
-        
+
         // Validate that the box exists
         if (!inventoryService.boxExists(boxId)) {
             System.out.println("Error: Box with ID '" + boxId + "' does not exist in the system.");
             return;
         }
-        
+
         String newWarehouseId = getStringInput("Enter new warehouse ID: ");
         int newAisle = getIntInput("Enter new aisle number: ");
         int newBay = getIntInput("Enter new bay number: ");
@@ -306,8 +355,8 @@ public class WarehouseUI {
 
         // Validate destination bay has capacity
         if (!inventoryService.bayHasCapacity(newWarehouseId, newAisle, newBay)) {
-            System.out.println("Error: Destination bay " + newWarehouseId + "/" + newAisle + "/" + newBay + 
-                             " is at capacity and cannot accept additional boxes.");
+            System.out.println("Error: Destination bay " + newWarehouseId + "/" + newAisle + "/" + newBay +
+                    " is at capacity and cannot accept additional boxes.");
             return;
         }
 
@@ -444,11 +493,11 @@ public class WarehouseUI {
             System.out.printf("Deterministic Sweep Distance: %.2f%n", sweepResult.getTotalDistance());
             System.out.printf("Nearest-Neighbour Distance:   %.2f%n", nearestResult.getTotalDistance());
             if (sweepResult.getTotalDistance() < nearestResult.getTotalDistance()) {
-                System.out.println("Deterministic Sweep is more efficient by " + 
-                    String.format("%.2f", nearestResult.getTotalDistance() - sweepResult.getTotalDistance()) + " units");
+                System.out.println("Deterministic Sweep is more efficient by " +
+                        String.format("%.2f", nearestResult.getTotalDistance() - sweepResult.getTotalDistance()) + " units");
             } else if (nearestResult.getTotalDistance() < sweepResult.getTotalDistance()) {
-                System.out.println("Nearest-Neighbour is more efficient by " + 
-                    String.format("%.2f", sweepResult.getTotalDistance() - nearestResult.getTotalDistance()) + " units");
+                System.out.println("Nearest-Neighbour is more efficient by " +
+                        String.format("%.2f", sweepResult.getTotalDistance() - nearestResult.getTotalDistance()) + " units");
             } else {
                 System.out.println("Both strategies have the same efficiency");
             }
@@ -590,33 +639,174 @@ public class WarehouseUI {
     }
 
 
+    private void manageReturnsAndQuarantine() {
+        System.out.println("\n=== RETURNS & QUARANTINE MANAGEMENT ===");
+
+        while (true) {
+            System.out.println("\n--- Quarantine Menu ---");
+            System.out.println("1. Load Returns from CSV" + (dataLoaded ? "" : " (requires initial data loaded)"));
+            System.out.println("2. View Quarantine Queue");
+            System.out.println("3. Process Quarantine (Inspect & Restock/Discard)");
+            System.out.println("4. Clear Quarantine Queue");
+            System.out.println("0. Back to Main Menu");
+            System.out.println("Current quarantine size: " + quarantineService.getQuarantineSize());
+            if (!dataLoaded) {
+                System.out.println("Note: Load initial CSV data first before processing returns.");
+            }
+
+            int choice = getIntInput("Enter your choice: ");
+
+            switch (choice) {
+                case 1:
+                    if (dataLoaded) {
+                        loadReturnsFromCsv();
+                    } else {
+                        System.out.println("Please load initial CSV data first (items, bays, wagons).");
+                    }
+                    break;
+                case 2:
+                    viewQuarantineQueue();
+                    break;
+                case 3:
+                    if (dataLoaded) {
+                        processQuarantine();
+                    } else {
+                        System.out.println("Please load initial CSV data first (items, bays, wagons).");
+                    }
+                    break;
+                case 4:
+                    quarantineService.clearQuarantine();
+                    break;
+                case 0:
+                    return;
+                default:
+                    System.out.println("Invalid choice. Please try again.");
+            }
+        }
+    }
+
+
+    private void viewQuarantineQueue() {
+        System.out.println("\n--- Quarantine Queue ---");
+        List<Return> queue = quarantineService.getQuarantineQueue();
+
+        if (queue.isEmpty()) {
+            System.out.println("Quarantine queue is empty.");
+            return;
+        }
+
+        System.out.printf("%-12s %-10s %-8s %-15s %-20s %-12s%n",
+                "Return ID", "SKU", "Qty", "Reason", "Timestamp", "Expiry Date");
+        System.out.println("-".repeat(80));
+
+        for (Return returnItem : queue) {
+            String expiryStr = returnItem.getExpiryDate() != null ?
+                    returnItem.getExpiryDate().toString() : "Unknown";
+            System.out.printf("%-12s %-10s %-8d %-15s %-20s %-12s%n",
+                    returnItem.getReturnId(),
+                    returnItem.getSku(),
+                    returnItem.getQuantity(),
+                    returnItem.getReason(),
+                    returnItem.getTimestamp().toString(),
+                    expiryStr);
+        }
+    }
+
+    private void processQuarantine() {
+        System.out.println("\n--- Process Quarantine ---");
+
+        if (quarantineService.getQuarantineSize() == 0) {
+            System.out.println("Quarantine queue is empty. Nothing to process.");
+            return;
+        }
+
+        System.out.println("Processing " + quarantineService.getQuarantineSize() + " items in quarantine...");
+        System.out.println("Items will be processed in reverse order of arrival (latest first).");
+
+        List<InspectionResult> results = quarantineService.processQuarantine(currentWarehouseId, currentAisle);
+
+        System.out.println("\n--- Processing Results ---");
+        for (InspectionResult result : results) {
+            System.out.println("Return ID: " + result.getReturnId());
+            System.out.println("SKU: " + result.getSku());
+            System.out.println("Action: " + result.getAction());
+            System.out.println("Total Quantity: " + result.getTotalQuantity());
+
+            if (result.isPartialRestock()) {
+                System.out.println("Quantity Restocked: " + result.getQuantityRestocked());
+                System.out.println("Quantity Discarded: " + result.getQuantityDiscarded());
+            }
+            System.out.println("---");
+        }
+
+        System.out.println("All items have been processed and logged to audit file.");
+
+        // Reorder entire inventory to ensure proper FEFO ordering after processing returns
+        inventoryService.reorderInventoryFefo();
+        System.out.println("Inventory reordered to maintain FEFO sequence.");
+    }
+
+    private void loadReturnsFromCsv() {
+        System.out.println("\n--- Load Returns from CSV ---");
+
+        String csvPath = getStringInput("Enter path to returns CSV file: ");
+        if (csvPath.isEmpty()) {
+            System.out.println("No file path provided.");
+            return;
+        }
+
+        try {
+            CsvValidatorResult<Return> result = ReturnsCsvLoader.load(csvPath);
+
+            if (result.hasErrors()) {
+                System.out.println("CSV loading completed with errors:");
+                for (String error : result.getErrors()) {
+                    System.out.println(" - " + error);
+                }
+            }
+
+            // Add all valid returns to quarantine
+            int addedCount = 0;
+            for (Return returnItem : result.getRecords()) {
+                quarantineService.addToQuarantine(returnItem);
+                addedCount++;
+            }
+
+            System.out.println("Successfully loaded " + addedCount + " returns from CSV.");
+            System.out.println("Total quarantine size: " + quarantineService.getQuarantineSize());
+
+        } catch (Exception e) {
+            System.out.println("Error loading returns CSV: " + e.getMessage());
+        }
+    }
+
     private String getValidFilePath(String prompt, String fileType) {
         while (true) {
             System.out.print(prompt);
             String input = scanner.nextLine().trim();
-            
+
             if (input.isEmpty()) {
                 System.out.println("Error: This field is required. Please enter a valid path.");
                 continue;
             }
-            
+
             // Check if file exists
             java.io.File file = new java.io.File(input);
             if (!file.exists()) {
                 System.out.println("Error: File '" + input + "' does not exist. Please enter a valid " + fileType + " file path.");
                 continue;
             }
-            
+
             if (!file.isFile()) {
                 System.out.println("Error: '" + input + "' is not a file. Please enter a valid " + fileType + " file path.");
                 continue;
             }
-            
+
             if (!file.canRead()) {
                 System.out.println("Error: Cannot read file '" + input + "'. Please check file permissions.");
                 continue;
             }
-            
+
             return input;
         }
     }
