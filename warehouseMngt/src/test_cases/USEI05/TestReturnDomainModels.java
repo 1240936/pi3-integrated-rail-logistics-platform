@@ -7,6 +7,8 @@ import main.domain.*;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Arrays;
+import java.util.List;
 
 
 /**
@@ -78,24 +80,15 @@ public class TestReturnDomainModels {
      */
     @Test
     public void testReturnReason_EnumValues() {
-        // Act
-        ReturnReason[] reasons = ReturnReason.values();
+        List<ReturnReason> reasons = Arrays.asList(ReturnReason.values());
 
-        // Assert: enum should contain all expected values
-        assertEquals(4, reasons.length);
-        assertTrue(contains(reasons, ReturnReason.CUSTOMER_REMORSE));
-        assertTrue(contains(reasons, ReturnReason.DAMAGED));
-        assertTrue(contains(reasons, ReturnReason.EXPIRED));
-        assertTrue(contains(reasons, ReturnReason.CYCLE_COUNT));
+        assertEquals(4, reasons.size());
+        assertTrue(reasons.contains(ReturnReason.CUSTOMER_REMORSE));
+        assertTrue(reasons.contains(ReturnReason.DAMAGED));
+        assertTrue(reasons.contains(ReturnReason.EXPIRED));
+        assertTrue(reasons.contains(ReturnReason.CYCLE_COUNT));
     }
 
-    // Helper method to check presence
-    private boolean contains(ReturnReason[] array, ReturnReason target) {
-        for (ReturnReason r : array) {
-            if (r == target) return true;
-        }
-        return false;
-    }
 
     /**
      * Test Case 4: ReturnReason string representation
@@ -116,22 +109,13 @@ public class TestReturnDomainModels {
      */
     @Test
     public void testInspectionAction_EnumValues() {
-        // Act
-        InspectionAction[] actions = InspectionAction.values();
+        List<InspectionAction> actions = Arrays.asList(InspectionAction.values());
 
-        // Assert: enum should contain all expected values
-        assertEquals(2, actions.length);
-        assertTrue(contains(actions, InspectionAction.RESTOCKED));
-        assertTrue(contains(actions, InspectionAction.DISCARDED));
+        assertEquals(2, actions.size());
+        assertTrue(actions.contains(InspectionAction.RESTOCKED));
+        assertTrue(actions.contains(InspectionAction.DISCARDED));
     }
 
-    // Helper method to check presence
-    private boolean contains(InspectionAction[] array, InspectionAction target) {
-        for (InspectionAction a : array) {
-            if (a == target) return true;
-        }
-        return false;
-    }
 
     /**
      * Test Case 6: InspectionAction string representation
