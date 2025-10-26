@@ -29,6 +29,8 @@ public class Coordinate {
         return aisle == that.aisle && bay == that.bay;
     }
 
+    // Generates a hash code using a prime number (31) to help distribute
+    // objects evenly in hash-based collections such as HashMap and HashSet.
     @Override
     public int hashCode() {
         return 31 * aisle + bay;

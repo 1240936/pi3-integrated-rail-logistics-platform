@@ -19,9 +19,9 @@ public class PickPathService {
         List<Coordinate> mergedBays = mergeDuplicateBays(pickPlan);
 
         /* Sort by aisle ascending, then by bay ascending
-        Creates a new list, compares and sorts the Coordinates by aisle
+        (Creates a new list, compares and sorts the Coordinates by aisle
         then by bay and finally gathers all the elements from the stream and
-        sends them to a list
+        sends them to a list)
          */
         List<Coordinate> sortedBays = mergedBays.stream()
                 .sorted(Comparator.comparingInt(Coordinate::getAisle)

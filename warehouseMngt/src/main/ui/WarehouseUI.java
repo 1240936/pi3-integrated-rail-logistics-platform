@@ -458,6 +458,13 @@ public class WarehouseUI {
             PickPlan pickPlan = pickingService.createPickPlan(allocationResult.getAllocations(), PackingHeuristic.FIRST_FIT, 1000.0, true);
 
             System.out.println("\n=== PICK PATH SEQUENCING RESULTS ===");
+            /*
+            Takes every trolley in the pick plan.
+            Takes all the items from those trolleys.
+            Converts each item into a Coordinate made from its aisle and bay.
+            Removes duplicates so the same aisle/bay pair only counts once.
+            Counts how many remain.
+             */
             System.out.println("Total bays to visit: " + pickPlan.getTrolleys().stream()
                     .flatMap(t -> t.getItems().stream())
                     .map(item -> new Coordinate(item.getAisle(), item.getBay()))

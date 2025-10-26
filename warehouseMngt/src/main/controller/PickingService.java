@@ -99,7 +99,7 @@ public class PickingService {
     private PickPlan createFirstFitDecreasingPlan(List<PickItem> items, double trolleyCapacity, boolean allowSplitting) {
         List<PickItem> sortedItems = items.stream()
                 .sorted((a, b) -> Double.compare(b.getWeight(), a.getWeight()))
-                .collect(Collectors.toList());
+                .collect(Collectors.toList()); // sorts the items so the heaviest comes first and adds them to a list
 
         return createFirstFitPlan(sortedItems, trolleyCapacity, allowSplitting);
     }
@@ -121,7 +121,7 @@ public class PickingService {
             Trolley bestTrolley = null;
             double bestRemainingCapacity = Double.MAX_VALUE;
 
-            // Find trolley with smallest remaining capacity that can fit
+            // Find trolley with the smallest remaining capacity that can fit
             for (Trolley trolley : trolleys) {
                 if (trolley.canFit(item)) {
                     double remainingCapacity = trolley.getRemainingCapacity() - item.getWeight();

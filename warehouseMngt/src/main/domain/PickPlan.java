@@ -53,6 +53,7 @@ public class PickPlan {
         return totalWeight / trolleys.size();
     }
 
+    // Adds up the maximum weight capacity of all trolleys to get the total capacity.
     public double getWeightUtilization() {
         if (trolleys.isEmpty()) return 0.0;
         double totalCapacity = trolleys.stream().mapToDouble(Trolley::getMaxWeightCapacity).sum();

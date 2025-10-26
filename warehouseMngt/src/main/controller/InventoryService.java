@@ -230,7 +230,7 @@ public class InventoryService {
         Map<Integer, SortedSet<Integer>> byAisle = skuIndex
                 .getOrDefault(sku, Collections.emptyMap()) // procura o sku, se nao tiver retorna um mapa vazio de modo a evitar nullPointer
                 .getOrDefault(warehouseId, Collections.emptyMap());
-        SortedSet<Integer> bayNumbers = byAisle.getOrDefault(aisle, new TreeSet<>());
+        SortedSet<Integer> bayNumbers = byAisle.getOrDefault(aisle, new TreeSet<>()); // set ordenado pelo comparator
         int remaining = quantityUnits;
         for (Integer bayNumber : new ArrayList<>(bayNumbers)) {
             if (remaining <= 0) break;
@@ -398,7 +398,7 @@ public class InventoryService {
 
         List<OrderLine> lines = new ArrayList<>(orderLines);
 
-        // Ordena as linhas pela prioridade, data limite e ID
+        // Ordena as linhas pela prioridade, data limite , ID e LineNo
         lines.sort(Comparator
                 .comparingInt(OrderLine::getPriority)
                 .thenComparing(OrderLine::getDueDate)

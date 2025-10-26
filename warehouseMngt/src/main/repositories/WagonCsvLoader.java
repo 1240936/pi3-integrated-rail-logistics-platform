@@ -12,6 +12,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 public class WagonCsvLoader {
     private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("yyyy-MM-dd");
@@ -131,20 +132,20 @@ public class WagonCsvLoader {
 
     private static int distributeAcrossAisles(InventoryService inv, String warehouseId, int lineNo) {
         // Get all available aisles from the warehouse
-        var warehouse = inv.getOrCreateWarehouse(warehouseId);
-        var aisles = warehouse.getAisles();
+        Warehouse warehouse = inv.getOrCreateWarehouse(warehouseId);
+        Map<Integer, Map<Integer, Bay>> aisles = warehouse.getAisles();
         
         if (aisles.isEmpty()) {
             return 1; // fallback to aisle 1
         }
         
         // Find the first aisle that has available space (sequential filling)
-        for (var aisleEntry : aisles.entrySet()) {
+        for (Map.Entry<Integer, Map<Integer, Bay>> aisleEntry : aisles.entrySet()) {
             int aisleNum = aisleEntry.getKey();
-            var bays = aisleEntry.getValue();
+            Map<Integer, Bay> bays = aisleEntry.getValue();
             
             // Check if this aisle has any bays with available space
-            for (var bay : bays.values()) {
+            for (Bay bay : bays.values()) {
                 if (bay.hasSpace()) {
                     return aisleNum; // Return the first aisle with available space
                 }
