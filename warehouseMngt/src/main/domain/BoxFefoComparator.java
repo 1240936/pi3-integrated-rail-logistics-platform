@@ -4,7 +4,6 @@ import java.util.Comparator;
 
 /**
  * Comparator implementing FEFO (First-Expired-First-Out) ordering for {@link Box}.
- *
  * Ordering rules:
  * - expiryDate ascending; null expiry dates (no expiry) are placed last
  * - if expiry ties or both are null, order by receivedAt ascending

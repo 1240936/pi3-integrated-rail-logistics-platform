@@ -10,8 +10,9 @@ import main.domain.*;
 import java.util.*;
 
 /**
- * Interactive UI for warehouse management system.
- * Provides menu-driven interface for loading CSV data and managing inventory.
+ * Interactive User Interface for the Warehouse Management System.
+ * Provides menu-driven commands to load CSV data, manage inventory, perform dispatch and relocation,
+ * plan allocations, create picking plans, compute pick sequences, and handle returns and quarantine.
  */
 public class WarehouseUI {
     private InventoryService inventoryService;
@@ -23,6 +24,9 @@ public class WarehouseUI {
     private int currentAisle = 1;
     private List<OrderLine> loadedOrderLines = new ArrayList<>();
 
+    /**
+     * Constructs a WarehouseUI with default services and scanner.
+     */
     public WarehouseUI() {
         this.inventoryService = new InventoryService();
         this.pickingService = new PickingService();

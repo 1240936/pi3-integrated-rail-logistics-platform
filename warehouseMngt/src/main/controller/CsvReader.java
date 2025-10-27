@@ -5,13 +5,22 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.BiConsumer;
 
+/**
+ * Utility class for reading CSV files with flexible delimiter handling.
+ * This reader supports comma and semicolon separated fields, including quoted fields.
+ * Empty lines are skipped and the first line (header) is ignored.
+ */
 public class CsvReader {
 
     /**
-     * Reads a CSV file and applies a line handler for each data line (skipping header).
-     * @param csvPath path to the CSV file
-     * @param handler callback(lineNo, fields) for each non-empty line
-     * @throws IOException if file cannot be read
+     * Reads a CSV file and invokes a handler for each non-empty data line.
+     * The first line is treated as a header and skipped automatically.
+     *
+     * @param csvPath Path to the CSV file to read.
+     * @param handler Callback to process each parsed line. The callback receives:
+     *                1. The line number (starting at 2 after the header).
+     *                2. An array of parsed field values.
+     * @throws IOException If the file cannot be opened or read.
      */
     public static void readCsv(String csvPath, BiConsumer<Integer, String[]> handler) throws IOException {
         try (BufferedReader br = new BufferedReader(new FileReader(csvPath))) {
@@ -28,7 +37,11 @@ public class CsvReader {
     }
 
     /**
-     * Splits a CSV line supporting both "," and ";" delimiters and quoted fields.
+     * Splits a CSV line into fields, supporting comma and semicolon delimiters.
+     * Quoted fields are preserved even if they contain delimiters.
+     *
+     * @param line A full CSV line.
+     * @return An array of parsed and cleaned field values.
      */
     public static String[] splitFlexible(String line) {
         List<String> parts = new ArrayList<>();
@@ -49,6 +62,12 @@ public class CsvReader {
         return parts.toArray(new String[0]);
     }
 
+    /**
+     * Removes wrapping quotes from a field if present and trims whitespace.
+     *
+     * @param s The field string to clean.
+     * @return A cleaned string without surrounding quotes.
+     */
     private static String trimQuotes(String s) {
         String t = s.trim();
         if (t.length() >= 2 && t.startsWith("\"") && t.endsWith("\"")) {

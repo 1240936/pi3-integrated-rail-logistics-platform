@@ -11,8 +11,20 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
 /**
- * CSV loader for returns data.
- * Loads returns from CSV files and validates the data format.
+ * Utility class for loading return records from a CSV file.
+ *
+ * <p>Each row in the CSV must contain the following columns in order:
+ * <ol>
+ *   <li>returnId (String, required)</li>
+ *   <li>sku (String, required)</li>
+ *   <li>quantity (int, required, >0)</li>
+ *   <li>reason (String, required, one of "customer-remorse", "damaged", "expired", "cycle-count")</li>
+ *   <li>timestamp (LocalDateTime, required, format yyyy-MM-ddTHH:mm:ss)</li>
+ *   <li>expiryDate (LocalDate, optional, format yyyy-MM-dd or empty)</li>
+ * </ol>
+ * </p>
+ *
+ * <p>Invalid rows are captured as errors in the returned {@link CsvValidatorResult}.</p>
  */
 public class ReturnsCsvLoader {
 
@@ -20,9 +32,10 @@ public class ReturnsCsvLoader {
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
     /**
-     * Loads returns from a CSV file.
-     * @param filePath path to the CSV file
-     * @return CsvValidatorResult containing the loaded returns and any validation errors
+     * Loads returns from a CSV file and validates each row.
+     *
+     * @param filePath path to the CSV file containing return records
+     * @return {@link CsvValidatorResult} containing valid {@link Return} records and any validation errors
      */
     public static CsvValidatorResult<Return> load(String filePath) {
         CsvValidatorResult<Return> result = new CsvValidatorResult<>();
@@ -58,10 +71,11 @@ public class ReturnsCsvLoader {
     }
 
     /**
-     * Parses a single line from the CSV file into a Return object.
+     * Parses a single CSV line into a {@link Return} object.
+     *
      * @param line the CSV line to parse
-     * @return the parsed Return object, or null if there was an error
-     * @throws Exception if the line cannot be parsed
+     * @return the parsed {@link Return} object
+     * @throws Exception if the line cannot be parsed due to missing or invalid values
      */
     private static Return parseReturnLine(String line) throws Exception {
         String[] fields = line.split(",", -1); // -1 keeps empty fields at the end

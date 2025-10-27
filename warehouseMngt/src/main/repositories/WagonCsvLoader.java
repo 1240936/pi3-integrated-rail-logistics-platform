@@ -14,10 +14,37 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Loader for wagon/box data from CSV files.
+ *
+ * <p>Each CSV row represents a box in a wagon and must contain at least:
+ * <ul>
+ *   <li>wagonId (String)</li>
+ *   <li>boxId (String)</li>
+ *   <li>sku (String, must exist in inventory)</li>
+ *   <li>quantity (int, &gt;0)</li>
+ *   <li>expiryDate (optional, format yyyy-MM-dd or ISO datetime)</li>
+ *   <li>receivedAt (ISO datetime, required)</li>
+ * </ul>
+ * Optional aisle/bay columns can be used, otherwise they are assigned automatically in FEFO order.
+ * </p>
+ *
+ * <p>Boxes are globally sorted using FEFO (First Expiry First Out) before assignment to aisles and bays.</p>
+ */
 public class WagonCsvLoader {
     private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("yyyy-MM-dd");
     private static final DateTimeFormatter DATETIME = DateTimeFormatter.ISO_DATE_TIME;
 
+    /**
+     * Loads boxes from a CSV file into the inventory service.
+     *
+     * @param csvPath path to the wagons CSV file
+     * @param defaultWarehouseId default warehouse ID to assign boxes to
+     * @param defaultAisle default aisle number for boxes if not specified in CSV
+     * @param inv InventoryService instance used for validation and insertion
+     * @return CsvValidatorResult containing successfully loaded boxes and any validation errors
+     * @throws IOException if the CSV file cannot be read
+     */
     public static CsvValidatorResult<Box> load(
             String csvPath,
             String defaultWarehouseId,
@@ -43,15 +70,15 @@ public class WagonCsvLoader {
                     continue;
                 }
 
-                // Expected structure: wagonId, boxId, sku, qty, expiryDate (optional), receivedAt [, aisle, bay]
+                // Extract fields
                 String wagonId = trimmer(f, 0);
                 String boxId = trimmer(f, 1);
                 String sku = trimmer(f, 2);
                 String qtyRaw = trimmer(f, 3);
                 String expiryRaw = trimmer(f, 4);
                 String receivedRaw = trimmer(f, 5);
-                // Note: aisle and bay will be assigned globally after FEFO sorting
 
+                // Validate mandatory fields
                 if (sku.isEmpty()) {
                     result.addError("wagons.csv line " + lineNo + ": missing SKU (wagon " + wagonId + ")");
                     continue;
@@ -84,13 +111,13 @@ public class WagonCsvLoader {
                     continue;
                 }
 
-                // Validate SKU against known items
+                // Validate SKU exists in inventory
                 if (!inv.isKnownSku(defaultWarehouseId, sku)) {
                     result.addError("wagons.csv line " + lineNo + ": unknown SKU '" + sku + "' (wagon " + wagonId + ")");
                     continue;
                 }
 
-                // Create box with temporary aisle/bay (will be assigned later)
+                // Create Box object (aisle/bay temporarily 0)
                 try {
                     Box box = new Box(boxId, sku, expiry, receivedAt, qty, defaultWarehouseId, 0, 0);
                     allBoxes.add(box);
@@ -100,22 +127,14 @@ public class WagonCsvLoader {
             }
         }
 
-        // Sort all boxes globally using FEFO ordering
+        // Sort boxes globally using FEFO
         allBoxes.sort(new BoxFefoComparator());
 
-        // Now assign boxes to aisles and bays in FEFO order
+        // Assign boxes to aisles and bays
         for (Box box : allBoxes) {
-            int aisle = defaultAisle;
-            if (box.getAisle() != 0) { // If aisle was specified in CSV
-                aisle = box.getAisle();
-            } else {
-                // If no aisle specified, distribute boxes across available aisles
-                aisle = distributeAcrossAisles(inv, defaultWarehouseId, 0);
-            }
-
+            int aisle = box.getAisle() != 0 ? box.getAisle() : distributeAcrossAisles(inv, defaultWarehouseId, 0);
             int bay = autoAssignBay(inv, defaultWarehouseId, aisle);
 
-            // Update box with final aisle and bay
             box.setAisle(aisle);
             box.setBay(bay);
 
@@ -130,54 +149,75 @@ public class WagonCsvLoader {
         return result;
     }
 
+    /**
+     * Finds an aisle with available space for new boxes.
+     *
+     * @param inv InventoryService instance
+     * @param warehouseId warehouse to search
+     * @param lineNo line number for error reporting (optional)
+     * @return aisle number with available space, or fallback to first aisle
+     */
     private static int distributeAcrossAisles(InventoryService inv, String warehouseId, int lineNo) {
-        // Get all available aisles from the warehouse
         Warehouse warehouse = inv.getOrCreateWarehouse(warehouseId);
         Map<Integer, Map<Integer, Bay>> aisles = warehouse.getAisles();
-        
-        if (aisles.isEmpty()) {
-            return 1; // fallback to aisle 1
-        }
-        
-        // Find the first aisle that has available space (sequential filling)
+
+        if (aisles.isEmpty()) return 1;
+
         for (Map.Entry<Integer, Map<Integer, Bay>> aisleEntry : aisles.entrySet()) {
             int aisleNum = aisleEntry.getKey();
             Map<Integer, Bay> bays = aisleEntry.getValue();
-            
-            // Check if this aisle has any bays with available space
             for (Bay bay : bays.values()) {
-                if (bay.hasSpace()) {
-                    return aisleNum; // Return the first aisle with available space
-                }
+                if (bay.hasSpace()) return aisleNum;
             }
         }
-        
-        // If all aisles are full, return the first aisle as fallback
+
         return aisles.keySet().iterator().next();
     }
 
+    /**
+     * Finds a bay within an aisle with available space.
+     *
+     * @param inv InventoryService instance
+     * @param warehouseId warehouse ID
+     * @param aisle aisle number
+     * @return bay number with available space, or 1 as fallback
+     */
     private static int autoAssignBay(InventoryService inv, String warehouseId, int aisle) {
-        // Find the first bay with available capacity (sequential filling)
         int next = 1;
-        while (next <= 100) { // reasonable limit to prevent infinite loop
+        while (next <= 100) {
             Bay bay = inv.getOrCreateBay(warehouseId, aisle, next);
-            if (bay.hasSpace()) {
-                return next; // Return the first bay with available space
-            }
+            if (bay.hasSpace()) return next;
             next++;
         }
-        // If no bay has space, return 1 as fallback
         return 1;
     }
 
+    /**
+     * Safely trims a CSV field by index.
+     *
+     * @param f CSV row fields
+     * @param idx index
+     * @return trimmed string, or empty if index is out of bounds
+     */
     private static String trimmer(String[] f, int idx) {
-        if (idx < f.length) {
-            return f[idx].trim();
-        } else {
-            return "";
-        }
+        if (idx < f.length) return f[idx].trim();
+        else return "";
     }
 
+    /**
+     * Parses an optional expiry date string.
+     *
+     * <p>Accepts formats:
+     * <ul>
+     *   <li>yyyy-MM-dd</li>
+     *   <li>ISO datetime (yyyy-MM-ddTHH:mm:ss)</li>
+     *   <li>null, NA, or "-" as empty</li>
+     * </ul>
+     * </p>
+     *
+     * @param raw raw string
+     * @return parsed LocalDate or null if empty/invalid
+     */
     private static LocalDate parseOptionalExpiry(String raw) {
         if (raw == null) return null;
         String t = raw.trim();
@@ -187,7 +227,6 @@ public class WagonCsvLoader {
 
         try {
             if (t.contains("T")) {
-                // Accept ISO datetime; use date part
                 return LocalDateTime.parse(t, DATETIME).toLocalDate();
             }
             return LocalDate.parse(t, DATE);

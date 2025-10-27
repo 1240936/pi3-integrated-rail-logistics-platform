@@ -7,12 +7,19 @@ import java.util.stream.Collectors;
 
 /**
  * Service for creating picking plans using different packing heuristics.
- * Handles trolley assignment with weight capacity constraints.
+ * Handles trolley assignment with weight capacity constraints and provides
+ * pick path optimization strategies.
  */
 public class PickingService {
 
     /**
-     * Creates a picking plan from allocation results using the specified heuristic.
+     * Creates a pick plan from allocation results using the specified packing heuristic.
+     *
+     * @param allocations list of allocated inventory rows
+     * @param heuristic algorithm strategy for packing items into trolleys
+     * @param trolleyCapacity maximum weight each trolley can hold
+     * @param allowSplitting if true, splits a pick item across multiple trolleys if needed
+     * @return pick plan including trolleys and any skipped items
      */
     public PickPlan createPickPlan(List<AllocationRow> allocations,
                                    PackingHeuristic heuristic,
@@ -34,7 +41,14 @@ public class PickingService {
     }
 
     /**
-     * First Fit (FF): Place items in the first available trolley where they fit.
+     * First Fit packing strategy.
+     * Attempts to place a pick item in the first currently available trolley where it fits.
+     * Optionally splits pick items if configured.
+     *
+     * @param items pick items to place into trolleys
+     * @param trolleyCapacity allowed maximum weight
+     * @param allowSplitting if true, permits splitting pick items across trolleys
+     * @return resulting pick plan with filled and skipped items
      */
     private PickPlan createFirstFitPlan(List<PickItem> items, double trolleyCapacity, boolean allowSplitting) {
         List<Trolley> trolleys = new ArrayList<>();
@@ -94,24 +108,36 @@ public class PickingService {
     }
 
     /**
-     * First Fit Decreasing (FFD): Sort items by weight (largest first).
+     * First Fit Decreasing packing strategy.
+     * Sorts items by descending weight before applying First Fit.
+     *
+     * @param items list of pick items to pack
+     * @param trolleyCapacity allowed maximum weight
+     * @param allowSplitting permit partial allocations if needed
+     * @return pick plan with allocation results
      */
     private PickPlan createFirstFitDecreasingPlan(List<PickItem> items, double trolleyCapacity, boolean allowSplitting) {
         List<PickItem> sortedItems = items.stream()
                 .sorted((a, b) -> Double.compare(b.getWeight(), a.getWeight()))
-                .collect(Collectors.toList()); // sorts the items so the heaviest comes first and adds them to a list
+                .collect(Collectors.toList());
 
         return createFirstFitPlan(sortedItems, trolleyCapacity, allowSplitting);
     }
 
     /**
-     * Best Fit Decreasing (BFD): Sort items by weight (largest first) and place in trolley with smallest remaining capacity.
+     * Best Fit Decreasing packing strategy.
+     * Sorts items by descending weight and places them into the trolley that would
+     * have the least remaining capacity afterward.
+     *
+     * @param items list of pick items
+     * @param trolleyCapacity allowed maximum weight
+     * @param allowSplitting if true, support splitting pick items across trolleys
+     * @return pick plan produced by the heuristic
      */
     private PickPlan createBestFitDecreasingPlan(List<PickItem> items, double trolleyCapacity, boolean allowSplitting) {
         List<Trolley> trolleys = new ArrayList<>();
         List<String> skippedItems = new ArrayList<>();
 
-        // Sort by weight descending
         List<PickItem> sortedItems = items.stream()
                 .sorted((a, b) -> Double.compare(b.getWeight(), a.getWeight()))
                 .collect(Collectors.toList());
@@ -121,7 +147,6 @@ public class PickingService {
             Trolley bestTrolley = null;
             double bestRemainingCapacity = Double.MAX_VALUE;
 
-            // Find trolley with the smallest remaining capacity that can fit
             for (Trolley trolley : trolleys) {
                 if (trolley.canFit(item)) {
                     double remainingCapacity = trolley.getRemainingCapacity() - item.getWeight();
@@ -161,7 +186,6 @@ public class PickingService {
                 }
             }
 
-            // If not placed, create a new trolley
             if (!placed) {
                 Trolley newTrolley = new Trolley("T" + (trolleys.size() + 1), trolleyCapacity);
                 if (newTrolley.canFit(item)) {
@@ -191,13 +215,17 @@ public class PickingService {
     }
 
     /**
-     * Converts allocation rows to pick items.
+     * Converts allocation rows into pickable items with weight assignment.
+     * Default per-unit weight currently set to 1.0.
+     *
+     * @param allocations the allocation results to convert
+     * @return converted list of pick items
      */
     private List<PickItem> convertAllocationsToPickItems(List<AllocationRow> allocations) {
         List<PickItem> pickItems = new ArrayList<>();
 
         for (AllocationRow allocation : allocations) {
-            double weightPerUnit = 1.0; // Default weight per unit (should be configurable)
+            double weightPerUnit = 1.0;
             double totalWeight = allocation.getQty() * weightPerUnit;
 
             PickItem pickItem = new PickItem(
@@ -216,17 +244,23 @@ public class PickingService {
 
         return pickItems;
     }
-    
+
     /**
-     * Computes optimal pick path using Strategy A: Deterministic Sweep
+     * Computes optimal pick path using Strategy A: Deterministic Sweep.
+     *
+     * @param pickPlan pick plan to optimize
+     * @return optimal traversal result for picking
      */
     public PickSequenceResult computeDeterministicSweep(PickPlan pickPlan) {
         PickPathService pathService = new PickPathService();
         return pathService.computeDeterministicSweep(pickPlan);
     }
-    
+
     /**
-     * Computes optimal pick path using Strategy B: Nearest-Neighbour Greedy
+     * Computes optimal pick path using Strategy B: Nearest Neighbour (Greedy).
+     *
+     * @param pickPlan pick plan to optimize
+     * @return traversal result using nearest neighbor logic
      */
     public PickSequenceResult computeNearestNeighbor(PickPlan pickPlan) {
         PickPathService pathService = new PickPathService();

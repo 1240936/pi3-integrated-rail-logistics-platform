@@ -7,11 +7,31 @@ import main.domain.OrderLine;
 import java.io.IOException;
 import java.util.Map;
 
+/**
+ * Utility class to load order lines from a CSV file and validate them
+ * against existing order headers.
+ *
+ * <p>Each row in the CSV should contain the following columns in order:
+ * <ul>
+ *   <li>orderId (String, must exist in headersById)</li>
+ *   <li>lineNo (int, positive)</li>
+ *   <li>sku (String, required)</li>
+ *   <li>qty (int, positive)</li>
+ * </ul>
+ * </p>
+ *
+ * <p>Any row that fails validation is recorded in the errors list of the
+ * returned {@link CsvValidatorResult}.</p>
+ */
 public class OrderLinesCsvLoader {
 
     /**
-     * Loads order lines and validates cross-references with provided order headers.
-     * Expected columns: orderId, lineNo, sku, qty
+     * Loads order lines from the CSV file, validating references to order headers.
+     *
+     * @param csvPath path to the CSV file containing order lines
+     * @param headersById map of orderId to {@link OrderHeader} for validation
+     * @return {@link CsvValidatorResult} containing valid {@link OrderLine} records and errors
+     * @throws IOException if reading the CSV file fails
      */
     public static CsvValidatorResult<OrderLine> load(
             String csvPath,
