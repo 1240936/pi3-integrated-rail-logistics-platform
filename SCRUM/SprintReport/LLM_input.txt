@@ -1,0 +1,75 @@
+Francisco Vasconcelos: 
+30 Sept: Set up GitHub and Scrum board; began domain modeling (USLP01); waiting on glossary.
+4 Oct: Outlined domain model; glossary delay still blocking naming conventions.
+6 Oct: Reviewed glossary; continued domain model with focus on relationships.
+8 Oct: Implemented CSV loader and validator; integration pending.
+10 Oct: Validated inventory integration; moved USEI01 to Testing.
+13 Oct: Completed CSV validation; began USEI02 (allocation logic); assumed strict allocation.
+15 Oct: Added core allocation entities; began implementing allocation methods.
+17 Oct: Finalized PickingService and pickPlan; started WarehouseUI and FEFO fixes.
+20 Oct: Completed USEI03; began USEI04 (quarantine logic).
+21 Oct: Finished USEI04; started USEI05 (inspection and returns).
+22 Oct: Integrated inspection and quarantine flows; USEI05 in Testing.
+23 Oct: Finished USEI05 implementation; began testing.
+24 Oct: All tasks completed; reviewing project for integrity.
+
+Gabriel Inácio:
+30 Sept: Imported and validated wagons.csv; began FEFO/FIFO logic (USEI01).
+4 Oct: Continued FEFO logic; handling expiryDate inconsistencies.
+6 Oct: Refined validation logic; began FEFO testing.
+8 Oct: Supported CSV validation testing; refined FEFO/FIFO logic.
+10 Oct: Validated item import pipelines; USEI01 moved to Testing.
+13 Oct: Finished USEI01; began USEI02 and USLP02; handling CSV header variants.
+15 Oct: Refactored CsvLoader; added OrderLinesCsvLoader.
+17 Oct: Added packing and picking classes; reviewed PickingService bugs.
+20 Oct: Completed USEI03; began USEI04 (returns and inspection).
+21 Oct: Finished USEI04; began USEI05 validation logic.
+22 Oct: Added return flow components; USEI05 in Testing.
+23 Oct: Finished USEI05 implementation; began testing.
+24 Oct: All tasks completed; reviewing project for integrity.
+
+Gonçalo Azevedo:
+30 Sept: Created Visual Paradigm draft; began conceptual model enhancement.
+4 Oct: Refined model; needed clarification on multi-gauge locomotives.
+6 Oct: Added constraints; aligned with glossary.
+8 Oct: Updated conceptual model; began relational model documentation.
+10 Oct: Added physical model to documentation; moved USBD02 to Testing.
+13 Oct: Finalized USBD02; generated SQL DDL; began USEI02 schema support.
+15 Oct: Added relational model to USBD02; began USBD03 SQL prep.
+17 Oct: Corrected relational model; USBD03 moved to Done.
+20 Oct: Added SQL structure for USBD04–20; began USEI01/02 test cases.
+21 Oct: Implemented tests for USEI01; finalized USEI05 test template.
+22 Oct: Completed inspection flow tests; USEI05 in Testing.
+23 Oct: Finished all tests; updated relational model.
+24 Oct: Relational model finalized; supporting Maria on USLP03.
+
+Maria Pinto:
+30 Sept: Developed glossary (USBD01); began finalizing it.
+4 Oct: Shared glossary; began review with Gonçalo.
+6 Oct: Finalized glossary; continued review for consistency.
+8 Oct: Corrected glossary; began domain model development.
+10 Oct: Created domain model; moved USLP01 to Testing.
+13 Oct: Refined domain model; began developer reference mapping.
+15 Oct: Updated relational model; began glossary review.
+17 Oct: Updated glossary and relational model; USBD03 moved to Done.
+20 Oct: Corrected test template; added USEI02 test; began USLP03.
+21 Oct: Added USEI02 test; continued USLP03; awaiting database clarification.
+22 Oct: Continued USLP03; awaiting final confirmation.
+23 Oct: Final tests done; began final USLP03 changes.
+24 Oct: Implementing final USLP03 updates with Gonçalo’s support.
+
+Paulo Ferreira:
+30 Sept: Reviewed warehouse layout; began dispatch logic (USEI01).
+4 Oct: Outlined dispatch rules; defining partial dispatch behavior.
+6 Oct: Prepared dispatch test cases; still refining partial dispatch.
+8 Oct: Collaborated on data model relationships.
+10 Oct: Validated relational model; prepared migration checklist.
+13 Oct: Drafted integrity rules; began implementing constraints.
+15 Oct: Updated models; reviewed dispatch integration.
+17 Oct: Reviewed dispatch logic; supported USEI03 testing.
+20 Oct: Implemented USEI03 tests; supported integration.
+21 Oct: Supported USEI04/05 test results.
+22 Oct: Validated USEI05 tests; moved to Testing.
+23 Oct: Implemented final USEI05 tests.
+24 Oct: All tests completed; reviewing project for integrity.
+

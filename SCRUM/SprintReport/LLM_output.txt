@@ -1,0 +1,62 @@
+Francisco Vasconcelos
+Francisco demonstrated strong ownership of integration and service logic across the sprint. 
+He:
+Initiated domain modeling early, despite glossary delays.
+Progressed through CSV validation, allocation logic, and picking services with consistent delivery.
+Tackled complex flows like quarantine and inspection with minimal blockers.
+Completed all tasks on time and contributed to final project integrity review.
+
+Assessment: Francisco showed high autonomy and technical fluency, especially in backend service orchestration. His work was foundational to the USEI flows and consistently aligned with sprint goals.
+
+
+Gabriel Inácio
+Gabriel was instrumental in data pipeline validation and FEFO/FIFO logic. 
+He:
+Led early CSV import and expiry logic efforts.
+Refactored loaders and added modular components like OrderLinesCsvLoader.
+Contributed to packing, picking, and return flows with precision.
+Maintained strong testing discipline and supported final integrity checks.
+
+Assessment: Gabriel’s performance was marked by deep attention to data consistency and modularity. His ability to refine and extend loaders and validation logic was key to robust inventory handling.
+
+Gonçalo Azevedo
+Gonçalo anchored the modeling and testing backbone of the project. 
+He:
+Progressed from conceptual to relational and physical models with clarity.
+Delivered SQL DDLs and schema support for multiple modules.
+Created and executed test templates for all USEI flows.
+Supported Maria on USLP03 and finalized relational documentation.
+
+Assessment: Gonçalo excelled in system modeling and test coverage. His methodical approach ensured database integrity and alignment across modules, making him a pillar of backend reliability.
+
+Maria Pinto
+Maria led glossary development and cross-functional alignment. 
+She:
+Finalized and maintained the glossary, enabling consistent naming and modeling.
+Developed and tested domain models and relational mappings.
+Created developer references and test templates for multiple modules.
+Drove USLP03 to completion with Gonçalo’s support.
+
+Assessment: Maria’s leadership in documentation and alignment was essential. Her glossary-driven approach enabled cohesion across the team, and her dual focus on modeling and testing reinforced delivery quality.
+
+Paulo Ferreira
+Paulo focused on dispatch logic and model integrity. 
+He:
+Defined dispatch rules and partial dispatch behavior.
+Validated relational models and supported migration planning.
+Drafted integrity constraints and supported integration testing.
+Contributed to USEI03–05 testing and final reviews.
+
+Assessment: Paulo’s contributions were steady and detail-oriented. His focus on dispatch logic and model constraints added robustness to the system, and his testing support ensured smooth integration.
+
+
+
+Global Team Assessment
+The team demonstrated exceptional coordination and delivery across the sprint. 
+Key strengths included:
+Clear division of responsibilities: glossary, modeling, validation, services, and testing were well distributed.
+Strong iteration: members refined their work based on dependencies (e.g., glossary delays, relational clarifications).
+Comprehensive testing: USEI flows were thoroughly validated, with shared ownership of test templates and execution.
+Integration mindset: final days focused on integrity reviews and cross-support (e.g., Maria and Gonçalo on USLP03).
+
+Overall Evaluation: The team operated with high synergy and technical maturity. Their sprint output reflects a well-structured, glossary-aligned, and thoroughly tested system. The balance between individual ownership and collaborative refinement was exemplary.
