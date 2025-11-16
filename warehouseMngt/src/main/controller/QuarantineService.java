@@ -7,6 +7,10 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 
+
+// Recebe devoluções, inspeciona pelo motivo, reabastece os que podem (se tiver bay disponivel, se nao descarta)
+// descarta os que não podem, e regista tudo no ficheiro de auditoria.
+
 /**
  * Service for managing returned goods in quarantine.
  * Handles quarantine operations, inspection processing, and audit logging.
@@ -43,9 +47,9 @@ public class QuarantineService {
      * @return list of returns in quarantine, sorted by timestamp descending, then by returnId ascending
      */
     public List<Return> getQuarantineQueue() {
-        List<Return> sortedQueue = new ArrayList<>(quarantineQueue);
+        List<Return> sortedQueue = new ArrayList<>(quarantineQueue); // -> sortedQueue para usar no procssQuarantine
         sortedQueue.sort(Comparator
-                .comparing(Return::getTimestamp, Comparator.reverseOrder())
+                .comparing(Return::getTimestamp, Comparator.reverseOrder()) // cria uma copia da quarantienQueue, e coloca em ordem decresente de tempo de chegada e ordem crescente de id se tiver o mesmo tempo
                 .thenComparing(Return::getReturnId));
         return sortedQueue;
     }
@@ -64,7 +68,7 @@ public class QuarantineService {
         for (Return returnItem : sortedQueue) {
             InspectionResult result = inspectReturn(returnItem, warehouseId, aisle);
             results.add(result);
-            logInspectionResult(result);
+            logInspectionResult(result); // adiciona ao audit o resultado
         }
 
         // Clear quarantine after processing
@@ -128,7 +132,7 @@ public class QuarantineService {
 
             // Find an appropriate bay for the SKU
             int bayNumber = findAvailableBay(warehouseId, aisle, returnItem.getSku());
-            if (bayNumber == -1) {
+            if (bayNumber == -1) { // evitar dae restock antes de ter uma warehouse loaded
                 System.out.println("No available bay found for SKU " + returnItem.getSku() + ". Make sure to load initial CSV data (bays) first.");
                 return 0;
             }
