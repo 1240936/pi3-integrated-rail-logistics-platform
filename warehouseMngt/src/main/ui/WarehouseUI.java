@@ -1,8 +1,10 @@
 package main.ui;
 
+import main.domain.AVL;
 import main.controller.InventoryService;
 import main.controller.PickingService;
 import main.controller.QuarantineService;
+import main.controller.StationService;
 import main.repositories.*;
 import main.domain.*;
 
@@ -18,8 +20,10 @@ public class WarehouseUI {
     private InventoryService inventoryService;
     private PickingService pickingService;
     private QuarantineService quarantineService;
+    private StationService stationService;
     private Scanner scanner;
     private boolean dataLoaded = false;
+    private boolean stationDataLoaded = false;
     private String currentWarehouseId = "W1";
     private int currentAisle = 1;
     private List<OrderLine> loadedOrderLines = new ArrayList<>();
@@ -31,6 +35,7 @@ public class WarehouseUI {
         this.inventoryService = new InventoryService();
         this.pickingService = new PickingService();
         this.quarantineService = new QuarantineService(inventoryService, "audit_log.txt");
+        this.stationService = new StationService();
         this.scanner = new Scanner(System.in);
     }
 
@@ -42,6 +47,46 @@ public class WarehouseUI {
             showMainMenu();
             int choice = getIntInput("Enter your choice: ");
 
+            switch (choice) {
+                case 1:
+                    showSprint1Menu();
+                    break;
+                case 2:
+                    showSprint2Menu();
+                    break;
+                case 0:
+                    System.out.println("Exiting.");
+                    return;
+                default:
+                    System.out.println("Invalid choice. Please try again.");
+            }
+        }
+    }
+
+    private void showMainMenu() {
+        System.out.println("\n=== MAIN MENU ===");
+        System.out.println("1. Sprint 1 - Warehouse Operations");
+        System.out.println("2. Sprint 2 - Station Indexing");
+        System.out.println("0. Exit");
+        System.out.println("Current warehouse: " + currentWarehouseId + ", Aisle: " + currentAisle);
+    }
+
+    private void showSprint1Menu() {
+        while (true) {
+            System.out.println("\n=== SPRINT 1 - WAREHOUSE OPERATIONS ===");
+            System.out.println("1. Load CSV Data");
+            System.out.println("2. View All Inventory");
+            System.out.println("3. Perform Dispatch");
+            System.out.println("4. Relocate Box");
+            System.out.println("5. Plan Allocations");
+            System.out.println("6. Create Picking Plan");
+            System.out.println("7. Compute Pick Path Sequence");
+            System.out.println("8. Returns & Quarantine");
+            System.out.println("9. Change Warehouse Settings");
+            System.out.println("0. Back to Main Menu");
+            
+            int choice = getIntInput("Enter your choice: ");
+            
             switch (choice) {
                 case 1:
                     loadCsvData();
@@ -91,7 +136,6 @@ public class WarehouseUI {
                     changeWarehouseSettings();
                     break;
                 case 0:
-                    System.out.println("Exiting.");
                     return;
                 default:
                     System.out.println("Invalid choice. Please try again.");
@@ -99,19 +143,28 @@ public class WarehouseUI {
         }
     }
 
-    private void showMainMenu() {
-        System.out.println("\n=== MENU ===");
-        System.out.println("1. Load CSV Data");
-        System.out.println("2. View All Inventory");
-        System.out.println("3. Perform Dispatch");
-        System.out.println("4. Relocate Box");
-        System.out.println("5. Plan Allocations");
-        System.out.println("6. Create Picking Plan");
-        System.out.println("7. Compute Pick Path Sequence");
-        System.out.println("8. Returns & Quarantine");
-        System.out.println("9. Change Warehouse Settings");
-        System.out.println("0. Exit");
-        System.out.println("Current warehouse: " + currentWarehouseId + ", Aisle: " + currentAisle);
+    private void showSprint2Menu() {
+        while (true) {
+            System.out.println("\n=== SPRINT 2 - STATION INDEXING ===");
+            System.out.println("1. USEI06 - Time-Zone Index");
+            System.out.println("2. USEI07 - 2D-Tree Spatial Index");
+            System.out.println("0. Back to Main Menu");
+            
+            int choice = getIntInput("Enter your choice: ");
+            
+            switch (choice) {
+                case 1:
+                    manageStationsTimeZoneIndex();
+                    break;
+                case 2:
+                    manageStationsSpatialIndex();
+                    break;
+                case 0:
+                    return;
+                default:
+                    System.out.println("Invalid choice. Please try again.");
+            }
+        }
     }
 
     private void loadCsvData() {
@@ -177,6 +230,7 @@ public class WarehouseUI {
             loadedOrderLines = new ArrayList<>(orderLines.getRecords());
 
             dataLoaded = true;
+            stationDataLoaded = false;
 
             // Reorder entire inventory to ensure proper FEFO ordering after loading new data
             inventoryService.reorderInventoryFefo();
@@ -791,6 +845,369 @@ public class WarehouseUI {
         }
     }
 
+    private void manageStationsTimeZoneIndex() {
+        while (true) {
+            System.out.println("\n=== USEI06 - TIME-ZONE INDEX ===");
+            System.out.println("1. Load Stations CSV");
+            System.out.println("2. Show Tree Statistics");
+            System.out.println("3. Query by Time Zone");
+            System.out.println("4. Query by Time Zone Window");
+            System.out.println("5. Run Sample Queries");
+            System.out.println("6. Complexity Analysis");
+            System.out.println("0. Back to Sprint 2 Menu");
+            
+            int choice = getIntInput("Enter your choice: ");
+            
+            switch (choice) {
+                case 1:
+                    loadStationsAndCreateAVLTrees();
+                    break;
+                case 2:
+                    showAVLTreeStatistics();
+                    break;
+                case 3:
+                    queryByTimeZoneGroup();
+                    break;
+                case 4:
+                    queryByTimeZoneGroupWindow();
+                    break;
+                case 5:
+                    runSampleQueries();
+                    break;
+                case 6:
+                    showTemporalComplexityAnalysis();
+                    break;
+                case 0:
+                    return;
+                default:
+                    System.out.println("Invalid choice. Please try again.");
+            }
+        }
+    }
+
+    private void loadStationsAndCreateAVLTrees() {
+        System.out.println("\n--- Load Stations CSV and Create AVL Trees ---");
+        String csvPath = getValidFilePath("Stations CSV path: ", "stations CSV");
+        
+        try {
+            CsvValidatorResult<Station> result = stationService.loadStationsAndCreateAVLTrees(csvPath);
+            
+            if (result.hasErrors()) {
+                System.out.println("Stations import completed with errors:");
+                for (String error : result.getErrors()) {
+                    System.out.println(" - " + error);
+                }
+            }
+            
+            int loadedCount = result.getRecords().size();
+            if (loadedCount > 0) {
+                System.out.println("Successfully loaded " + loadedCount + " stations.");
+                System.out.println("AVL trees created and ready for queries.");
+            } else {
+                System.out.println("No stations were loaded.");
+            }
+        } catch (Exception e) {
+            System.out.println("Error loading stations CSV: " + e.getMessage());
+        }
+    }
+
+    private void showAVLTreeStatistics() {
+        AVL<StationComparable> latTree = stationService.getLatitudeTree();
+        AVL<StationComparable> lonTree = stationService.getLongitudeTree();
+        AVL<StationComparable> tzTree = stationService.getTimeZoneGroupTree();
+        
+        if (latTree == null || lonTree == null || tzTree == null) {
+            System.out.println("AVL trees not created. Please load stations CSV first.");
+            return;
+        }
+        
+        System.out.println("\n--- AVL Tree Statistics ---");
+        System.out.println("Latitude Tree:");
+        System.out.println("  - Size: " + latTree.size() + " stations");
+        System.out.println("  - Height: " + latTree.height());
+        System.out.println("Longitude Tree:");
+        System.out.println("  - Size: " + lonTree.size() + " stations");
+        System.out.println("  - Height: " + lonTree.height());
+        System.out.println("Time Zone Group Tree:");
+        System.out.println("  - Size: " + tzTree.size() + " stations");
+        System.out.println("  - Height: " + tzTree.height());
+    }
+
+    private void queryByTimeZoneGroup() {
+        AVL<StationComparable> tzTree = stationService.getTimeZoneGroupTree();
+        if (tzTree == null) {
+            System.out.println("Time zone group tree not created. Please load stations CSV first.");
+            return;
+        }
+        
+        System.out.println("\n--- Query by Time Zone Group ---");
+        String timeZoneGroup = getStringInput("Enter time zone group (e.g., CET, WET/GMT): ");
+        
+        if (timeZoneGroup.isEmpty()) {
+            System.out.println("Time zone group cannot be empty.");
+            return;
+        }
+        
+        long startTime = System.nanoTime();
+        List<Station> results = stationService.queryByTimeZoneGroup(timeZoneGroup);
+        long elapsedTime = System.nanoTime() - startTime;
+        
+        System.out.println("Found " + results.size() + " stations in time zone group '" + timeZoneGroup + "'");
+        System.out.println("Query time: " + (elapsedTime / 1_000_000.0) + " ms");
+        
+        int limit = 20;
+        int index = 0;
+        while (index < results.size() && index < limit) {
+            Station station = results.get(index);
+            System.out.println("  - " + station.getName() + " (" + station.getCountry() + ") - " + station.getTimeZoneGroup());
+            index++;
+        }
+        
+        if (results.size() > limit) {
+            System.out.println("... (" + (results.size() - limit) + " more stations not shown)");
+        }
+    }
+
+    private void queryByTimeZoneGroupWindow() {
+        AVL<StationComparable> tzTree = stationService.getTimeZoneGroupTree();
+        if (tzTree == null) {
+            System.out.println("Time zone group tree not created. Please load stations CSV first.");
+            return;
+        }
+        
+        System.out.println("\n--- Query by Time Zone Group Window ---");
+        System.out.println("Enter time zone groups (comma-separated, e.g., CET,WET/GMT): ");
+        String input = getStringInput("");
+        
+        if (input.isEmpty()) {
+            System.out.println("Time zone groups cannot be empty.");
+            return;
+        }
+        
+        String[] timeZoneGroups = input.split(",");
+        for (int i = 0; i < timeZoneGroups.length; i++) {
+            timeZoneGroups[i] = timeZoneGroups[i].trim();
+        }
+        
+        long startTime = System.nanoTime();
+        List<Station> results = stationService.queryByTimeZoneGroupWindow(timeZoneGroups);
+        long elapsedTime = System.nanoTime() - startTime;
+        
+        System.out.println("Found " + results.size() + " stations in time zone groups: " + String.join(", ", timeZoneGroups));
+        System.out.println("Query time: " + (elapsedTime / 1_000_000.0) + " ms");
+        
+        int limit = 20;
+        int index = 0;
+        while (index < results.size() && index < limit) {
+            Station station = results.get(index);
+            System.out.println("  - " + station.getName() + " (" + station.getCountry() + ") - " + station.getTimeZoneGroup());
+            index++;
+        }
+        
+        if (results.size() > limit) {
+            System.out.println("... (" + (results.size() - limit) + " more stations not shown)");
+        }
+    }
+
+    private void runSampleQueries() {
+        AVL<StationComparable> tzTree = stationService.getTimeZoneGroupTree();
+        if (tzTree == null) {
+            System.out.println("Time zone group tree not created. Please load stations CSV first.");
+            return;
+        }
+        
+        System.out.println("\n=== Sample Queries (USEI06) ===");
+        
+        // Query 1: Single time zone group
+        System.out.println("\nQuery 1: All stations in CET time zone");
+        long start1 = System.nanoTime();
+        List<Station> results1 = stationService.queryByTimeZoneGroup("CET");
+        long elapsed1 = System.nanoTime() - start1;
+        System.out.println("  Results: " + results1.size() + " stations");
+        System.out.println("  Time: " + (elapsed1 / 1_000_000.0) + " ms");
+        if (!results1.isEmpty()) {
+            System.out.println("  Sample: " + results1.get(0).getName() + " (" + results1.get(0).getCountry() + ")");
+        }
+        
+        // Query 2: Another time zone group
+        System.out.println("\nQuery 2: All stations in WET/GMT time zone");
+        long start2 = System.nanoTime();
+        List<Station> results2 = stationService.queryByTimeZoneGroup("WET/GMT");
+        long elapsed2 = System.nanoTime() - start2;
+        System.out.println("  Results: " + results2.size() + " stations");
+        System.out.println("  Time: " + (elapsed2 / 1_000_000.0) + " ms");
+        if (!results2.isEmpty()) {
+            System.out.println("  Sample: " + results2.get(0).getName() + " (" + results2.get(0).getCountry() + ")");
+        }
+        
+        // Query 3: Window query
+        System.out.println("\nQuery 3: Stations in time zone window [CET, WET/GMT]");
+        long start3 = System.nanoTime();
+        List<Station> results3 = stationService.queryByTimeZoneGroupWindow(new String[]{"CET", "WET/GMT"});
+        long elapsed3 = System.nanoTime() - start3;
+        System.out.println("  Results: " + results3.size() + " stations");
+        System.out.println("  Time: " + (elapsed3 / 1_000_000.0) + " ms");
+        if (!results3.isEmpty()) {
+            System.out.println("  Sample: " + results3.get(0).getName() + " (" + results3.get(0).getCountry() + ") - " + results3.get(0).getTimeZoneGroup());
+        }
+        
+        // Query 4: Another time zone group
+        System.out.println("\nQuery 4: All stations in EET time zone");
+        long start4 = System.nanoTime();
+        List<Station> results4 = stationService.queryByTimeZoneGroup("EET");
+        long elapsed4 = System.nanoTime() - start4;
+        System.out.println("  Results: " + results4.size() + " stations");
+        System.out.println("  Time: " + (elapsed4 / 1_000_000.0) + " ms");
+        if (!results4.isEmpty()) {
+            System.out.println("  Sample: " + results4.get(0).getName() + " (" + results4.get(0).getCountry() + ")");
+        }
+        
+        // Query 5: Window query with 3 time zones
+        System.out.println("\nQuery 5: Stations in time zone window [CET, EET, WET/GMT]");
+        long start5 = System.nanoTime();
+        List<Station> results5 = stationService.queryByTimeZoneGroupWindow(new String[]{"CET", "EET", "WET/GMT"});
+        long elapsed5 = System.nanoTime() - start5;
+        System.out.println("  Results: " + results5.size() + " stations");
+        System.out.println("  Time: " + (elapsed5 / 1_000_000.0) + " ms");
+        if (!results5.isEmpty()) {
+            System.out.println("  Sample: " + results5.get(0).getName() + " (" + results5.get(0).getCountry() + ") - " + results5.get(0).getTimeZoneGroup());
+        }
+    }
+
+    private void showTemporalComplexityAnalysis() {
+        System.out.println("\n=== Temporal Complexity Analysis (USEI06) ===");
+        System.out.println("\nAVL Tree Operations:");
+        System.out.println("  - Insertion: O(log n) - balanced tree guarantees logarithmic height");
+        System.out.println("  - Search: O(log n) - binary search in balanced tree");
+        System.out.println("  - In-order traversal: O(n) - must visit all n nodes");
+        System.out.println("\nQuery Operations:");
+        System.out.println("  - Query by time zone group: O(n) - linear scan after in-order traversal");
+        System.out.println("    * Could be optimized to O(log n + k) with range queries, but current");
+        System.out.println("      implementation uses in-order + filter for simplicity");
+        System.out.println("  - Query by time zone group window: O(n) - same as single group query");
+        System.out.println("\nTree Construction:");
+        System.out.println("  - Building AVL trees: O(n log n) - n insertions, each O(log n)");
+        System.out.println("  - Space complexity: O(n) - stores all n stations");
+    }
+
+    private void manageStationsSpatialIndex() {
+        boolean exit = false;
+        while (!exit) {
+            System.out.println("\n=== USEI07 - 2D-TREE SPATIAL INDEX ===");
+            System.out.println("1. Build 2D-Tree");
+            System.out.println("2. Show Tree Statistics");
+            System.out.println("3. Range Query");
+            System.out.println("0. Back to Sprint 2 Menu");
+
+            int choice = getIntInput("Select an option: ");
+            if (choice == -1) {
+                choice = 0;
+            }
+
+            switch (choice) {
+                case 1:
+                    build2DTreeOnly();
+                    break;
+                case 2:
+                    showStationsTreeStatistics();
+                    break;
+                case 3:
+                    runStationsRangeQuery();
+                    break;
+                case 0:
+                    exit = true;
+                    break;
+                default:
+                    System.out.println("Invalid option. Please try again.");
+            }
+        }
+    }
+
+    private void build2DTreeOnly() {
+        AVL<StationComparable> latTree = stationService.getLatitudeTree();
+        AVL<StationComparable> lonTree = stationService.getLongitudeTree();
+        
+        if (latTree == null || lonTree == null) {
+            System.out.println("AVL trees not found. Please create them first using USEI06 (option 10).");
+            return;
+        }
+        
+        try {
+            System.out.println("\n--- Build 2D-tree using existing AVL trees ---");
+            stationService.buildBalanced2DTree();
+            stationDataLoaded = true;
+            System.out.println("2D-tree built successfully using AVL trees from USEI06.");
+        } catch (Exception e) {
+            System.out.println("Error building 2D-tree: " + e.getMessage());
+        }
+    }
+
+    private void showStationsTreeStatistics() {
+        if (!stationDataLoaded) {
+            System.out.println("No station data loaded. Please load a stations CSV first.");
+            return;
+        }
+
+        System.out.println("\n--- 2D-tree Statistics ---");
+        System.out.println("Total stations indexed: " + stationService.getTreeSize());
+        System.out.println("Tree height: " + stationService.getTreeHeight());
+
+        Set<Integer> bucketSizes = stationService.getDistinctBucketSizes();
+        if (bucketSizes.isEmpty()) {
+            System.out.println("No bucket sizes available.");
+        } else {
+            System.out.print("Distinct bucket sizes (stations sharing coordinates): ");
+            Iterator<Integer> iterator = bucketSizes.iterator();
+            while (iterator.hasNext()) {
+                Integer value = iterator.next();
+                System.out.print(value);
+                if (iterator.hasNext()) {
+                    System.out.print(", ");
+                }
+            }
+            System.out.println();
+        }
+    }
+
+    private void runStationsRangeQuery() {
+        if (!stationDataLoaded) {
+            System.out.println("No station data loaded. Please load a stations CSV first.");
+            return;
+        }
+
+        System.out.println("\n--- Range Query ---");
+        double minLat = getRequiredDoubleInput("Minimum latitude: ");
+        double maxLat = getRequiredDoubleInput("Maximum latitude: ");
+        double minLon = getRequiredDoubleInput("Minimum longitude: ");
+        double maxLon = getRequiredDoubleInput("Maximum longitude: ");
+
+        if (minLat > maxLat) {
+            double temp = minLat;
+            minLat = maxLat;
+            maxLat = temp;
+        }
+        if (minLon > maxLon) {
+            double temp = minLon;
+            minLon = maxLon;
+            maxLon = temp;
+        }
+
+        List<Station> results = stationService.rangeQuery(minLat, maxLat, minLon, maxLon);
+        System.out.println("Stations found: " + results.size());
+
+        int limit = 20;
+        int index = 0;
+        while (index < results.size() && index < limit) {
+            Station station = results.get(index);
+            System.out.println(" - " + station.getName() + " (" + station.getLatitude() + ", " + station.getLongitude() + ") - " + station.getCountry());
+            index++;
+        }
+
+        if (results.size() > limit) {
+            System.out.println("... (" + (results.size() - limit) + " more stations not shown)");
+        }
+    }
+
     private String getValidFilePath(String prompt, String fileType) {
         while (true) {
             System.out.print(prompt);
@@ -831,6 +1248,22 @@ public class WarehouseUI {
                     return -1;
                 }
                 return Integer.parseInt(input);
+            } catch (NumberFormatException e) {
+                System.out.println("Invalid number. Please try again.");
+            }
+        }
+    }
+
+    private double getRequiredDoubleInput(String prompt) {
+        while (true) {
+            try {
+                System.out.print(prompt);
+                String input = scanner.nextLine().trim();
+                if (input.isEmpty()) {
+                    System.out.println("Value required. Please enter a number.");
+                    continue;
+                }
+                return Double.parseDouble(input);
             } catch (NumberFormatException e) {
                 System.out.println("Invalid number. Please try again.");
             }
