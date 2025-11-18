@@ -288,8 +288,8 @@ INSERT INTO Locomotive (VehicleModelID, TrainOperatorID) VALUES (5630, 1);
 INSERT INTO Locomotive (VehicleModelID, TrainOperatorID) VALUES (1903, 1);
 INSERT INTO Locomotive (VehicleModelID, TrainOperatorID) VALUES (5034, 1);
 INSERT INTO Locomotive (VehicleModelID, TrainOperatorID) VALUES (5036, 1);
-INSERT INTO Locomotive (VehicleModelID, TrainOperatorID) VALUES (335001, 1);
-INSERT INTO Locomotive (VehicleModelID, TrainOperatorID) VALUES (335003, 1);
+INSERT INTO Locomotive (VehicleModelID, TrainOperatorID) VALUES (335001, 2);
+INSERT INTO Locomotive (VehicleModelID, TrainOperatorID) VALUES (335003, 2);
 
 INSERT INTO Locomotive_Train (LocomotiveID, TrainID) VALUES (1, 5421);
 INSERT INTO Locomotive_Train (LocomotiveID, TrainID) VALUES (2, 5421);
@@ -458,4 +458,3 @@ INSERT INTO TrainEvent (RouteID, TrainID, FacilityID, EventTime) VALUES (3, 5437
 INSERT INTO TrainEvent (RouteID, TrainID, FacilityID, EventTime) VALUES (3, 5437, 45, TO_DATE('2025-10-06 14:50:00','YYYY-MM-DD HH24:MI:SS'));
 INSERT INTO TrainEvent (RouteID, TrainID, FacilityID, EventTime) VALUES (3, 5437, 48, TO_DATE('2025-10-06 15:15:00','YYYY-MM-DD HH24:MI:SS'));
 INSERT INTO TrainEvent (RouteID, TrainID, FacilityID, EventTime) VALUES (3, 5437, 50, TO_DATE('2025-10-06 15:30:00','YYYY-MM-DD HH24:MI:SS'));
-
