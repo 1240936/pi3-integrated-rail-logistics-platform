@@ -165,6 +165,23 @@ public class StationService {
     }
 
     /**
+     * Performs a range query with optional filters.
+     *
+     * @param minLat minimum latitude
+     * @param maxLat maximum latitude
+     * @param minLon minimum longitude
+     * @param maxLon maximum longitude
+     * @param isCityFilter optional filter for isCity (null = no filter)
+     * @param isMainStationFilter optional filter for isMainStation (null = no filter)
+     * @param countryFilter optional filter for country ("PT", "ES", or "all" = no filter)
+     * @return list of stations in the range matching the filters
+     */
+    public List<Station> rangeQueryWithFilters(double minLat, double maxLat, double minLon, double maxLon,
+                                               Boolean isCityFilter, Boolean isMainStationFilter, String countryFilter) {
+        return tree.rangeQueryWithFilters(minLat, maxLat, minLon, maxLon, isCityFilter, isMainStationFilter, countryFilter);
+    }
+
+    /**
      * Returns the loaded stations.
      *
      * @return list of stations

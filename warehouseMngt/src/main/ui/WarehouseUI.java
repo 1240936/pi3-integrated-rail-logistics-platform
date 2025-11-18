@@ -146,8 +146,9 @@ public class WarehouseUI {
     private void showSprint2Menu() {
         while (true) {
             System.out.println("\n=== SPRINT 2 - STATION INDEXING ===");
-            System.out.println("1. USEI06 - Time-Zone Index");
-            System.out.println("2. USEI07 - 2D-Tree Spatial Index");
+            System.out.println("1. BST/AVL tree features");
+            System.out.println("2. KD2D Tree features");
+            System.out.println("3. Geographical Area Search");
             System.out.println("0. Back to Main Menu");
             
             int choice = getIntInput("Enter your choice: ");
@@ -158,6 +159,9 @@ public class WarehouseUI {
                     break;
                 case 2:
                     manageStationsSpatialIndex();
+                    break;
+                case 3:
+                    manageGeographicalAreaSearch();
                     break;
                 case 0:
                     return;
@@ -1016,7 +1020,7 @@ public class WarehouseUI {
             return;
         }
         
-        System.out.println("\n=== Sample Queries (USEI06) ===");
+        System.out.println("\n=== Sample Queries ===");
         
         // Query 1: Single time zone group
         System.out.println("\nQuery 1: All stations in CET time zone");
@@ -1075,7 +1079,7 @@ public class WarehouseUI {
     }
 
     private void showTemporalComplexityAnalysis() {
-        System.out.println("\n=== Temporal Complexity Analysis (USEI06) ===");
+        System.out.println("\n=== Temporal Complexity Analysis ===");
         System.out.println("\nAVL Tree Operations:");
         System.out.println("  - Insertion: O(log n) - balanced tree guarantees logarithmic height");
         System.out.println("  - Search: O(log n) - binary search in balanced tree");
@@ -1093,7 +1097,7 @@ public class WarehouseUI {
     private void manageStationsSpatialIndex() {
         boolean exit = false;
         while (!exit) {
-            System.out.println("\n=== USEI07 - 2D-TREE SPATIAL INDEX ===");
+            System.out.println("\n=== KD2D Tree Menu ===");
             System.out.println("1. Build 2D-Tree");
             System.out.println("2. Show Tree Statistics");
             System.out.println("3. Range Query");
@@ -1128,7 +1132,7 @@ public class WarehouseUI {
         AVL<StationComparable> lonTree = stationService.getLongitudeTree();
         
         if (latTree == null || lonTree == null) {
-            System.out.println("AVL trees not found. Please create them first using USEI06 (option 10).");
+            System.out.println("AVL trees not found. Please create them first.");
             return;
         }
         
@@ -1136,7 +1140,7 @@ public class WarehouseUI {
             System.out.println("\n--- Build 2D-tree using existing AVL trees ---");
             stationService.buildBalanced2DTree();
             stationDataLoaded = true;
-            System.out.println("2D-tree built successfully using AVL trees from USEI06.");
+            System.out.println("2D-tree built successfully using existing AVL trees.");
         } catch (Exception e) {
             System.out.println("Error building 2D-tree: " + e.getMessage());
         }
@@ -1200,6 +1204,139 @@ public class WarehouseUI {
         while (index < results.size() && index < limit) {
             Station station = results.get(index);
             System.out.println(" - " + station.getName() + " (" + station.getLatitude() + ", " + station.getLongitude() + ") - " + station.getCountry());
+            index++;
+        }
+
+        if (results.size() > limit) {
+            System.out.println("... (" + (results.size() - limit) + " more stations not shown)");
+        }
+    }
+
+    private void manageGeographicalAreaSearch() {
+        boolean exit = false;
+        while (!exit) {
+            System.out.println("\n=== GEOGRAPHICAL AREA SEARCH WITH FILTERS ===");
+            System.out.println("1. Search Stations in Geographical Area");
+            System.out.println("0. Back to Sprint 2 Menu");
+
+            int choice = getIntInput("Select an option: ");
+            if (choice == -1) {
+                choice = 0;
+            }
+
+            switch (choice) {
+                case 1:
+                    runStationsRangeQueryWithFilters();
+                    break;
+                case 0:
+                    exit = true;
+                    break;
+                default:
+                    System.out.println("Invalid option. Please try again.");
+            }
+        }
+    }
+
+    private void runStationsRangeQueryWithFilters() {
+        if (!stationDataLoaded) {
+            System.out.println("No station data loaded. Please load a stations CSV first.");
+            return;
+        }
+
+        System.out.println("\n=== Search Stations in Geographical Area ===");
+        System.out.println("Enter the geographical bounds:");
+        double minLat = getRequiredDoubleInput("Minimum latitude: ");
+        double maxLat = getRequiredDoubleInput("Maximum latitude: ");
+        double minLon = getRequiredDoubleInput("Minimum longitude: ");
+        double maxLon = getRequiredDoubleInput("Maximum longitude: ");
+
+        if (minLat > maxLat) {
+            double temp = minLat;
+            minLat = maxLat;
+            maxLat = temp;
+        }
+        if (minLon > maxLon) {
+            double temp = minLon;
+            minLon = maxLon;
+            maxLon = temp;
+        }
+
+        System.out.println("\nOptional Filters (press Enter to skip):");
+        
+        Boolean isCityFilter = null;
+        String cityInput = getStringInput("Filter by isCity? (true/false, or Enter to skip): ");
+        if (!cityInput.trim().isEmpty()) {
+            if (cityInput.equalsIgnoreCase("true")) {
+                isCityFilter = true;
+            } else if (cityInput.equalsIgnoreCase("false")) {
+                isCityFilter = false;
+            } else {
+                System.out.println("Invalid input. Skipping isCity filter.");
+            }
+        }
+
+        Boolean isMainStationFilter = null;
+        String mainStationInput = getStringInput("Filter by isMainStation? (true/false, or Enter to skip): ");
+        if (!mainStationInput.trim().isEmpty()) {
+            if (mainStationInput.equalsIgnoreCase("true")) {
+                isMainStationFilter = true;
+            } else if (mainStationInput.equalsIgnoreCase("false")) {
+                isMainStationFilter = false;
+            } else {
+                System.out.println("Invalid input. Skipping isMainStation filter.");
+            }
+        }
+
+        String countryFilter = null;
+        String countryInput = getStringInput("Filter by country? (PT/ES/all, or Enter to skip): ");
+        if (!countryInput.trim().isEmpty()) {
+            if (countryInput.equalsIgnoreCase("PT") || countryInput.equalsIgnoreCase("ES") || 
+                countryInput.equalsIgnoreCase("all")) {
+                countryFilter = countryInput.toUpperCase();
+            } else {
+                System.out.println("Invalid country. Use PT, ES, or all. Skipping country filter.");
+            }
+        }
+
+        System.out.println("\n--- Query Parameters ---");
+        System.out.println("Bounds: Lat [" + minLat + ", " + maxLat + "] Lon [" + minLon + ", " + maxLon + "]");
+        System.out.print("Used Filters: ");
+        if (isCityFilter != null) {
+            System.out.print("isCity=" + isCityFilter + " ");
+        }
+        if (isMainStationFilter != null) {
+            System.out.print("isMainStation=" + isMainStationFilter + " ");
+        }
+        if (countryFilter != null) {
+            System.out.print("country=" + countryFilter + " ");
+        }
+        if (isCityFilter == null && isMainStationFilter == null && countryFilter == null) {
+            System.out.print("(none)");
+        }
+        System.out.println();
+
+        long startTime = System.currentTimeMillis();
+        List<Station> results = stationService.rangeQueryWithFilters(minLat, maxLat, minLon, maxLon, 
+                                                                      isCityFilter, isMainStationFilter, countryFilter);
+        long elapsedTime = System.currentTimeMillis() - startTime;
+
+        System.out.println("\n--- Results ---");
+        System.out.println("Stations found: " + results.size());
+        System.out.println("Query time: " + elapsedTime + " ms");
+
+        int limit = 20;
+        int index = 0;
+        while (index < results.size() && index < limit) {
+            Station station = results.get(index);
+            System.out.printf(" - %s (%.5f, %.5f) - %s", 
+                station.getName(), station.getLatitude(), station.getLongitude(), station.getCountry());
+            if (station.isCity()) {
+                System.out.print(" [City]");
+            }
+            if (station.isMainStation()) {
+                System.out.print(" [Main]");
+            }
+            System.out.println();
             index++;
         }
 
