@@ -851,11 +851,11 @@ public class WarehouseUI {
 
     private void manageStationsTimeZoneIndex() {
         while (true) {
-            System.out.println("\n=== USEI06 - TIME-ZONE INDEX ===");
+            System.out.println("\n=== BST/AVL tree features ===");
             System.out.println("1. Load Stations CSV");
             System.out.println("2. Show Tree Statistics");
-            System.out.println("3. Query by Time Zone");
-            System.out.println("4. Query by Time Zone Window");
+            System.out.println("3. Query by Time Zone (sorted by country ascending)");
+            System.out.println("4. Query by Time Zone Window (multiple time zones, sorted by TZ then country)");
             System.out.println("5. Run Sample Queries");
             System.out.println("6. Complexity Analysis");
             System.out.println("0. Back to Sprint 2 Menu");
@@ -945,6 +945,7 @@ public class WarehouseUI {
         }
         
         System.out.println("\n--- Query by Time Zone Group ---");
+        System.out.println("Returns stations sorted by country (ascending), then by name.");
         String timeZoneGroup = getStringInput("Enter time zone group (e.g., CET, WET/GMT): ");
         
         if (timeZoneGroup.isEmpty()) {
@@ -957,6 +958,7 @@ public class WarehouseUI {
         long elapsedTime = System.nanoTime() - startTime;
         
         System.out.println("Found " + results.size() + " stations in time zone group '" + timeZoneGroup + "'");
+        System.out.println("Results sorted by country (ascending), then by name.");
         System.out.println("Query time: " + (elapsedTime / 1_000_000.0) + " ms");
         
         int limit = 20;
@@ -980,6 +982,8 @@ public class WarehouseUI {
         }
         
         System.out.println("\n--- Query by Time Zone Group Window ---");
+        System.out.println("Returns stations from multiple time zone groups.");
+        System.out.println("Results sorted by time zone group, then country (ascending), then by name.");
         System.out.println("Enter time zone groups (comma-separated, e.g., CET,WET/GMT): ");
         String input = getStringInput("");
         
@@ -998,6 +1002,7 @@ public class WarehouseUI {
         long elapsedTime = System.nanoTime() - startTime;
         
         System.out.println("Found " + results.size() + " stations in time zone groups: " + String.join(", ", timeZoneGroups));
+        System.out.println("Results sorted by time zone group, then country (ascending), then by name.");
         System.out.println("Query time: " + (elapsedTime / 1_000_000.0) + " ms");
         
         int limit = 20;
