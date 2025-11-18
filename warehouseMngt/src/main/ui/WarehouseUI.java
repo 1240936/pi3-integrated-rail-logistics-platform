@@ -1106,6 +1106,7 @@ public class WarehouseUI {
             System.out.println("1. Build 2D-Tree");
             System.out.println("2. Show Tree Statistics");
             System.out.println("3. Range Query");
+            System.out.println("4. Proximity Search (Nearest-N)");
             System.out.println("0. Back to Sprint 2 Menu");
 
             int choice = getIntInput("Select an option: ");
@@ -1122,6 +1123,9 @@ public class WarehouseUI {
                     break;
                 case 3:
                     runStationsRangeQuery();
+                    break;
+                case 4:
+                    runProximitySearch();
                     break;
                 case 0:
                     exit = true;
@@ -1217,11 +1221,77 @@ public class WarehouseUI {
         }
     }
 
+    private void runProximitySearch() {
+        if (!stationDataLoaded) {
+            System.out.println("No station data loaded. Please load a stations CSV first.");
+            return;
+        }
+
+        System.out.println("\n=== Proximity Search (Nearest-N) ===");
+        System.out.println("Finds the N closest stations to a target coordinate using Haversine distance.");
+        
+        double targetLat = getRequiredDoubleInput("Target latitude: ");
+        double targetLon = getRequiredDoubleInput("Target longitude: ");
+        int n = getIntInput("Number of nearest neighbors to find: ");
+        
+        if (n <= 0) {
+            System.out.println("Error: Number of neighbors must be positive.");
+            return;
+        }
+
+        System.out.println("\nOptional Filters (press Enter to skip):");
+        String timeZoneInput = getStringInput("Filter by time zone group? (e.g., CET, WET/GMT, or Enter to skip): ");
+        String timeZoneFilter = timeZoneInput.trim().isEmpty() ? null : timeZoneInput.trim();
+
+        System.out.println("\n--- Query Parameters ---");
+        System.out.println("Target: (" + targetLat + ", " + targetLon + ")");
+        System.out.println("Nearest N: " + n);
+        if (timeZoneFilter != null) {
+            System.out.println("Time Zone Filter: " + timeZoneFilter);
+        } else {
+            System.out.println("Time Zone Filter: (none)");
+        }
+
+        long startTime = System.nanoTime();
+        main.domain.NearestNeighborResult result = stationService.nearestNNeighbors(targetLat, targetLon, n, timeZoneFilter);
+        long elapsedTime = System.nanoTime() - startTime;
+
+        System.out.println("\n--- Results ---");
+        System.out.println("Found " + result.getNeighbors().size() + " nearest stations");
+        System.out.println("Query time: " + (elapsedTime / 1_000_000.0) + " ms");
+        System.out.println("Explored nodes: " + result.getExploredNodes() + " / " + result.getTotalStations() + " total stations");
+        System.out.println("Efficiency: " + String.format("%.2f", (1.0 - (double)result.getExploredNodes() / result.getTotalStations()) * 100) + "% nodes pruned");
+
+        if (result.getNeighbors().isEmpty()) {
+            System.out.println("No stations found matching the criteria.");
+            return;
+        }
+
+        System.out.println("\nNearest Stations (sorted by distance, closest first):");
+        System.out.printf("%-5s %-40s %-15s %-15s %-12s %-15s%n", 
+            "Rank", "Station Name", "Latitude", "Longitude", "Distance (km)", "Time Zone");
+        System.out.println("-".repeat(110));
+
+        int rank = 1;
+        for (main.domain.NearestNeighborResult.StationWithDistance swd : result.getNeighbors()) {
+            Station station = swd.getStation();
+            System.out.printf("%-5d %-40s %-15.5f %-15.5f %-12.2f %-15s%n",
+                rank++,
+                station.getName(),
+                station.getLatitude(),
+                station.getLongitude(),
+                swd.getDistanceKm(),
+                station.getTimeZoneGroup());
+        }
+    }
+
     private void manageGeographicalAreaSearch() {
         boolean exit = false;
         while (!exit) {
             System.out.println("\n=== GEOGRAPHICAL AREA SEARCH WITH FILTERS ===");
             System.out.println("1. Search Stations in Geographical Area");
+            System.out.println("2. Run Sample Queries");
+            System.out.println("3. Complexity Analysis");
             System.out.println("0. Back to Sprint 2 Menu");
 
             int choice = getIntInput("Select an option: ");
@@ -1232,6 +1302,12 @@ public class WarehouseUI {
             switch (choice) {
                 case 1:
                     runStationsRangeQueryWithFilters();
+                    break;
+                case 2:
+                    runGeographicalAreaSampleQueries();
+                    break;
+                case 3:
+                    showGeographicalAreaComplexityAnalysis();
                     break;
                 case 0:
                     exit = true;
@@ -1348,6 +1424,132 @@ public class WarehouseUI {
         if (results.size() > limit) {
             System.out.println("... (" + (results.size() - limit) + " more stations not shown)");
         }
+    }
+
+    private void runGeographicalAreaSampleQueries() {
+        if (!stationDataLoaded) {
+            System.out.println("No station data loaded. Please load a stations CSV first.");
+            return;
+        }
+        
+        System.out.println("\n=== Sample Queries ===");
+        
+        // Query 1: Basic range query without filters (Portugal region)
+        System.out.println("\nQuery 1: Stations in Portugal region (no filters)");
+        System.out.println("  Bounds: Lat [36.0, 42.0] Lon [-10.0, -6.0]");
+        long start1 = System.nanoTime();
+        List<Station> results1 = stationService.rangeQueryWithFilters(36.0, 42.0, -10.0, -6.0, null, null, null);
+        long elapsed1 = System.nanoTime() - start1;
+        System.out.println("  Results: " + results1.size() + " stations");
+        System.out.println("  Time: " + (elapsed1 / 1_000_000.0) + " ms");
+        if (!results1.isEmpty()) {
+            Station s = results1.get(0);
+            System.out.println("  Sample: " + s.getName() + " (" + s.getCountry() + ")");
+        }
+        
+        // Query 2: Range query with country filter (Portugal only)
+        System.out.println("\nQuery 2: Stations in Portugal region, filtered by country=PT");
+        System.out.println("  Bounds: Lat [36.0, 42.0] Lon [-10.0, -6.0]");
+        System.out.println("  Filter: country=PT");
+        long start2 = System.nanoTime();
+        List<Station> results2 = stationService.rangeQueryWithFilters(36.0, 42.0, -10.0, -6.0, null, null, "PT");
+        long elapsed2 = System.nanoTime() - start2;
+        System.out.println("  Results: " + results2.size() + " stations");
+        System.out.println("  Time: " + (elapsed2 / 1_000_000.0) + " ms");
+        if (!results2.isEmpty()) {
+            Station s = results2.get(0);
+            System.out.println("  Sample: " + s.getName() + " (" + s.getCountry() + ")");
+        }
+        
+        // Query 3: Range query with isCity filter
+        System.out.println("\nQuery 3: Stations in Spain region, filtered by isCity=true");
+        System.out.println("  Bounds: Lat [36.0, 44.0] Lon [-10.0, 4.0]");
+        System.out.println("  Filter: isCity=true");
+        long start3 = System.nanoTime();
+        List<Station> results3 = stationService.rangeQueryWithFilters(36.0, 44.0, -10.0, 4.0, true, null, null);
+        long elapsed3 = System.nanoTime() - start3;
+        System.out.println("  Results: " + results3.size() + " stations");
+        System.out.println("  Time: " + (elapsed3 / 1_000_000.0) + " ms");
+        if (!results3.isEmpty()) {
+            Station s = results3.get(0);
+            System.out.println("  Sample: " + s.getName() + " (" + s.getCountry() + ") [City]");
+        }
+        
+        // Query 4: Range query with isMainStation filter
+        System.out.println("\nQuery 4: Stations in Iberian Peninsula, filtered by isMainStation=true");
+        System.out.println("  Bounds: Lat [36.0, 44.0] Lon [-10.0, 4.0]");
+        System.out.println("  Filter: isMainStation=true");
+        long start4 = System.nanoTime();
+        List<Station> results4 = stationService.rangeQueryWithFilters(36.0, 44.0, -10.0, 4.0, null, true, null);
+        long elapsed4 = System.nanoTime() - start4;
+        System.out.println("  Results: " + results4.size() + " stations");
+        System.out.println("  Time: " + (elapsed4 / 1_000_000.0) + " ms");
+        if (!results4.isEmpty()) {
+            Station s = results4.get(0);
+            System.out.println("  Sample: " + s.getName() + " (" + s.getCountry() + ") [Main]");
+        }
+        
+        // Query 5: Range query with multiple filters
+        System.out.println("\nQuery 5: Stations in Portugal, filtered by country=PT, isCity=true, isMainStation=true");
+        System.out.println("  Bounds: Lat [36.0, 42.0] Lon [-10.0, -6.0]");
+        System.out.println("  Filters: country=PT, isCity=true, isMainStation=true");
+        long start5 = System.nanoTime();
+        List<Station> results5 = stationService.rangeQueryWithFilters(36.0, 42.0, -10.0, -6.0, true, true, "PT");
+        long elapsed5 = System.nanoTime() - start5;
+        System.out.println("  Results: " + results5.size() + " stations");
+        System.out.println("  Time: " + (elapsed5 / 1_000_000.0) + " ms");
+        if (!results5.isEmpty()) {
+            Station s = results5.get(0);
+            System.out.println("  Sample: " + s.getName() + " (" + s.getCountry() + ") [City] [Main]");
+        }
+    }
+
+    private void showGeographicalAreaComplexityAnalysis() {
+        System.out.println("\n=== Temporal Complexity Analysis ===");
+        System.out.println("\nKD-Tree Range Query Operations:");
+        System.out.println("  - Basic range query: O(√n + k)");
+        System.out.println("    * n = number of nodes in the tree");
+        System.out.println("    * k = number of results in the query rectangle");
+        System.out.println("    * √n comes from tree traversal (balanced KD-tree height ≈ log₂(n))");
+        System.out.println("    * k is the number of points to report");
+        System.out.println("    * Pruning avoids scanning entire dataset");
+        System.out.println("\n  - Range query with filters: O(√n + k)");
+        System.out.println("    * Same spatial complexity as basic query");
+        System.out.println("    * Filters add O(1) per station checked, but don't change");
+        System.out.println("      asymptotic complexity since filtering only happens on");
+        System.out.println("      stations already in the spatial range");
+        System.out.println("\nSpace Complexity:");
+        System.out.println("  - O(h) where h is the height of the tree (recursion stack)");
+        System.out.println("  - For balanced KD-tree: h ≈ log₂(n), so O(log n)");
+        System.out.println("\nFilter Operations:");
+        System.out.println("  - isCity filter: O(1) - boolean comparison");
+        System.out.println("  - isMainStation filter: O(1) - boolean comparison");
+        System.out.println("  - country filter: O(1) - string comparison (short strings)");
+        System.out.println("\nTree Construction:");
+        System.out.println("  - Building balanced KD-tree: O(n log² n)");
+        System.out.println("    * Uses AVL trees to find medians efficiently");
+        System.out.println("    * Each level requires O(n log n) for median finding");
+        System.out.println("    * Height is O(log n), so total is O(n log² n)");
+        System.out.println("  - Space complexity: O(n) - stores all n stations");
+        System.out.println("\nUSEI09 - Proximity Search (Nearest-N):");
+        System.out.println("  - Nearest-N search: O(√n + k log k)");
+        System.out.println("    * n = number of nodes in the tree");
+        System.out.println("    * k = number of nearest neighbors requested");
+        System.out.println("    * √n comes from tree traversal (balanced KD-tree height ≈ log₂(n))");
+        System.out.println("    * k log k comes from maintaining priority queue of k nearest");
+        System.out.println("    * Pruning minimizes explored nodes by checking if far child");
+        System.out.println("      can contain closer points than current k-th nearest");
+        System.out.println("  - With time zone filter: O(√n + k log k)");
+        System.out.println("    * Same spatial complexity as basic nearest-N search");
+        System.out.println("    * Time zone filter adds O(1) per station checked");
+        System.out.println("    * Filtering only happens on stations already considered");
+        System.out.println("\n  - Haversine distance calculation: O(1)");
+        System.out.println("    * Constant time trigonometric operations");
+        System.out.println("    * Uses Earth radius = 6371 km for accurate distance");
+        System.out.println("\n  - Explored nodes: Typically much less than n");
+        System.out.println("    * Pruning strategy avoids exploring entire tree");
+        System.out.println("    * Only explores branches that might contain closer points");
+        System.out.println("    * Efficiency depends on query location and tree structure");
     }
 
     private String getValidFilePath(String prompt, String fileType) {
