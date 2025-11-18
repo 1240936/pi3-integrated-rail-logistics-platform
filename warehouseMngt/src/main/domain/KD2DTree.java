@@ -3,13 +3,6 @@ package main.domain;
 import main.domain.AVL;
 import java.util.*;
 
-/**
- * 2D-tree (KD-tree with k=2) for spatial indexing of stations.
- * Supports efficient range queries and nearest neighbor searches.
- * Uses a balanced build strategy based on AVL trees of latitude and longitude.
- *
- * NOTE: Uses main.PL.AVL (from university provided classes) which requires Comparable<E>
- */
 public class KD2DTree {
     private KD2DNode root;
     private int size;
@@ -30,18 +23,6 @@ public class KD2DTree {
     }
 
     /**
-     * Builds a balanced 2D-tree from a list of stations.
-     * USEI07: Uses AVL trees of latitude and longitude to build efficiently.
-     * 
-     * Strategy:
-     * 1. Groups stations by coordinates (multiple stations can have the same coordinates)
-     * 2. Creates AVL trees sorted by latitude and longitude
-     * 3. Uses AVL trees to find medians and build the balanced tree
-     * 4. Alternates between splitting by latitude and longitude at each level
-     * 
-     * NOTE: The method name mentions "BST", but in practice uses only AVLTree,
-     * as AVLTree is already a balanced BST and provides all necessary functionality.
-     *
      * @param stations list of stations to insert
      */
     public void buildBalancedUsingBST(List<Station> stations) {
@@ -52,8 +33,6 @@ public class KD2DTree {
             return;
         }
 
-        // Step 1: Group stations by coordinates (key: "lat,lon")
-        // Multiple stations can have the same coordinates (e.g., Lisbon)
         Map<String, List<Station>> coordinateMap = new HashMap<>();
         for (Station station : stations) {
             String key = station.getLatitude() + "," + station.getLongitude();
@@ -65,27 +44,21 @@ public class KD2DTree {
             group.add(station);
         }
 
-        // Step 2: Extract representatives (one per coordinate, sorted by name for determinism)
         List<Station> representatives = new ArrayList<>(coordinateMap.size());
         for (List<Station> group : coordinateMap.values()) {
             group.sort(NAME_COMPARATOR);
             representatives.add(group.get(0));
         }
 
-        // Step 3: Create AVL trees sorted by latitude and longitude
         AVL<StationComparable> latTree = createAVLTree(representatives, StationComparable.ComparisonType.BY_LATITUDE);
         AVL<StationComparable> lonTree = createAVLTree(representatives, StationComparable.ComparisonType.BY_LONGITUDE);
 
-        // Step 4: Build the 2D-tree recursively using the AVL trees
         this.root = buildFromAVLTrees(latTree, lonTree, coordinateMap, true);
         this.size = stations.size();
         this.height = calculateHeight(root);
     }
 
     /**
-     * Builds a balanced 2D-tree using pre-created AVL trees (from USEI06).
-     * This is more efficient as it reuses the AVL trees already created.
-     * 
      * @param stations list of all stations
      * @param latTree pre-created AVL tree sorted by latitude
      * @param lonTree pre-created AVL tree sorted by longitude
@@ -103,8 +76,6 @@ public class KD2DTree {
             throw new IllegalArgumentException("Latitude and longitude AVL trees must not be null.");
         }
 
-        // Step 1: Group stations by coordinates (key: "lat,lon")
-        // Multiple stations can have the same coordinates (e.g., Lisbon)
         Map<String, List<Station>> coordinateMap = new HashMap<>();
         for (Station station : stations) {
             String key = station.getLatitude() + "," + station.getLongitude();
@@ -116,24 +87,17 @@ public class KD2DTree {
             group.add(station);
         }
 
-        // Step 2: Use pre-created trees directly, but filter to only representatives during build
-        // Create a set of representative stations (one per coordinate, sorted by name)
         Set<Station> representatives = new HashSet<>();
         for (List<Station> group : coordinateMap.values()) {
             group.sort(NAME_COMPARATOR);
-            representatives.add(group.get(0)); // First station is the representative
+            representatives.add(group.get(0));
         }
         
-        // Step 3: Build the 2D-tree recursively using the pre-created AVL trees
         this.root = buildFromAVLTreesWithFilter(latTree, lonTree, coordinateMap, representatives, true);
         this.size = stations.size();
         this.height = calculateHeight(root);
     }
 
-    /**
-     * Recursively builds the 2D-tree using the pre-created AVL trees, filtering to only representatives.
-     * This approach keeps the construction tied directly to the PL-supplied trees.
-     */
     private KD2DNode buildFromAVLTreesWithFilter(AVL<StationComparable> latTree,
                                                  AVL<StationComparable> lonTree,
                                                  Map<String, List<Station>> coordinateMap,
@@ -349,8 +313,6 @@ public class KD2DTree {
     }
 
     /**
-     * Performs a range query to find all stations within a rectangular region.
-     *
      * @param minLat minimum latitude
      * @param maxLat maximum latitude
      * @param minLon minimum longitude
@@ -363,6 +325,23 @@ public class KD2DTree {
         return result;
     }
 
+    /**
+     * @param minLat minimum latitude
+     * @param maxLat maximum latitude
+     * @param minLon minimum longitude
+     * @param maxLon maximum longitude
+     * @param isCityFilter optional filter for isCity (null = no filter)
+     * @param isMainStationFilter optional filter for isMainStation (null = no filter)
+     * @param countryFilter optional filter for country ("PT", "ES", or "all" = no filter)
+     * @return list of stations in the range matching the filters
+     */
+    public List<Station> rangeQueryWithFilters(double minLat, double maxLat, double minLon, double maxLon,
+                                               Boolean isCityFilter, Boolean isMainStationFilter, String countryFilter) {
+        List<Station> result = new ArrayList<>();
+        rangeQueryWithFilters(root, minLat, maxLat, minLon, maxLon, isCityFilter, isMainStationFilter, countryFilter, result);
+        return result;
+    }
+
     private void rangeQuery(KD2DNode node, double minLat, double maxLat, double minLon, double maxLon,
                            List<Station> result) {
         if (node == null) {
@@ -372,25 +351,77 @@ public class KD2DTree {
         double lat = node.getLatitude();
         double lon = node.getLongitude();
 
-        // Check if this node's point is in the range
         if (lat >= minLat && lat <= maxLat && lon >= minLon && lon <= maxLon) {
             result.addAll(node.getStations());
         }
 
-        // Recursively search subtrees
         if (node.isSplitByLatitude()) {
-            if (lat >= minLat) {
+            if (minLat <= lat) {
                 rangeQuery(node.getLeft(), minLat, maxLat, minLon, maxLon, result);
             }
-            if (lat <= maxLat) {
+            if (maxLat > lat) {
                 rangeQuery(node.getRight(), minLat, maxLat, minLon, maxLon, result);
             }
         } else {
-            if (lon >= minLon) {
+            if (minLon <= lon) {
                 rangeQuery(node.getLeft(), minLat, maxLat, minLon, maxLon, result);
             }
-            if (lon <= maxLon) {
+            if (maxLon > lon) {
                 rangeQuery(node.getRight(), minLat, maxLat, minLon, maxLon, result);
+            }
+        }
+    }
+
+    private void rangeQueryWithFilters(KD2DNode node, double minLat, double maxLat, double minLon, double maxLon,
+                                      Boolean isCityFilter, Boolean isMainStationFilter, String countryFilter,
+                                      List<Station> result) {
+        if (node == null) {
+            return;
+        }
+
+        double lat = node.getLatitude();
+        double lon = node.getLongitude();
+
+        if (lat >= minLat && lat <= maxLat && lon >= minLon && lon <= maxLon) {
+            for (Station station : node.getStations()) {
+                boolean matches = true;
+
+                if (isCityFilter != null && station.isCity() != isCityFilter) {
+                    matches = false;
+                }
+
+                if (matches && isMainStationFilter != null && station.isMainStation() != isMainStationFilter) {
+                    matches = false;
+                }
+
+                if (matches && countryFilter != null && !countryFilter.equals("all")) {
+                    if (!countryFilter.equals(station.getCountry())) {
+                        matches = false;
+                    }
+                }
+
+                if (matches) {
+                    result.add(station);
+                }
+            }
+        }
+        if (node.isSplitByLatitude()) {
+            if (minLat <= lat) {
+                rangeQueryWithFilters(node.getLeft(), minLat, maxLat, minLon, maxLon, 
+                                     isCityFilter, isMainStationFilter, countryFilter, result);
+            }
+            if (maxLat > lat) {
+                rangeQueryWithFilters(node.getRight(), minLat, maxLat, minLon, maxLon, 
+                                     isCityFilter, isMainStationFilter, countryFilter, result);
+            }
+        } else {
+            if (minLon <= lon) {
+                rangeQueryWithFilters(node.getLeft(), minLat, maxLat, minLon, maxLon, 
+                                     isCityFilter, isMainStationFilter, countryFilter, result);
+            }
+            if (maxLon > lon) {
+                rangeQueryWithFilters(node.getRight(), minLat, maxLat, minLon, maxLon, 
+                                     isCityFilter, isMainStationFilter, countryFilter, result);
             }
         }
     }
