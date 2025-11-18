@@ -425,5 +425,174 @@ public class KD2DTree {
             }
         }
     }
+
+
+    /**
+     * Earth's radius in kilometers (used for Haversine distance calculation).
+     */
+    private static final double EARTH_RADIUS_KM = 6371.0;
+
+    /**
+     * Calculates the Haversine distance between two points on Earth's surface.
+     * Uses the standard Haversine formula with Earth radius = 6371 km.
+     *
+     * @param lat1 latitude of first point in degrees
+     * @param lon1 longitude of first point in degrees
+     * @param lat2 latitude of second point in degrees
+     * @param lon2 longitude of second point in degrees
+     * @return distance in kilometers
+     */
+    private static double haversineDistance(double lat1, double lon1, double lat2, double lon2) {
+        // Convert degrees to radians
+        double lat1Rad = Math.toRadians(lat1);
+        double lon1Rad = Math.toRadians(lon1);
+        double lat2Rad = Math.toRadians(lat2);
+        double lon2Rad = Math.toRadians(lon2);
+
+        // Haversine formula
+        double deltaLat = lat2Rad - lat1Rad;
+        double deltaLon = lon2Rad - lon1Rad;
+
+        double a = Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) +
+                Math.cos(lat1Rad) * Math.cos(lat2Rad) *
+                        Math.sin(deltaLon / 2) * Math.sin(deltaLon / 2);
+
+        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+        return EARTH_RADIUS_KM * c;
+    }
+
+    /**
+     * Finds the N nearest stations to a target coordinate using the 2D-tree.
+     * Uses Haversine distance (km) with Earth radius for accurate distance calculation.
+     * The search minimizes explored nodes by using the 2D-tree structure efficiently.
+     *
+     * @param targetLat target latitude in degrees
+     * @param targetLon target longitude in degrees
+     * @param n number of nearest neighbors to find
+     * @param timeZoneFilter optional time zone group filter (null = no filter)
+     * @return result containing nearest neighbors with distances and complexity metrics
+     */
+    public NearestNeighborResult nearestNNeighbors(double targetLat, double targetLon, int n, String timeZoneFilter) {
+        if (root == null || n <= 0) {
+            return new NearestNeighborResult(new ArrayList<>(), 0, size);
+        }
+
+        // Priority queue to maintain N nearest neighbors (max-heap: farthest at top)
+        PriorityQueue<NearestNeighborResult.StationWithDistance> nearestQueue =
+                new PriorityQueue<>(n + 1, (a, b) -> Double.compare(b.getDistanceKm(), a.getDistanceKm()));
+
+        // Track explored nodes for complexity analysis
+        int[] exploredCount = new int[1]; // Use array to pass by reference
+
+        // Perform nearest-N search
+        nearestNNeighborsRecursive(root, targetLat, targetLon, n, timeZoneFilter, nearestQueue, exploredCount);
+
+        // Convert priority queue to sorted list (closest first)
+        List<NearestNeighborResult.StationWithDistance> result = new ArrayList<>(nearestQueue);
+        result.sort((a, b) -> Double.compare(a.getDistanceKm(), b.getDistanceKm()));
+
+        return new NearestNeighborResult(result, exploredCount[0], size);
+    }
+
+    /**
+     * Recursive helper for nearest-N search.
+     * Uses the 2D-tree structure to minimize explored nodes by pruning branches.
+     *
+     * @param node current node being explored
+     * @param targetLat target latitude
+     * @param targetLon target longitude
+     * @param n number of neighbors to find
+     * @param timeZoneFilter optional time zone filter
+     * @param nearestQueue priority queue maintaining N nearest neighbors
+     * @param exploredCount counter for explored nodes
+     */
+    private void nearestNNeighborsRecursive(KD2DNode node, double targetLat, double targetLon, int n,
+                                            String timeZoneFilter,
+                                            PriorityQueue<NearestNeighborResult.StationWithDistance> nearestQueue,
+                                            int[] exploredCount) {
+        if (node == null) {
+            return;
+        }
+
+        exploredCount[0]++;
+
+        // Get node coordinates
+        double nodeLat = node.getLatitude();
+        double nodeLon = node.getLongitude();
+
+        // Check all stations at this node
+        for (Station station : node.getStations()) {
+            // Apply time zone filter if specified
+            if (timeZoneFilter != null && !timeZoneFilter.equals(station.getTimeZoneGroup())) {
+                continue;
+            }
+
+            // Calculate exact distance for this station (same coordinate, but for clarity)
+            double stationDistance = haversineDistance(targetLat, targetLon, station.getLatitude(), station.getLongitude());
+
+            // Add to queue if we have space or if it's closer than the farthest in queue
+            if (nearestQueue.size() < n) {
+                nearestQueue.offer(new NearestNeighborResult.StationWithDistance(station, stationDistance));
+            } else if (stationDistance < nearestQueue.peek().getDistanceKm()) {
+                nearestQueue.poll(); // Remove farthest
+                nearestQueue.offer(new NearestNeighborResult.StationWithDistance(station, stationDistance));
+            }
+        }
+
+        // Determine which child to explore first (closer side)
+        double currentMaxDistance = nearestQueue.size() == n ? nearestQueue.peek().getDistanceKm() : Double.MAX_VALUE;
+
+        if (node.isSplitByLatitude()) {
+            // Split by latitude
+            double splitValue = nodeLat;
+            double targetValue = targetLat;
+            KD2DNode nearChild = (targetValue < splitValue) ? node.getLeft() : node.getRight();
+            KD2DNode farChild = (targetValue < splitValue) ? node.getRight() : node.getLeft();
+
+            // Always explore the near child
+            nearestNNeighborsRecursive(nearChild, targetLat, targetLon, n, timeZoneFilter, nearestQueue, exploredCount);
+
+            // Update current max distance after exploring near child
+            currentMaxDistance = nearestQueue.size() == n ? nearestQueue.peek().getDistanceKm() : Double.MAX_VALUE;
+
+            // Check if we need to explore far child
+            // Calculate minimum possible distance to far child's region
+            double minDistToFarRegion = Math.abs(targetValue - splitValue);
+            // Convert to approximate km (rough approximation: 1 degree latitude ≈ 111 km)
+            double minDistKm = minDistToFarRegion * 111.0;
+
+            if (nearestQueue.size() < n || minDistKm < currentMaxDistance) {
+                // We might find closer points in the far child, so explore it
+                nearestNNeighborsRecursive(farChild, targetLat, targetLon, n, timeZoneFilter, nearestQueue, exploredCount);
+            }
+        } else {
+            // Split by longitude
+            double splitValue = nodeLon;
+            double targetValue = targetLon;
+            KD2DNode nearChild = (targetValue < splitValue) ? node.getLeft() : node.getRight();
+            KD2DNode farChild = (targetValue < splitValue) ? node.getRight() : node.getLeft();
+
+            // Always explore the near child
+            nearestNNeighborsRecursive(nearChild, targetLat, targetLon, n, timeZoneFilter, nearestQueue, exploredCount);
+
+            // Update current max distance after exploring near child
+            currentMaxDistance = nearestQueue.size() == n ? nearestQueue.peek().getDistanceKm() : Double.MAX_VALUE;
+
+            // Check if we need to explore far child
+            // Calculate minimum possible distance to far child's region
+            // For longitude, need to account for latitude (use average)
+            double minDistToFarRegion = Math.abs(targetValue - splitValue);
+            // Convert to approximate km (1 degree longitude ≈ 111 km * cos(latitude))
+            double avgLat = (targetLat + nodeLat) / 2.0;
+            double minDistKm = minDistToFarRegion * 111.0 * Math.cos(Math.toRadians(avgLat));
+
+            if (nearestQueue.size() < n || minDistKm < currentMaxDistance) {
+                // We might find closer points in the far child, so explore it
+                nearestNNeighborsRecursive(farChild, targetLat, targetLon, n, timeZoneFilter, nearestQueue, exploredCount);
+            }
+        }
+    }
 }
+
 

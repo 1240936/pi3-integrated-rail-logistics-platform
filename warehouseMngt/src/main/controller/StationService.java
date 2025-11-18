@@ -320,5 +320,20 @@ public class StationService {
         return tzTree;
     }
 
+    /**
+     * USEI09: Finds the N nearest stations to a target coordinate using the 2D-tree.
+     * Uses Haversine distance (km) with Earth radius for accurate distance calculation.
+     * The search minimizes explored nodes by using the 2D-tree structure efficiently.
+     *
+     * @param targetLat target latitude in degrees
+     * @param targetLon target longitude in degrees
+     * @param n number of nearest neighbors to find
+     * @param timeZoneFilter optional time zone group filter (null = no filter)
+     * @return result containing nearest neighbors with distances and complexity metrics
+     */
+    public main.domain.NearestNeighborResult nearestNNeighbors(double targetLat, double targetLon, int n, String timeZoneFilter) {
+        return tree.nearestNNeighbors(targetLat, targetLon, n, timeZoneFilter);
+    }
+
 }
 
