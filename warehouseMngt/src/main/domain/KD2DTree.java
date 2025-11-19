@@ -593,6 +593,83 @@ public class KD2DTree {
             }
         }
     }
+    /**
+     * USEI10: Finds all stations within a radius R (km) of a target point using the 2D-tree.
+     * Uses Haversine distance (km) with Earth radius for accurate distance calculation.
+     * Returns an AVL tree sorted by distance (ASC) and station name (DESC), along with
+     * summary statistics by country and by isCity.
+     *
+     * @param targetLat target latitude in degrees
+     * @param targetLon target longitude in degrees
+     * @param radiusKm search radius in kilometers
+     * @return result containing AVL tree of stations with distances and summary statistics
+     */
+    public RadiusSearchResult radiusSearch(double targetLat, double targetLon, double radiusKm) {
+        if (root == null || radiusKm <= 0) {
+            return new RadiusSearchResult(
+                    new AVL<>(),
+                    new HashMap<>(),
+                    new HashMap<>(),
+                    0,
+                    radiusKm,
+                    targetLat,
+                    targetLon
+            );
+        }
+
+        // Collect all stations within radius
+        List<StationWithDistanceComparable> stationsWithDistance = new ArrayList<>();
+        Map<String, Integer> summaryByCountry = new HashMap<>();
+        Map<Boolean, Integer> summaryByIsCity = new HashMap<>();
+
+        // Use 2D-tree to efficiently find candidates
+        // First, get a bounding box approximation (rough, but helps prune)
+        // 1 degree latitude ≈ 111 km, 1 degree longitude ≈ 111 km * cos(latitude)
+        double latDelta = radiusKm / 111.0;
+        double lonDelta = radiusKm / (111.0 * Math.cos(Math.toRadians(targetLat)));
+
+        double minLat = targetLat - latDelta;
+        double maxLat = targetLat + latDelta;
+        double minLon = targetLon - lonDelta;
+        double maxLon = targetLon + lonDelta;
+
+        // Get stations in the bounding box using range query
+        List<Station> candidates = rangeQuery(minLat, maxLat, minLon, maxLon);
+
+        // Filter by exact Haversine distance and build result tree
+        for (Station station : candidates) {
+            double distance = haversineDistance(targetLat, targetLon,
+                    station.getLatitude(), station.getLongitude());
+
+            if (distance <= radiusKm) {
+                stationsWithDistance.add(new StationWithDistanceComparable(station, distance));
+
+                // Update summary by country
+                String country = station.getCountry();
+                summaryByCountry.put(country, summaryByCountry.getOrDefault(country, 0) + 1);
+
+                // Update summary by isCity
+                boolean isCity = station.isCity();
+                summaryByIsCity.put(isCity, summaryByIsCity.getOrDefault(isCity, 0) + 1);
+            }
+        }
+
+        // Build AVL tree sorted by distance (ASC) and name (DESC)
+        AVL<StationWithDistanceComparable> resultTree = new AVL<>();
+        for (StationWithDistanceComparable swd : stationsWithDistance) {
+            resultTree.insert(swd);
+        }
+
+        return new RadiusSearchResult(
+                resultTree,
+                summaryByCountry,
+                summaryByIsCity,
+                stationsWithDistance.size(),
+                radiusKm,
+                targetLat,
+                targetLon
+        );
+    }
 }
 
 

@@ -1,11 +1,8 @@
 package main.controller;
 
-import main.domain.KD2DTree;
-import main.domain.Station;
-import main.domain.StationComparable;
+import main.domain.*;
 import main.repositories.CsvValidatorResult;
 import main.repositories.StationsCsvLoader;
-import main.domain.AVL;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -333,6 +330,21 @@ public class StationService {
      */
     public main.domain.NearestNeighborResult nearestNNeighbors(double targetLat, double targetLon, int n, String timeZoneFilter) {
         return tree.nearestNNeighbors(targetLat, targetLon, n, timeZoneFilter);
+    }
+
+    /**
+     * USEI10: Finds all stations within a radius R (km) of a target point using the 2D-tree.
+     * Uses Haversine distance (km) with Earth radius for accurate distance calculation.
+     * Returns an AVL tree sorted by distance (ASC) and station name (DESC), along with
+     * summary statistics by country and by isCity.
+     *
+     * @param targetLat target latitude in degrees
+     * @param targetLon target longitude in degrees
+     * @param radiusKm search radius in kilometers
+     * @return result containing AVL tree of stations with distances and summary statistics
+     */
+    public RadiusSearchResult radiusSearch(double targetLat, double targetLon, double radiusKm) {
+        return tree.radiusSearch(targetLat, targetLon, radiusKm);
     }
 
 }
