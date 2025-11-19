@@ -1107,6 +1107,7 @@ public class WarehouseUI {
             System.out.println("2. Show Tree Statistics");
             System.out.println("3. Range Query");
             System.out.println("4. Proximity Search (Nearest-N)");
+            System.out.println("5. Radius Search");
             System.out.println("0. Back to Sprint 2 Menu");
 
             int choice = getIntInput("Select an option: ");
@@ -1126,6 +1127,9 @@ public class WarehouseUI {
                     break;
                 case 4:
                     runProximitySearch();
+                    break;
+                case 5:
+                    runRadiusSearch();
                     break;
                 case 0:
                     exit = true;
@@ -1283,6 +1287,103 @@ public class WarehouseUI {
                 swd.getDistanceKm(),
                 station.getTimeZoneGroup());
         }
+    }
+
+    private void runRadiusSearch() {
+        if (!stationDataLoaded) {
+            System.out.println("No station data loaded. Please load a stations CSV first.");
+            return;
+        }
+
+        System.out.println("\n=== Radius Search ===");
+        System.out.println("Finds all stations within a radius R (km) of a target point using the 2D-tree.");
+        System.out.println("Uses Haversine distance and returns results sorted by distance (ASC) and station name (DESC).");
+        
+        double targetLat = getRequiredDoubleInput("Target latitude: ");
+        double targetLon = getRequiredDoubleInput("Target longitude: ");
+        double radiusKm = getRequiredDoubleInput("Search radius (km): ");
+        
+        if (radiusKm <= 0) {
+            System.out.println("Error: Radius must be positive.");
+            return;
+        }
+
+        System.out.println("\n--- Query Parameters ---");
+        System.out.println("Target: (" + targetLat + ", " + targetLon + ")");
+        System.out.println("Radius: " + radiusKm + " km");
+
+        long startTime = System.nanoTime();
+        main.domain.RadiusSearchResult result = stationService.radiusSearch(targetLat, targetLon, radiusKm);
+        long elapsedTime = System.nanoTime() - startTime;
+
+        System.out.println("\n--- Results ---");
+        System.out.println("Found " + result.getTotalStations() + " stations within " + radiusKm + " km");
+        System.out.println("Query time: " + (elapsedTime / 1_000_000.0) + " ms");
+
+        // Display summary by country
+        System.out.println("\n--- Summary by Country ---");
+        Map<String, Integer> summaryByCountry = result.getSummaryByCountry();
+        if (summaryByCountry.isEmpty()) {
+            System.out.println("  (no stations found)");
+        } else {
+            summaryByCountry.entrySet().stream()
+                .sorted(Map.Entry.<String, Integer>comparingByValue().reversed()
+                    .thenComparing(Map.Entry.comparingByKey()))
+                .forEach(entry -> System.out.printf("  %s: %d station(s)%n", entry.getKey(), entry.getValue()));
+        }
+
+        // Display summary by isCity
+        System.out.println("\n--- Summary by isCity ---");
+        Map<Boolean, Integer> summaryByIsCity = result.getSummaryByIsCity();
+        if (summaryByIsCity.isEmpty()) {
+            System.out.println("  (no stations found)");
+        } else {
+            summaryByIsCity.entrySet().stream()
+                .sorted(Map.Entry.<Boolean, Integer>comparingByValue().reversed())
+                .forEach(entry -> {
+                    String label = entry.getKey() ? "City stations" : "Non-city stations";
+                    System.out.printf("  %s: %d station(s)%n", label, entry.getValue());
+                });
+        }
+
+        // Display stations from AVL tree (sorted by distance ASC, then name DESC)
+        System.out.println("\n--- Stations (sorted by distance ASC, then name DESC) ---");
+        AVL<main.domain.StationWithDistanceComparable> resultTree = result.getResultTree();
+        if (resultTree == null || resultTree.isEmpty()) {
+            System.out.println("  (no stations found)");
+            return;
+        }
+
+        System.out.printf("%-5s %-40s %-15s %-15s %-12s %-15s %-10s%n", 
+            "Rank", "Station Name", "Latitude", "Longitude", "Distance (km)", "Country", "isCity");
+        System.out.println("-".repeat(120));
+
+        int rank = 1;
+        int limit = 50; // Limit display to first 50 stations
+        int displayed = 0;
+        for (main.domain.StationWithDistanceComparable swd : resultTree.inOrder()) {
+            if (displayed >= limit) {
+                break;
+            }
+            Station station = swd.getStation();
+            System.out.printf("%-5d %-40s %-15.5f %-15.5f %-12.2f %-15s %-10s%n",
+                rank++,
+                station.getName(),
+                station.getLatitude(),
+                station.getLongitude(),
+                swd.getDistanceKm(),
+                station.getCountry(),
+                station.isCity() ? "Yes" : "No");
+            displayed++;
+        }
+
+        if (result.getTotalStations() > limit) {
+            System.out.println("... (" + (result.getTotalStations() - limit) + " more stations not shown)");
+        }
+
+        System.out.println("\n--- Tree Statistics ---");
+        System.out.println("Result AVL tree size: " + resultTree.size());
+        System.out.println("Result AVL tree height: " + resultTree.height());
     }
 
     private void manageGeographicalAreaSearch() {
