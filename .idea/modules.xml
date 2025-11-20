@@ -2,7 +2,9 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
+      <module fileurl="file://$PROJECT_DIR$/freightMngt/.idea/freightMngt.iml" filepath="$PROJECT_DIR$/freightMngt/.idea/freightMngt.iml" />
       <module fileurl="file://$PROJECT_DIR$/sem3-pi-25-26-052-project.iml" filepath="$PROJECT_DIR$/sem3-pi-25-26-052-project.iml" />
+      <module fileurl="file://$PROJECT_DIR$/warehouseMngt/.idea/warehouseMngt.iml" filepath="$PROJECT_DIR$/warehouseMngt/.idea/warehouseMngt.iml" />
     </modules>
   </component>
 </project>
