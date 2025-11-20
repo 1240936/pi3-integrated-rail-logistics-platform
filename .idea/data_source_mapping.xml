@@ -1,8 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="DataSourcePerFileMappings">
+    <file url="file://$APPLICATION_CONFIG_DIR$/consoles/db/307770a8-e4b5-4b07-bffe-ef2d3d3e82f3/console.sql" value="307770a8-e4b5-4b07-bffe-ef2d3d3e82f3" />
     <file url="file://$PROJECT_DIR$/sql-scripts/USBD021/USBD021.sql" value="307770a8-e4b5-4b07-bffe-ef2d3d3e82f3" />
     <file url="file://$PROJECT_DIR$/sql-scripts/USBD022/USBD022.sql" value="307770a8-e4b5-4b07-bffe-ef2d3d3e82f3" />
+    <file url="file://$PROJECT_DIR$/sql-scripts/USBD023/USBD023.sql" value="307770a8-e4b5-4b07-bffe-ef2d3d3e82f3" />
+    <file url="file://$PROJECT_DIR$/sql-scripts/USBD028/USBD028.sql" value="307770a8-e4b5-4b07-bffe-ef2d3d3e82f3" />
     <file url="file://$PROJECT_DIR$/sql-scripts/USBD029/USBD029.sql" value="307770a8-e4b5-4b07-bffe-ef2d3d3e82f3" />
+    <file url="file://$PROJECT_DIR$/sql-scripts/USBD030/USBD030.sql" value="307770a8-e4b5-4b07-bffe-ef2d3d3e82f3" />
   </component>
 </project>

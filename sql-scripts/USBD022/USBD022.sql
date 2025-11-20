@@ -30,6 +30,7 @@ INSERT INTO Owner (name) VALUES ('Infraestruturas de Portugal, SA');
 
 INSERT INTO TrainOperator (name) VALUES ('Medway');
 INSERT INTO TrainOperator (name) VALUES ('Captrain');
+INSERT INTO TrainOperator (name) VALUES ('Test');
 
 INSERT INTO Gauge (width) VALUES (1668);
 INSERT INTO Gauge (width) VALUES (1435);
@@ -129,6 +130,11 @@ INSERT INTO VehicleModel (ID, modelName, length, width, height, tare, yearEIS)
 VALUES (335003, 'E4000', 23.02, 3.0, 4.264, 124, 2019);
 
 INSERT INTO VehicleModel (ID, modelName, length, width, height, tare, yearEIS)
+VALUES (8001, 'TestLoco A', 20.0, 3.0, 4.2, 90, 2020);
+INSERT INTO VehicleModel (ID, modelName, length, width, height, tare, yearEIS)
+VALUES (8002, 'TestLoco B', 21.5, 3.1, 4.3, 95, 2021);
+
+INSERT INTO VehicleModel (ID, modelName, length, width, height, tare, yearEIS)
 VALUES (1245, 'Tadgs 32 94 082 3', 17.24, 3.072, 4.27, 24, 1990);
 INSERT INTO VehicleModel (ID, modelName, length, width, height, tare, yearEIS)
 VALUES (1278, 'Tdgs 41 94 074 1', 9.64, 3.12, 4.166, 13.8, 1977);
@@ -166,6 +172,11 @@ VALUES (335001, 'Stadler', 3178, NULL, 120, 12);
 INSERT INTO LocomotiveSpecs (VehicleModelID, make, power, acceleration, maxSpeed, numberOfWheels)
 VALUES (335003, 'Stadler', 3178, NULL, 120, 12);
 
+INSERT INTO LocomotiveSpecs (VehicleModelID, make, power, acceleration, maxSpeed, numberOfWheels)
+VALUES (8001, 'TestMake', 4000, NULL, 160, 8);
+INSERT INTO LocomotiveSpecs (VehicleModelID, make, power, acceleration, maxSpeed, numberOfWheels)
+VALUES (8002, 'TestMake', 4200, NULL, 180, 8);
+
 INSERT INTO DieselType (VehicleModelID, fuelCapacity)
 VALUES (1903, 4882);
 INSERT INTO DieselType (VehicleModelID, fuelCapacity)
@@ -177,12 +188,18 @@ VALUES (335001, 6700);
 INSERT INTO DieselType (VehicleModelID, fuelCapacity)
 VALUES (335003, 6700);
 
+INSERT INTO DieselType (VehicleModelID, fuelCapacity)
+VALUES (8002, 6000);
+
 INSERT INTO ElectricalType (VehicleModelID, frequency, voltage)
 VALUES (5621, 50, 25000);
 INSERT INTO ElectricalType (VehicleModelID, frequency, voltage)
 VALUES (5623, 50, 25000);
 INSERT INTO ElectricalType (VehicleModelID, frequency, voltage)
 VALUES (5630, 50, 25000);
+
+INSERT INTO ElectricalType (VehicleModelID, frequency, voltage)
+VALUES (8001, 50, 25000);
 
 INSERT INTO WagonType (type) VALUES ('Cereal wagon');
 INSERT INTO WagonType (type) VALUES ('Covered wagon with sliding door');
@@ -229,6 +246,11 @@ INSERT INTO VehicleModel_Gauge (VehicleModelID, GaugeID) VALUES (988, 2);
 INSERT INTO VehicleModel_Gauge (VehicleModelID, GaugeID) VALUES (1525, 1);
 INSERT INTO VehicleModel_Gauge (VehicleModelID, GaugeID) VALUES (1523, 2);
 INSERT INTO VehicleModel_Gauge (VehicleModelID, GaugeID) VALUES (1212, 1);
+
+INSERT INTO VehicleModel_Gauge (VehicleModelID, GaugeID) VALUES (8001, 1);
+INSERT INTO VehicleModel_Gauge (VehicleModelID, GaugeID) VALUES (8001, 2);
+INSERT INTO VehicleModel_Gauge (VehicleModelID, GaugeID) VALUES (8002, 1);
+INSERT INTO VehicleModel_Gauge (VehicleModelID, GaugeID) VALUES (8002, 2);
 
 INSERT INTO Train (ID, TrainOperatorID) VALUES (5421, 1);
 INSERT INTO Train (ID, TrainOperatorID) VALUES (5435, 1);
@@ -290,6 +312,9 @@ INSERT INTO Locomotive (VehicleModelID, TrainOperatorID) VALUES (5034, 1);
 INSERT INTO Locomotive (VehicleModelID, TrainOperatorID) VALUES (5036, 1);
 INSERT INTO Locomotive (VehicleModelID, TrainOperatorID) VALUES (335001, 2);
 INSERT INTO Locomotive (VehicleModelID, TrainOperatorID) VALUES (335003, 2);
+
+INSERT INTO Locomotive (VehicleModelID, TrainOperatorID) VALUES (8001, 3);
+INSERT INTO Locomotive (VehicleModelID, TrainOperatorID) VALUES (8002, 3);
 
 INSERT INTO Locomotive_Train (LocomotiveID, TrainID) VALUES (1, 5421);
 INSERT INTO Locomotive_Train (LocomotiveID, TrainID) VALUES (2, 5421);
