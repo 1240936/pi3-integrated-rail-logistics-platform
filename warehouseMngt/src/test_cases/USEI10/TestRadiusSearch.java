@@ -1,18 +1,19 @@
 package test_cases.USEI10;
 
 import main.controller.StationService;
-import main.domain.AVL;
-import main.domain.RadiusSearchResult;
-import main.domain.Station;
-import main.domain.StationWithDistanceComparable;
+import main.domain.*;
 import main.repositories.CsvValidatorResult;
+import main.repositories.StationsCsvLoader;
 import org.junit.Test;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static org.junit.Assert.*;
 
@@ -35,10 +36,27 @@ public class TestRadiusSearch {
     private Path createTestCsvFile() throws IOException {
         String csvContent = String.join("\n",
                 "country,time_zone,time_zone_group,station,latitude,longitude,is_city,is_main_station,is_airport",
-                // TODO: Add test data rows from the provided CSV format
-                // Example: "FR,\"('Europe/Paris',)\",CET,Chateau-Arnoux-St-Auban,44.08179,6.001625,True,False,False",
-                //          "FR,\"('Europe/Paris',)\",CET,Digne-les-Bains,44.35,6.35,True,False,False",
-                ""
+
+                "FR,\"('Europe/Paris',)\",CET,Macau,45.0040981,-0.6200068,False,False,False",
+                "FR,\"('Europe/Paris',)\",CET,Pauillac,45.2038438,-0.7551342,False,False,False",
+                "FR,\"('Europe/Paris',)\",CET,Facture-Biganos,44.637384,-0.96621,False,False,False",
+                "FR,\"('Europe/Paris',)\",CET,Lesparre,45.3035166,-0.9454015,False,False,False",
+                "FR,\"('Europe/Paris',)\",CET,Gaillan,45.316667,-0.95,False,False,False",
+                "FR,\"('Europe/Paris',)\",CET,Queyrac,45.366667,-0.983333,False,False,False",
+                "FR,\"('Europe/Paris',)\",CET,Soulac-sur-Mer,45.5081769,-1.1175894,False,True,False",
+                "FR,\"('Europe/Paris',)\",CET,Le Verdon,45.5492065,-1.0650925,False,True,False",
+                "FR,\"('Europe/Paris',)\",CET,Pointe-de-Grave,45.567067,-1.0658575,False,False,False",
+                "FR,\"('Europe/Paris',)\",CET,Cauderan-Merignac,44.84288,-0.6274337,False,False,False",
+
+                "CH,\"('Europe/Zurich',)\",CET,Vernayaz,46.130069,7.045007,False,False,False",
+
+                "FR,\"('Europe/Paris',)\",CET,Chedde,45.9263464,6.7197662,False,False,False",
+
+                "ES,\"('Europe/Madrid',)\",CET,Santa Ana de Pusa,39.76216,-4.71296,True,False,False",
+                "ES,\"('Europe/Madrid',)\",CET,Santa Barbara de Casa,37.7988799,-7.188727,True,False,False",
+                "ES,\"('Europe/Madrid',)\",CET,Santacara,42.3753822,-1.5517379,True,False,False",
+                "ES,\"('Europe/Madrid',)\",CET,Santa Cilia,42.560188,-0.71438,True,False,False",
+                "ES,\"('Europe/Madrid',)\",CET,Santa Coloma de Queralt,41.5364821,1.3873009,True,False,False"
         );
 
         Path tempFile = Files.createTempFile("stations-", ".csv");
@@ -52,15 +70,44 @@ public class TestRadiusSearch {
      */
     @Test
     public void testRadiusSearch_SmallRadius() throws IOException {
-        // TODO: Implement test
-        // 1. Create CSV file with test data (use data from provided CSV)
-        // 2. Load stations and create AVL trees
-        // 3. Build balanced 2D-tree
+        // 1. Create the CSV file
+        StationService stationService = new StationService();
+        Path csvFile = createTestCsvFile();
+        // 2. Load stations and insert into AVL tree
+        CsvValidatorResult<Station> result = stationService.loadStationsAndCreateAVLTrees(csvFile.toAbsolutePath().toString());
+        // 3. Create balanced 2D tree
+        stationService.buildBalanced2DTree();
+        double targetLat = 45.0;
+        double targetLon = -1.0;
+        double radiusKm = 50.0;
         // 4. Search with small radius: service.radiusSearch(targetLat, targetLon, radiusKm)
+        AVL<StationWithDistanceComparable> foundStations =  stationService.radiusSearch(targetLat, targetLon, radiusKm).getResultTree();
         // 5. Verify all returned stations are within radius
+        for (StationWithDistanceComparable s : foundStations.inOrder()) {
+            double distance = s.getDistanceKm();
+            assertTrue("Station " + s.getStation().getName()
+                    + " is outside the radius: " + distance + " km", distance <= radiusKm);
+        }
         // 6. Verify result tree contains correct stations
-        // 7. Verify target coordinates and radius are stored correctly
-        // 8. Clean up temp file
+        // List expected station names within ~50km of (45.0, -1.0)
+        Set<String> expectedStations = Set.of(
+                "Macau",
+                "Pauillac",
+                "Facture-Biganos",
+                "Lesparre",
+                "Gaillan",
+                "Queyrac",
+                "Cauderan-Merignac"
+        );
+
+        Set<String> foundStationNames = new HashSet<>();
+        for (StationWithDistanceComparable s : foundStations.inOrder()) {
+            foundStationNames.add(s.getStation().getName());
+        }
+        assertEquals("Returned stations do not match expected stations",
+                expectedStations, foundStationNames);
+        // 7. Clean up temporary CSV file
+        Files.deleteIfExists(csvFile);
     }
 
     /**
@@ -69,13 +116,65 @@ public class TestRadiusSearch {
      */
     @Test
     public void testRadiusSearch_LargeRadius() throws IOException {
-        // TODO: Implement test
-        // 1. Load stations from CSV
-        // 2. Build tree
-        // 3. Search with large radius (e.g., 100 km)
-        // 4. Verify more stations are found
-        // 5. Verify all stations in result are within radius
+        // 1. Create the CSV file
+        StationService stationService = new StationService();
+        Path csvFile = createTestCsvFile();
+
+        try {
+            // 2. Load stations and insert into AVL tree
+            CsvValidatorResult<Station> result = stationService
+                    .loadStationsAndCreateAVLTrees(csvFile.toAbsolutePath().toString());
+
+            // 3. Create balanced 2D tree
+            stationService.buildBalanced2DTree();
+
+            // 4. Define target location and large search radius
+            double targetLat = 45.0;
+            double targetLon = -1.0;
+            double radiusKm = 600.0; // much larger radius to include all stations
+
+            // 5. Perform radius search
+            AVL<StationWithDistanceComparable> foundStations =
+                    stationService.radiusSearch(targetLat, targetLon, radiusKm).getResultTree();
+
+            // 6. Verify all returned stations are within radius
+            for (StationWithDistanceComparable s : foundStations.inOrder()) {
+                double distance = s.getDistanceKm();
+                assertTrue("Station " + s.getStation().getName()
+                        + " is outside the radius: " + distance + " km", distance <= radiusKm);
+            }
+
+            // 7. Verify result tree contains all stations in the CSV
+            Set<String> expectedStations = Set.of(
+                    "Facture-Biganos",
+                    "Gaillan",
+                    "Macau",
+                    "Santa Cilia",
+                    "Santa Coloma de Queralt",
+                    "Pointe-de-Grave",
+                    "Le Verdon",
+                    "Soulac-sur-Mer",
+                    "Queyrac",
+                    "Pauillac",
+                    "Santacara",
+                    "Lesparre",
+                    "Cauderan-Merignac"
+            );
+
+            Set<String> foundStationNames = new HashSet<>();
+            for (StationWithDistanceComparable s : foundStations.inOrder()) {
+                foundStationNames.add(s.getStation().getName());
+            }
+
+            assertEquals("Returned stations do not match expected stations",
+                    expectedStations, foundStationNames);
+
+        } finally {
+            // 8. Clean up temporary CSV file
+            Files.deleteIfExists(csvFile);
+        }
     }
+
 
     /**
      * Test Case 3: Result tree ordering (distance ASC, name DESC)
@@ -83,11 +182,55 @@ public class TestRadiusSearch {
      */
     @Test
     public void testRadiusSearch_ResultTreeOrdering() throws IOException {
-        // TODO: Implement test
-        // 1. Load stations and build tree
-        // 2. Search with radius that finds multiple stations
-        // 3. Get result tree and iterate through inOrder()
-        // 4. Verify ordering: distance ASC, then name DESC for equal distances
+        // 1. Create CSV file and load stations
+        StationService stationService = new StationService();
+        Path csvFile = createTestCsvFile();
+
+        try {
+            CsvValidatorResult<Station> result = stationService
+                    .loadStationsAndCreateAVLTrees(csvFile.toAbsolutePath().toString());
+
+            // 2. Build balanced 2D tree
+            stationService.buildBalanced2DTree();
+
+            // 3. Define target location and radius
+            double targetLat = 45.0;
+            double targetLon = -1.0;
+            double radiusKm = 50.0; // small radius to get multiple stations nearby
+
+            // 4. Perform radius search
+            AVL<StationWithDistanceComparable> foundStations =
+                    stationService.radiusSearch(targetLat, targetLon, radiusKm).getResultTree();
+
+            // 5. Iterate through inOrder() to verify ordering
+            StationWithDistanceComparable previous = null;
+            for (StationWithDistanceComparable current : foundStations.inOrder()) {
+                if (previous != null) {
+                    double prevDistance = previous.getDistanceKm();
+                    double currDistance = current.getDistanceKm();
+
+                    // Primary ordering: distance ascending
+                    assertTrue("Distance ordering incorrect: " + previous.getStation().getName() +
+                                    " (" + prevDistance + " km) before " +
+                                    current.getStation().getName() + " (" + currDistance + " km)",
+                            currDistance >= prevDistance);
+
+                    // Secondary ordering: name descending if distances are equal
+                    if (Double.compare(prevDistance, currDistance) == 0) {
+                        String prevName = previous.getStation().getName();
+                        String currName = current.getStation().getName();
+                        assertTrue("Name ordering incorrect for equal distances: " + prevName +
+                                        " before " + currName,
+                                prevName.compareTo(currName) >= 0); // DESC
+                    }
+                }
+                previous = current;
+            }
+
+        } finally {
+            // 6. Clean up temporary CSV file
+            Files.deleteIfExists(csvFile);
+        }
     }
 
     /**
