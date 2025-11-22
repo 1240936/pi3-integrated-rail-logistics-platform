@@ -9,8 +9,6 @@ import java.util.Properties;
  * Database connection utility for Oracle database
  */
 public class DatabaseConnection {
-    private static final String DEFAULT_URL = "jdbc:oracle:thin:@localhost:1521:XE";
-
     private static Connection connection;
 
     /**
@@ -21,14 +19,6 @@ public class DatabaseConnection {
     @Deprecated
     public static Connection getConnection() throws SQLException {
         throw new SQLException("Please use getConnection(url, user, password, asSysdba) to provide credentials");
-    }
-
-    /**
-     * Get a database connection with custom credentials
-     */
-    public static Connection getConnection(String url, String user, String password) throws SQLException {
-        // Default to SYSDBA if user is 'sys'
-        return getConnection(url, user, password, "sys".equalsIgnoreCase(user));
     }
 
     /**
@@ -65,27 +55,6 @@ public class DatabaseConnection {
             }
         }
         return connection;
-    }
-
-    /**
-     * Close the database connection
-     */
-    public static void closeConnection() throws SQLException {
-        if (connection != null && !connection.isClosed()) {
-            connection.close();
-        }
-    }
-
-    /**
-     * Test the database connection with provided credentials
-     */
-    public static boolean testConnection(String url, String user, String password, boolean asSysdba) {
-        try {
-            Connection conn = getConnection(url, user, password, asSysdba);
-            return conn != null && !conn.isClosed();
-        } catch (SQLException e) {
-            return false;
-        }
     }
 }
 
