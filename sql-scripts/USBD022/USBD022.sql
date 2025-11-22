@@ -65,9 +65,9 @@ VALUES (24, 1, 48, 50, 1, 1);
 INSERT INTO LineSegment (ID, RailLineID, maxWeight, length, numberOfTracks, speedLimit, orderNum)
 VALUES (1, 1, 8000, 2618, 4, NULL, 1);
 INSERT INTO LineSegment (ID, RailLineID, maxWeight, length, numberOfTracks, speedLimit, orderNum)
-VALUES (2, 1, 8000, 2443, 4, NULL, 2);
+VALUES (3, 2, 8000, 2443, 4, NULL, 2);
 INSERT INTO LineSegment (ID, RailLineID, maxWeight, length, numberOfTracks, speedLimit, orderNum)
-VALUES (3, 3, 8000, 26560, 2, NULL, 1);
+VALUES (10, 3, 8000, 26560, 2, NULL, 1);
 INSERT INTO LineSegment (ID, RailLineID, maxWeight, length, numberOfTracks, speedLimit, orderNum)
 VALUES (11, 3, 8000, 10000, 2, NULL, 2);
 INSERT INTO LineSegment (ID, RailLineID, maxWeight, length, numberOfTracks, speedLimit, orderNum)

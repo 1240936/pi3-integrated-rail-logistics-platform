@@ -569,6 +569,8 @@ public class TrainSchedulerService {
                             crossings.add(new CrossingOperation(
                                 usage1.getTrain(),
                                 usage2.getTrain(),
+                                usage1.getRoute().getId(),
+                                usage2.getRoute().getId(),
                                 crossingFacility,
                                 siding,
                                 crossingTime
@@ -635,11 +637,23 @@ public class TrainSchedulerService {
             );
         }
 
-        // Check for crossings with other scheduled routes
+        // Check for crossings with other scheduled routes (including this newly created route)
         List<Route> allRoutes = routeRepository.getAll();
-        List<CrossingOperation> crossings = detectCrossings(allRoutes);
+        List<CrossingOperation> allCrossings = detectCrossings(allRoutes);
+        
+        // Filter crossings to only include those involving this specific route
+        // This ensures we show crossings between the new route and existing routes
+        List<CrossingOperation> routeCrossings = new ArrayList<>();
+        int currentRouteId = route.getId();
+        for (CrossingOperation crossing : allCrossings) {
+            // Include crossing if it involves the current route (by route ID, not just train ID)
+            if (crossing.getRoute1Id() == currentRouteId || 
+                crossing.getRoute2Id() == currentRouteId) {
+                routeCrossings.add(crossing);
+            }
+        }
 
-        return new SchedulingResult(route, events, crossings);
+        return new SchedulingResult(route, events, routeCrossings);
     }
 
 }

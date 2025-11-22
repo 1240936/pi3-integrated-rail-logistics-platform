@@ -129,5 +129,71 @@ public class FreightRepository {
         }
         return deliveries;
     }
+
+    /**
+     * Get all freight that is not yet assigned to a route (RouteID IS NULL)
+     */
+    public List<Freight> getUnassignedFreight() throws SQLException {
+        String sql = "SELECT ID, RouteID, OriginFacilityID, DestinationFacilityID " +
+                     "FROM Freight WHERE RouteID IS NULL";
+        List<Freight> freightList = new ArrayList<>();
+        
+        try (PreparedStatement stmt = connection.prepareStatement(sql);
+             ResultSet rs = stmt.executeQuery()) {
+            while (rs.next()) {
+                Facility origin = facilityRepository.getById(rs.getInt("OriginFacilityID"));
+                Facility destination = facilityRepository.getById(rs.getInt("DestinationFacilityID"));
+                
+                // RouteID is NULL for unassigned freight, which getInt() returns as 0
+                Freight freight = new Freight(
+                    rs.getInt("ID"),
+                    0, // RouteID is NULL (unassigned)
+                    origin,
+                    destination
+                );
+                freightList.add(freight);
+            }
+        }
+        return freightList;
+    }
+
+    /**
+     * Assign freight to a route
+     */
+    public void assignFreightToRoute(int freightId, int routeId) throws SQLException {
+        String sql = "UPDATE Freight SET RouteID = ? WHERE ID = ?";
+        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+            stmt.setInt(1, routeId);
+            stmt.setInt(2, freightId);
+            stmt.executeUpdate();
+        }
+    }
+
+    /**
+     * Get freight by ID
+     */
+    public Freight getById(int freightId) throws SQLException {
+        String sql = "SELECT ID, RouteID, OriginFacilityID, DestinationFacilityID " +
+                     "FROM Freight WHERE ID = ?";
+        
+        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+            stmt.setInt(1, freightId);
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    Facility origin = facilityRepository.getById(rs.getInt("OriginFacilityID"));
+                    Facility destination = facilityRepository.getById(rs.getInt("DestinationFacilityID"));
+                    Integer routeId = rs.getObject("RouteID") != null ? rs.getInt("RouteID") : null;
+                    
+                    return new Freight(
+                        rs.getInt("ID"),
+                        routeId != null ? routeId : 0,
+                        origin,
+                        destination
+                    );
+                }
+            }
+        }
+        return null;
+    }
 }
 

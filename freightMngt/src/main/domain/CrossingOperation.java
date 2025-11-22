@@ -8,14 +8,18 @@ import java.time.LocalDateTime;
 public class CrossingOperation {
     private final Train train1;
     private final Train train2;
+    private final int route1Id; // route ID for train1
+    private final int route2Id; // route ID for train2
     private final Facility crossingLocation; // facility where crossing will occur
     private final Siding siding; // siding used for crossing (nullable)
     private final LocalDateTime crossingTime;
 
-    public CrossingOperation(Train train1, Train train2, Facility crossingLocation, 
-                            Siding siding, LocalDateTime crossingTime) {
+    public CrossingOperation(Train train1, Train train2, int route1Id, int route2Id,
+                            Facility crossingLocation, Siding siding, LocalDateTime crossingTime) {
         this.train1 = train1;
         this.train2 = train2;
+        this.route1Id = route1Id;
+        this.route2Id = route2Id;
         this.crossingLocation = crossingLocation;
         this.siding = siding;
         this.crossingTime = crossingTime;
@@ -27,6 +31,14 @@ public class CrossingOperation {
 
     public Train getTrain2() {
         return train2;
+    }
+
+    public int getRoute1Id() {
+        return route1Id;
+    }
+
+    public int getRoute2Id() {
+        return route2Id;
     }
 
     public Facility getCrossingLocation() {

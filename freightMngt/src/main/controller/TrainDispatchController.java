@@ -8,6 +8,7 @@ import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -19,6 +20,7 @@ public class TrainDispatchController {
     private final TrainRepository trainRepository;
     private final RouteRepository routeRepository;
     private final FacilityRepository facilityRepository;
+    private final FreightRepository freightRepository;
 
     public TrainDispatchController(Connection connection) {
         this.connection = connection;
@@ -29,15 +31,17 @@ public class TrainDispatchController {
         FacilityRepository facilityRepo = new FacilityRepository(connection);
         this.routeRepository = new RouteRepository(connection, facilityRepo);
         this.facilityRepository = facilityRepo;
+        this.freightRepository = new FreightRepository(connection, facilityRepo);
     }
 
     /**
-     * Dispatch a train: create route, define path, and schedule
+     * Dispatch a train: create route, define path, assign freight, and schedule
      */
     public SchedulingResult dispatchTrain(int trainId, int startFacilityId, 
                                                                  int endFacilityId, 
                                                                  LocalDateTime startDate,
-                                                                 List<Integer> pathFacilityIds) throws SQLException {
+                                                                 List<Integer> pathFacilityIds,
+                                                                 List<Integer> freightIds) throws SQLException {
         // Validate train exists
         Train train = trainRepository.getById(trainId);
         if (train == null) {
@@ -117,6 +121,11 @@ public class TrainDispatchController {
         // Reload route with path points
         Route route = routeRepository.getById(routeId);
 
+        // Validate and assign freight to route
+        if (freightIds != null && !freightIds.isEmpty()) {
+            validateAndAssignFreight(route, startFacilityId, endFacilityId, pathFacilityIds, freightIds);
+        }
+
         // Schedule the route (calculate times and detect crossings)
         SchedulingResult result = schedulerService.scheduleRoute(route);
 
@@ -124,6 +133,74 @@ public class TrainDispatchController {
         connection.commit();
 
         return result;
+    }
+
+    /**
+     * Validate that freight can be assigned to route and assign it
+     * Route must pass through both origin and destination facilities of each freight
+     */
+    private void validateAndAssignFreight(Route route, int startFacilityId, int endFacilityId,
+                                         List<Integer> pathFacilityIds, List<Integer> freightIds) throws SQLException {
+        // Build ordered list of all facilities in the route
+        List<Integer> routeFacilities = new ArrayList<>();
+        routeFacilities.add(startFacilityId);
+        routeFacilities.addAll(pathFacilityIds);
+        routeFacilities.add(endFacilityId);
+
+        for (Integer freightId : freightIds) {
+            Freight freight = freightRepository.getById(freightId);
+            if (freight == null) {
+                throw new IllegalArgumentException("Freight not found: " + freightId);
+            }
+
+            // Check if freight is already assigned
+            if (freight.getRouteId() != 0 && freight.getRouteId() != route.getId()) {
+                throw new IllegalArgumentException(
+                    String.format("Freight %d is already assigned to route %d", freightId, freight.getRouteId()));
+            }
+
+            int originId = freight.getOriginFacility().getId();
+            int destinationId = freight.getDestinationFacility().getId();
+
+            // Check if origin is on the route
+            int originIndex = routeFacilities.indexOf(originId);
+            if (originIndex == -1) {
+                throw new IllegalArgumentException(
+                    String.format("Freight %d origin facility (%s, ID: %d) is not on the route. " +
+                                "The route must pass through the freight's origin facility.",
+                        freightId, freight.getOriginFacility().getName(), originId));
+            }
+
+            // Check if destination is on the route
+            int destinationIndex = routeFacilities.indexOf(destinationId);
+            if (destinationIndex == -1) {
+                throw new IllegalArgumentException(
+                    String.format("Freight %d destination facility (%s, ID: %d) is not on the route. " +
+                                "The route must pass through the freight's destination facility.",
+                        freightId, freight.getDestinationFacility().getName(), destinationId));
+            }
+
+            // Check that destination comes after origin in the route order
+            if (destinationIndex <= originIndex) {
+                throw new IllegalArgumentException(
+                    String.format("Freight %d destination facility (%s, ID: %d) must come after origin facility " +
+                                "(%s, ID: %d) in the route. Origin is at position %d, destination is at position %d.",
+                        freightId,
+                        freight.getDestinationFacility().getName(), destinationId,
+                        freight.getOriginFacility().getName(), originId,
+                        originIndex + 1, destinationIndex + 1));
+            }
+
+            // Assign freight to route
+            freightRepository.assignFreightToRoute(freightId, route.getId());
+        }
+    }
+
+    /**
+     * Get all unassigned freight (freight not yet assigned to any route)
+     */
+    public List<Freight> getUnassignedFreight() throws SQLException {
+        return freightRepository.getUnassignedFreight();
     }
 
     /**

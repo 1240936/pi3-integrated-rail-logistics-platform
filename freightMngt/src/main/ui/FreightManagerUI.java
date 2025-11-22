@@ -274,10 +274,52 @@ public class FreightManagerUI {
             }
         }
 
+        // Show available freight and allow selection
+        System.out.println("\n=== SELECT FREIGHT ===");
+        List<Freight> unassignedFreight = controller.getUnassignedFreight();
+        List<Integer> selectedFreightIds = new ArrayList<>();
+
+        if (!unassignedFreight.isEmpty()) {
+            System.out.println("Available unassigned freight:");
+            for (Freight freight : unassignedFreight) {
+                System.out.printf("  Freight ID: %d - %s -> %s\n",
+                        freight.getId(),
+                        freight.getOriginFacility().getName(),
+                        freight.getDestinationFacility().getName());
+            }
+            System.out.println("\nEnter freight IDs to assign to this route (press Enter with empty line to finish):");
+            while (true) {
+                System.out.print("Freight ID (or press Enter to finish): ");
+                String input = scanner.nextLine().trim();
+                if (input.isEmpty()) {
+                    break;
+                }
+                try {
+                    int freightId = Integer.parseInt(input);
+                    Freight freight = unassignedFreight.stream()
+                            .filter(f -> f.getId() == freightId)
+                            .findFirst()
+                            .orElse(null);
+                    if (freight != null) {
+                        selectedFreightIds.add(freightId);
+                        System.out.println("  Added: Freight " + freightId + " (" +
+                                freight.getOriginFacility().getName() + " -> " +
+                                freight.getDestinationFacility().getName() + ")");
+                    } else {
+                        System.out.println("Invalid freight ID or freight is already assigned. Please enter a valid freight ID from the list above.");
+                    }
+                } catch (NumberFormatException e) {
+                    System.out.println("Invalid freight ID. Please enter a number.");
+                }
+            }
+        } else {
+            System.out.println("No unassigned freight available. Route will be created without freight.");
+        }
+
         // Dispatch the train
         System.out.println("\nDispatching train...");
         SchedulingResult result = controller.dispatchTrain(
-                trainId, startFacilityId, endFacilityId, startDate, pathFacilityIds);
+                trainId, startFacilityId, endFacilityId, startDate, pathFacilityIds, selectedFreightIds);
 
         System.out.println("\n✓ Train dispatched successfully!");
         System.out.println("\nSchedule:");
@@ -369,14 +411,31 @@ public class FreightManagerUI {
             }
         }
 
-        // Show crossing operations
+        // Show crossing operations involving this route
         List<CrossingOperation> crossings = result.getCrossings();
         if (!crossings.isEmpty()) {
             System.out.println("\n=== CROSSING OPERATIONS ===");
+            int currentRouteId = result.getRoute().getId();
             for (CrossingOperation crossing : crossings) {
-                System.out.printf("  ⚠ Trains %d and %d will cross at %s\n",
-                        crossing.getTrain1().getId(),
-                        crossing.getTrain2().getId(),
+                // Determine which train/route is from the current route
+                Train currentTrain;
+                Train otherTrain;
+                int otherRouteId;
+                if (crossing.getRoute1Id() == currentRouteId) {
+                    currentTrain = crossing.getTrain1();
+                    otherTrain = crossing.getTrain2();
+                    otherRouteId = crossing.getRoute2Id();
+                } else {
+                    currentTrain = crossing.getTrain2();
+                    otherTrain = crossing.getTrain1();
+                    otherRouteId = crossing.getRoute1Id();
+                }
+                
+                System.out.printf("  ⚠ Train %d (Route %d) will cross with Train %d (Route %d) at %s\n",
+                        currentTrain.getId(),
+                        currentRouteId,
+                        otherTrain.getId(),
+                        otherRouteId,
                         crossing.getCrossingLocation().getName());
                 if (crossing.usesSiding()) {
                     System.out.printf("    Using siding (ID: %d) on segment %d\n",
@@ -418,9 +477,11 @@ public class FreightManagerUI {
         } else {
             DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
             for (CrossingOperation crossing : crossings) {
-                System.out.printf("\nTrains %d and %d:\n",
+                System.out.printf("\nTrain %d (Route %d) and Train %d (Route %d):\n",
                         crossing.getTrain1().getId(),
-                        crossing.getTrain2().getId());
+                        crossing.getRoute1Id(),
+                        crossing.getTrain2().getId(),
+                        crossing.getRoute2Id());
                 System.out.printf("  Location: %s\n", crossing.getCrossingLocation().getName());
                 System.out.printf("  Time: %s\n", crossing.getCrossingTime().format(formatter));
                 if (crossing.usesSiding()) {
