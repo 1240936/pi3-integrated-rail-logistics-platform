@@ -1,0 +1,709 @@
+==============================
+File: src/main/domain/KD2DTree.java (original)
+==============================
+package main.domain;
+
+import java.util.*;
+
+/**
+ * 2D-tree (KD-tree with k=2) for spatial indexing of stations.
+ * Supports efficient range queries and nearest neighbor searches.
+ * Uses a balanced build strategy based on AVL trees of latitude and longitude.
+ * 
+ * NOTE: Uses only AVLTree (not BST), as AVLTree is already a balanced BST
+ * and provides all necessary functionality.
+ */
+public class KD2DTree {
+    private KD2DNode root;
+    private int size;
+    private int height;
+
+    /**
+     * Constructs an empty 2D-tree.
+     */
+    public KD2DTree() {
+        this.root = null;
+        this.size = 0;
+        this.height = -1;
+    }
+
+    /**
+     * Builds a balanced 2D-tree from a list of stations.
+     * USEI07: Uses AVL trees of latitude and longitude to build efficiently.
+     * 
+     * Strategy:
+     * 1. Groups stations by coordinates (multiple stations can have the same coordinates)
+     * 2. Creates AVL trees sorted by latitude and longitude
+     * 3. Uses AVL trees to find medians and build the balanced tree
+     * 4. Alternates between splitting by latitude and longitude at each level
+     * 
+     * NOTE: The method name mentions "BST", but in practice uses only AVLTree,
+     * as AVLTree is already a balanced BST and provides all necessary functionality.
+     *
+     * @param stations list of stations to insert
+     */
+    public void buildBalancedUsingBST(List<Station> stations) {
+        if (stations == null || stations.isEmpty()) {
+            this.root = null;
+            this.size = 0;
+            this.height = -1;
+            return;
+        }
+
+        // Step 1: Group stations by coordinates (key: "lat,lon")
+        // Multiple stations can have the same coordinates (e.g., Lisbon)
+        Map<String, List<Station>> coordinateMap = new HashMap<>();
+        for (Station station : stations) {
+            String key = station.getLatitude() + "," + station.getLongitude();
+            coordinateMap.computeIfAbsent(key, k -> new ArrayList<>()).add(station);
+        }
+
+        // Step 2: Create comparators to sort by latitude and longitude
+        // Order: first by coordinate, then by name (for determinism)
+        Comparator<Station> latComparator = Comparator.comparingDouble(Station::getLatitude)
+            .thenComparing(Station::getLongitude)
+            .thenComparing(Station::getName);
+        Comparator<Station> lonComparator = Comparator.comparingDouble(Station::getLongitude)
+            .thenComparing(Station::getLatitude)
+            .thenComparing(Station::getName);
+
+        // Step 3: Create AVL trees sorted by latitude and longitude
+        AVLTree<Station> latTree = new AVLTree<>(latComparator);
+        AVLTree<Station> lonTree = new AVLTree<>(lonComparator);
+
+        // Step 4: Insert a representative station from each coordinate group into the trees
+        // Stations in the same group are sorted by name
+        for (List<Station> group : coordinateMap.values()) {
+            group.sort(Comparator.comparing(Station::getName));
+            // Insert only the first station of each group (representative)
+            latTree.insert(group.get(0));
+            lonTree.insert(group.get(0));
+        }
+
+        // Step 5: Build the 2D-tree recursively using AVL trees
+        // Starts by splitting by latitude (splitByLatitude = true)
+        this.root = buildFromAVLTrees(latTree, lonTree, coordinateMap, true);
+        this.size = stations.size();
+        this.height = calculateHeight(root);
+    }
+
+    /**
+     * Recursively builds the 2D-tree using AVL trees.
+     * 
+     * Algorithm:
+     * 1. Chooses the appropriate tree (latitude or longitude) based on the level
+     * 2. Finds the median using findKthElement (without converting the entire tree)
+     * 3. Creates a node with the median station (and all stations at the same coordinate)
+     * 4. Divides remaining stations into left (< median) and right (>= median)
+     * 5. Recursively builds left and right subtrees
+     * 6. Alternates the split dimension (latitude <-> longitude) at each level
+     *
+     * @param latTree AVL tree sorted by latitude
+     * @param lonTree AVL tree sorted by longitude
+     * @param coordinateMap map of coordinates to all stations at that coordinate
+     * @param splitByLatitude true if should split by latitude, false by longitude
+     * @return root of the constructed subtree
+     */
+    private KD2DNode buildFromAVLTrees(AVLTree<Station> latTree, AVLTree<Station> lonTree,
+                                       Map<String, List<Station>> coordinateMap,
+                                       boolean splitByLatitude) {
+        // Choose the appropriate tree based on current split dimension
+        AVLTree<Station> currentTree = splitByLatitude ? latTree : lonTree;
+        
+        if (currentTree.isEmpty()) {
+            return null;
+        }
+
+        int treeSize = currentTree.size();
+        
+        // Base case: only one station
+        if (treeSize == 1) {
+            Station station = currentTree.findKthElement(0);
+            if (station == null) return null;
+            
+            // Retrieve all stations with the same coordinates
+            String key = station.getLatitude() + "," + station.getLongitude();
+            List<Station> group = coordinateMap.get(key);
+            KD2DNode node = new KD2DNode(group.get(0), splitByLatitude);
+            // Add remaining stations from the group (already sorted by name)
+            for (int i = 1; i < group.size(); i++) {
+                node.addStation(group.get(i));
+            }
+            return node;
+        }
+
+        // Find the median using findKthElement (more efficient than converting everything)
+        int medianIndex = treeSize / 2;
+        Station medianStation = currentTree.findKthElement(medianIndex);
+        if (medianStation == null) return null;
+        
+        // Create node with median station and all stations at the same coordinate
+        String key = medianStation.getLatitude() + "," + medianStation.getLongitude();
+        List<Station> medianGroup = coordinateMap.get(key);
+        KD2DNode node = new KD2DNode(medianGroup.get(0), splitByLatitude);
+        for (int i = 1; i < medianGroup.size(); i++) {
+            node.addStation(medianGroup.get(i));
+        }
+
+        // Get the median value (latitude or longitude)
+        double medianValue = splitByLatitude 
+            ? medianStation.getLatitude() 
+            : medianStation.getLongitude();
+        
+        // Divide stations into left (< median) and right (>= median)
+        List<Station> leftStations = new ArrayList<>();
+        List<Station> rightStations = new ArrayList<>();
+        
+        // Convert tree to list to perform the division
+        List<Station> allStations = currentTree.inOrder();
+        for (Station s : allStations) {
+            if (s == medianStation) continue; // Skip the median
+            
+            double stationValue = splitByLatitude ? s.getLatitude() : s.getLongitude();
+            int cmp = Double.compare(stationValue, medianValue);
+            
+            if (cmp < 0) {
+                // Station to the left of median
+                leftStations.add(s);
+            } else if (cmp > 0) {
+                // Station to the right of median
+                rightStations.add(s);
+            } else {
+                // Same coordinate - use name comparison for deterministic division
+                if (s.getName().compareTo(medianStation.getName()) < 0) {
+                    leftStations.add(s);
+                } else {
+                    rightStations.add(s);
+                }
+            }
+        }
+
+        // Create new AVL trees for left and right subtrees
+        Comparator<Station> latComparator = Comparator.comparingDouble(Station::getLatitude)
+            .thenComparing(Station::getLongitude)
+            .thenComparing(Station::getName);
+        Comparator<Station> lonComparator = Comparator.comparingDouble(Station::getLongitude)
+            .thenComparing(Station::getLatitude)
+            .thenComparing(Station::getName);
+
+        AVLTree<Station> leftLatTree = new AVLTree<>(latComparator);
+        AVLTree<Station> leftLonTree = new AVLTree<>(lonComparator);
+        AVLTree<Station> rightLatTree = new AVLTree<>(latComparator);
+        AVLTree<Station> rightLonTree = new AVLTree<>(lonComparator);
+
+        // Insert stations into new trees
+        for (Station s : leftStations) {
+            leftLatTree.insert(s);
+            leftLonTree.insert(s);
+        }
+        for (Station s : rightStations) {
+            rightLatTree.insert(s);
+            rightLonTree.insert(s);
+        }
+
+        // Recursively build subtrees, alternating the split dimension
+        node.setLeft(buildFromAVLTrees(leftLatTree, leftLonTree, coordinateMap, !splitByLatitude));
+        node.setRight(buildFromAVLTrees(rightLatTree, rightLonTree, coordinateMap, !splitByLatitude));
+
+        return node;
+    }
+
+
+    /**
+     * Calculates the height of the tree.
+     *
+     * @param node root node
+     * @return height
+     */
+    private int calculateHeight(KD2DNode node) {
+        if (node == null) {
+            return -1;
+        }
+        return 1 + Math.max(calculateHeight(node.getLeft()), calculateHeight(node.getRight()));
+    }
+
+    /**
+     * Returns the root node of the tree.
+     *
+     * @return root node
+     */
+    public KD2DNode getRoot() {
+        return root;
+    }
+
+    /**
+     * Returns the total number of stations in the tree.
+     *
+     * @return size
+     */
+    public int size() {
+        return size;
+    }
+
+    /**
+     * Returns the height of the tree.
+     *
+     * @return height
+     */
+    public int height() {
+        return height;
+    }
+
+    /**
+     * Returns all distinct bucket sizes (number of stations at each coordinate).
+     *
+     * @return set of distinct bucket sizes
+     */
+    public Set<Integer> getDistinctBucketSizes() {
+        Set<Integer> bucketSizes = new HashSet<>();
+        collectBucketSizes(root, bucketSizes);
+        return bucketSizes;
+    }
+
+    private void collectBucketSizes(KD2DNode node, Set<Integer> bucketSizes) {
+        if (node != null) {
+            bucketSizes.add(node.getStationCount());
+            collectBucketSizes(node.getLeft(), bucketSizes);
+            collectBucketSizes(node.getRight(), bucketSizes);
+        }
+    }
+
+    /**
+     * Performs a range query to find all stations within a rectangular region.
+     *
+     * @param minLat minimum latitude
+     * @param maxLat maximum latitude
+     * @param minLon minimum longitude
+     * @param maxLon maximum longitude
+     * @return list of stations in the range
+     */
+    public List<Station> rangeQuery(double minLat, double maxLat, double minLon, double maxLon) {
+        List<Station> result = new ArrayList<>();
+        rangeQuery(root, minLat, maxLat, minLon, maxLon, result);
+        return result;
+    }
+
+    private void rangeQuery(KD2DNode node, double minLat, double maxLat, double minLon, double maxLon,
+                           List<Station> result) {
+        if (node == null) {
+            return;
+        }
+
+        double lat = node.getLatitude();
+        double lon = node.getLongitude();
+
+        // Check if this node's point is in the range
+        if (lat >= minLat && lat <= maxLat && lon >= minLon && lon <= maxLon) {
+            result.addAll(node.getStations());
+        }
+
+        // Recursively search subtrees
+        if (node.isSplitByLatitude()) {
+            if (lat >= minLat) {
+                rangeQuery(node.getLeft(), minLat, maxLat, minLon, maxLon, result);
+            }
+            if (lat <= maxLat) {
+                rangeQuery(node.getRight(), minLat, maxLat, minLon, maxLon, result);
+            }
+        } else {
+            if (lon >= minLon) {
+                rangeQuery(node.getLeft(), minLat, maxLat, minLon, maxLon, result);
+            }
+            if (lon <= maxLon) {
+                rangeQuery(node.getRight(), minLat, maxLat, minLon, maxLon, result);
+            }
+        }
+    }
+}
+
+==============================
+File: src/main/controller/StationService.java (original)
+==============================
+package main.controller;
+
+import main.domain.KD2DTree;
+import main.domain.Station;
+import main.repositories.CsvValidatorResult;
+import main.repositories.StationsCsvLoader;
+
+import java.io.IOException;
+import java.util.List;
+import java.util.Set;
+
+/**
+ * Service to manage railway stations and build balanced 2D-trees.
+ * USEI07: Implements the construction of a balanced 2D-tree using AVL trees.
+ * 
+ * NOTE: Uses only AVLTree (not BST), as AVLTree is already a balanced BST
+ * and provides all necessary functionality for efficient construction.
+ */
+public class StationService {
+    private KD2DTree tree;  // The 2D-tree that indexes stations by coordinates
+    private List<Station> stations;  // List of all loaded stations
+
+    /**
+     * Constructs a new station service.
+     */
+    public StationService() {
+        this.tree = new KD2DTree();
+        this.stations = null;
+    }
+
+    /**
+     * Loads stations from a CSV file and builds a balanced 2D-tree.
+     * Validates data according to USEI07 acceptance criteria.
+     *
+     * @param csvPath path to the stations CSV file
+     * @return validation result with loaded stations and errors found
+     * @throws IOException if there is an error reading the CSV file
+     */
+    public CsvValidatorResult<Station> loadStationsAndBuildTree(String csvPath) throws IOException {
+        // Load and validate stations from CSV
+        CsvValidatorResult<Station> result = StationsCsvLoader.load(csvPath);
+        
+        if (!result.getRecords().isEmpty()) {
+            this.stations = result.getRecords();
+            System.out.println("Building balanced 2D-tree (this may take a while)...");
+            long startTimeMillis = System.currentTimeMillis();
+            // Build balanced 2D-tree using AVL trees of latitude and longitude
+            tree.buildBalancedUsingBST(stations);
+            long elapsedMillis = System.currentTimeMillis() - startTimeMillis;
+            System.out.println("2D-tree build finished in " + formatDuration(elapsedMillis) + ".");
+        }
+        
+        return result;
+    }
+
+    /**
+     * Builds a balanced 2D-tree from a list of stations.
+     * Uses the balanced construction strategy with AVL trees.
+     *
+     * @param stations list of stations
+     */
+    public void buildTree(List<Station> stations) {
+        this.stations = stations;
+        tree.buildBalancedUsingBST(stations);
+    }
+
+    private String formatDuration(long elapsedMillis) {
+        long seconds = elapsedMillis / 1000;
+        long milliseconds = elapsedMillis % 1000;
+        long minutes = seconds / 60;
+        long remainingSeconds = seconds % 60;
+
+        if (minutes > 0) {
+            return minutes + "m " + remainingSeconds + "s";
+        }
+        if (seconds > 0) {
+            return remainingSeconds + "s " + milliseconds + "ms";
+        }
+        return milliseconds + "ms";
+    }
+
+    /**
+     * Returns the 2D-tree.
+     *
+     * @return the 2D-tree
+     */
+    public KD2DTree getTree() {
+        return tree;
+    }
+
+    /**
+     * Returns the size of the tree (total number of stations).
+     *
+     * @return size
+     */
+    public int getTreeSize() {
+        return tree.size();
+    }
+
+    /**
+     * Returns the height of the tree.
+     *
+     * @return height
+     */
+    public int getTreeHeight() {
+        return tree.height();
+    }
+
+    /**
+     * Returns all distinct bucket sizes (number of stations at each coordinate).
+     *
+     * @return set of distinct bucket sizes
+     */
+    public Set<Integer> getDistinctBucketSizes() {
+        return tree.getDistinctBucketSizes();
+    }
+
+    /**
+     * Performs a range query to find stations within a rectangular region.
+     *
+     * @param minLat minimum latitude
+     * @param maxLat maximum latitude
+     * @param minLon minimum longitude
+     * @param maxLon maximum longitude
+     * @return list of stations in the range
+     */
+    public List<Station> rangeQuery(double minLat, double maxLat, double minLon, double maxLon) {
+        return tree.rangeQuery(minLat, maxLat, minLon, maxLon);
+    }
+
+    /**
+     * Returns the loaded stations.
+     *
+     * @return list of stations
+     */
+    public List<Station> getStations() {
+        return stations;
+    }
+}
+
+==============================
+File: src/main/domain/AVLTree.java (original header comment)
+==============================
+package main.domain;
+
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+
+/**
+ * AVL Tree implementation with automatic balancing.
+ * 
+ * IMPORTANT: AVL is a BST (Binary Search Tree)!
+ * - Every AVL tree is a BST, but not every BST is an AVL
+ * - AVL = BST + balancing property
+ * - The BST property (ordering) is ALWAYS maintained, even after rotations
+ * - Rotations are designed to preserve the BST property
+ * 
+ * Properties:
+ * - Maintains balance factor in [-1, 1] for all nodes
+ * - Guaranteed height: O(log n)
+ * - All operations maintain the BST property
+ * 
+ * NOTE: This class is used in USEI07 to build the balanced 2D-tree.
+ * The BST class also exists in the project for educational purposes and reference,
+ * demonstrating the difference between a simple BST and a balanced AVL.
+ *
+ * @param <E> type of elements stored in the tree
+ */
+public class AVLTree<E> {
+    // ... existing implementation unchanged ...
+}
+
+==============================
+File: src/main/ui/WarehouseUI.java (original main menu excerpt)
+==============================
+    private void showMainMenu() {
+        System.out.println("\n=== MENU ===");
+        System.out.println("1. Load CSV Data");
+        System.out.println("2. View All Inventory");
+        System.out.println("3. Perform Dispatch");
+        System.out.println("4. Relocate Box");
+        System.out.println("5. Plan Allocations");
+        System.out.println("6. Create Picking Plan");
+        System.out.println("7. Compute Pick Path Sequence");
+        System.out.println("8. Returns & Quarantine");
+        System.out.println("9. Change Warehouse Settings");
+        System.out.println("0. Exit");
+        System.out.println("Current warehouse: " + currentWarehouseId + ", Aisle: " + currentAisle);
+    }
+
+==============================
+File: src/main/domain/BST.java (original)
+==============================
+package main.domain;
+
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+
+/**
+ * Binary Search Tree (BST) implementation with recursive insertion and removal.
+ * 
+ * This class is intentionally simple and does not maintain balance.
+ * For USEI07, AVLTree is preferred as it guarantees balance and better performance.
+ *
+ * @param <E> type of elements stored in the tree
+ */
+public class BST<E> {
+    private BSTNode<E> root;
+    private final Comparator<E> comparator;
+    private int size;
+
+    public BST(Comparator<E> comparator) {
+        this.root = null;
+        this.comparator = comparator;
+        this.size = 0;
+    }
+
+    public boolean insert(E elem) {
+        if (elem == null) {
+            return false;
+        }
+        root = insert(root, elem);
+        size = size(root);
+        return true;
+    }
+
+    private BSTNode<E> insert(BSTNode<E> node, E elem) {
+        if (node == null) {
+            return new BSTNode<>(elem);
+        }
+        int cmp = comparator.compare(elem, node.getElement());
+        if (cmp < 0) {
+            node.setLeft(insert(node.getLeft(), elem));
+        } else if (cmp > 0) {
+            node.setRight(insert(node.getRight(), elem));
+        }
+        return node;
+    }
+
+    public boolean remove(E elem) {
+        if (elem == null || root == null) {
+            return false;
+        }
+        root = remove(elem, root);
+        size = size(root);
+        return true;
+    }
+
+    private BSTNode<E> remove(E elem, BSTNode<E> node) {
+        if (node == null) {
+            return null;
+        }
+
+        int cmp = comparator.compare(elem, node.getElement());
+        if (cmp < 0) {
+            node.setLeft(remove(elem, node.getLeft()));
+        } else if (cmp > 0) {
+            node.setRight(remove(elem, node.getRight()));
+        } else {
+            if (node.getLeft() == null) {
+                return node.getRight();
+            } else if (node.getRight() == null) {
+                return node.getLeft();
+            } else {
+                E smallest = smallestElement(node.getRight());
+                node.setElement(smallest);
+                node.setRight(remove(smallest, node.getRight()));
+            }
+        }
+        return node;
+    }
+
+    private E smallestElement(BSTNode<E> node) {
+        BSTNode<E> current = node;
+        while (current.getLeft() != null) {
+            current = current.getLeft();
+        }
+        return current.getElement();
+    }
+
+    public boolean contains(E elem) {
+        return contains(root, elem);
+    }
+
+    private boolean contains(BSTNode<E> node, E elem) {
+        if (node == null) {
+            return false;
+        }
+        int cmp = comparator.compare(elem, node.getElement());
+        if (cmp < 0) {
+            return contains(node.getLeft(), elem);
+        } else if (cmp > 0) {
+            return contains(node.getRight(), elem);
+        } else {
+            return true;
+        }
+    }
+
+    public BSTNode<E> getRoot() {
+        return root;
+    }
+
+    public int size() {
+        return size;
+    }
+
+    public int height() {
+        return height(root);
+    }
+
+    private int size(BSTNode<E> node) {
+        if (node == null) {
+            return 0;
+        }
+        return 1 + size(node.getLeft()) + size(node.getRight());
+    }
+
+    private int height(BSTNode<E> node) {
+        if (node == null) {
+            return -1;
+        }
+        return 1 + Math.max(height(node.getLeft()), height(node.getRight()));
+    }
+
+    public List<E> inOrder() {
+        List<E> result = new ArrayList<>();
+        inOrder(root, result);
+        return result;
+    }
+
+    private void inOrder(BSTNode<E> node, List<E> result) {
+        if (node != null) {
+            inOrder(node.getLeft(), result);
+            result.add(node.getElement());
+            inOrder(node.getRight(), result);
+        }
+    }
+}
+
+==============================
+File: src/main/domain/BSTNode.java (original)
+==============================
+package main.domain;
+
+/**
+ * Node structure for Binary Search Tree (BST).
+ *
+ * @param <E> type of element stored in the node
+ */
+public class BSTNode<E> {
+    private E element;
+    private BSTNode<E> left;
+    private BSTNode<E> right;
+
+    public BSTNode(E element) {
+        this.element = element;
+        this.left = null;
+        this.right = null;
+    }
+
+    public E getElement() {
+        return element;
+    }
+
+    public void setElement(E element) {
+        this.element = element;
+    }
+
+    public BSTNode<E> getLeft() {
+        return left;
+    }
+
+    public void setLeft(BSTNode<E> left) {
+        this.left = left;
+    }
+
+    public BSTNode<E> getRight() {
+        return right;
+    }
+
+    public void setRight(BSTNode<E> right) {
+        this.right = right;
+    }
+}
+
+
