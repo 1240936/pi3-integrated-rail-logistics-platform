@@ -24,22 +24,22 @@
 
 
 encrypt_data:
-    addi sp, sp, -20                    # reserva espaço na stack (20 bytes)
-    sw ra, 16(sp)                       # guarda o endereço de retorno
-    sw s0, 12(sp)                       # guarda s0 
-    sw s1, 8(sp)                        # guarda s1 
-    sw s2, 4(sp)                        # guarda s2 
-    sw s3, 0(sp)                        # guarda s3
+    addi    sp, sp, -20                 # reserva 20 bytes na stack
+    sw      ra, 16(sp)                  # salva ra
+    sw      s0, 12(sp)                  # salva s0 (resultado)
+    sw      s1, 8(sp)                   # salva s1 (índice)
+    sw      s2, 4(sp)                   # salva s2 (ponteiro in)
+    sw      s3, 0(sp)                   # salva s3 (ponteiro out) 
 
     mv s2, a0                           # s2 (ponteiro) = a0 (input pointer)
     mv s3, a2                           # s3 (ponteiro) = a2 (output pointer)
     addi s1, zero, 0                    # s1 (índice i) = 0    
     li s0, 1                            # s0 (resultado) = 1 -> assume sucesso
 
-    li t0, 0
-    blt a1, t0, fail                # if key < 0 -> fail
+    li t0, 1
+    blt a1, t0, fail                    # if key < 1 -> fail
     li t1, 26
-    bgt a1, t1, fail                # if key > 26 -> fail
+    bgt a1, t1, fail                    # if key > 26 -> fail
 
 loop:
     lb t4, 0(s2)                        # lê ponteiro s2 na posição atual
@@ -70,10 +70,10 @@ fail:
 end:
     sb zero, 0(s3)                      # escreve '\0', marca o fim da string
     mv a0, s0                           # a0 = s0 (1 ou 0)
-    lw ra, 16(sp)                       # restsura os registradores
-    lw s0, 12(sp)
-    lw s1, 8(sp)
-    lw s2, 4(sp)
-    lw s3, 0(sp)                        
-    addi sp, sp, 20                     # liberta a stack
+    lw      ra, 16(sp)                  # restaura os registradores
+    lw      s0, 12(sp)
+    lw      s1, 8(sp)
+    lw      s2, 4(sp)
+    lw      s3, 0(sp)
+    addi    sp, sp, 20                  # liberta a stack
     ret

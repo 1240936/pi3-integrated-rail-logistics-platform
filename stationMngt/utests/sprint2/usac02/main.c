@@ -24,7 +24,7 @@ void run_test(char * str, int key, char * str_expected, int expected)
     // setup 
         memset(vec, 0xaa, sizeof vec);
      
-	res = callfunc(encrypt_data,str,key,vec+1);
+	res = callfunc(decrypt_data,str,key,vec+1);
     
     TEST_ASSERT_EQUAL_CHAR(0xaa, vec[strlen(str)+2]);    // check sentinel 
     TEST_ASSERT_EQUAL_CHAR(0xaa, vec[0]);    // check sentinel 
@@ -40,28 +40,28 @@ void test_None()
 }
 void test_None1()
 { 
-    run_test("",4,"",1); 
+    run_test("",13,"",1); 
 }
 void test_Error()
 { 
     run_test("heu",2,"",0); 
 }
-void test_Error2()
+void test_Error1()
 { 
-    run_test("HEU",52,"",0); 
+    run_test("HEU",62,"",0); 
 }
 void test_S1() 
 { 
-    run_test("ABCDEFGH",4,"EFGHIJKL",1); 
+    run_test("EFGHIJKL",4,"ABCDEFGH",1); 
 }
 void test_S2()
 { 
-    run_test("UVWXYZAAAAA",8,"CDEFGHIIIII",1); 
+    run_test("CDEFGHIIIII",8,"UVWXYZAAAAA",1); 
 }
 
 void test_S3()
 { 
-    run_test("CDEFGHIIIII",20,"WXYZABCCCCC",1); 
+    run_test("WXYZABCCCCC",20,"CDEFGHIIIII",1); 
 	
 }
 
@@ -73,7 +73,7 @@ int main()
     RUN_TEST(test_None);
     RUN_TEST(test_None1);
     RUN_TEST(test_Error);
-    RUN_TEST(test_Error2);
+    RUN_TEST(test_Error1);
     RUN_TEST(test_S1);
     RUN_TEST(test_S2);
     RUN_TEST(test_S3);
