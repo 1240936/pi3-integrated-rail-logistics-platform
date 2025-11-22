@@ -155,5 +155,32 @@ public class RouteRepository {
             stmt.executeUpdate();
         }
     }
+
+    /**
+     * Delete a route and all its associated path points and train events
+     */
+    public boolean deleteRoute(int routeId) throws SQLException {
+        // First delete path points (foreign key constraint)
+        String deletePathSql = "DELETE FROM Path WHERE RouteID = ?";
+        try (PreparedStatement stmt = connection.prepareStatement(deletePathSql)) {
+            stmt.setInt(1, routeId);
+            stmt.executeUpdate();
+        }
+        
+        // Delete train events (foreign key constraint)
+        String deleteEventsSql = "DELETE FROM TrainEvent WHERE RouteID = ?";
+        try (PreparedStatement stmt = connection.prepareStatement(deleteEventsSql)) {
+            stmt.setInt(1, routeId);
+            stmt.executeUpdate();
+        }
+        
+        // Finally delete the route
+        String deleteRouteSql = "DELETE FROM Route WHERE ID = ?";
+        try (PreparedStatement stmt = connection.prepareStatement(deleteRouteSql)) {
+            stmt.setInt(1, routeId);
+            int rowsAffected = stmt.executeUpdate();
+            return rowsAffected > 0;
+        }
+    }
 }
 
