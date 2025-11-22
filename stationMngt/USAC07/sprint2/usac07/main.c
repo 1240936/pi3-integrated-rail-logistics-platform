@@ -2,11 +2,11 @@
 #include "asm.h"
 
 int main(void){
-    int buffer[10] ={1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
+    int buffer[10] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
     int length = 10;
-    int nelem = 2;
+    int nelem = 5;
     int tail = 0;
-    int head = 2;
+    int head = 5;
     int n = 3;
     int array[5];
 
