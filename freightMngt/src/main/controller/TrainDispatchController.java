@@ -34,7 +34,7 @@ public class TrainDispatchController {
     /**
      * Dispatch a train: create route, define path, and schedule
      */
-    public TrainSchedulerService.SchedulingResult dispatchTrain(int trainId, int startFacilityId, 
+    public SchedulingResult dispatchTrain(int trainId, int startFacilityId, 
                                                                  int endFacilityId, 
                                                                  LocalDateTime startDate,
                                                                  List<Integer> pathFacilityIds) throws SQLException {
@@ -104,7 +104,6 @@ public class TrainDispatchController {
 
         // Create route
         int routeId = routeRepository.createRoute(trainId, startFacilityId, endFacilityId, startDate);
-        Route route = routeRepository.getById(routeId);
 
         // Add path points manually defined by Freight Manager
         int seqNumber = 1;
@@ -116,10 +115,10 @@ public class TrainDispatchController {
         }
 
         // Reload route with path points
-        route = routeRepository.getById(routeId);
+        Route route = routeRepository.getById(routeId);
 
         // Schedule the route (calculate times and detect crossings)
-        TrainSchedulerService.SchedulingResult result = schedulerService.scheduleRoute(route);
+        SchedulingResult result = schedulerService.scheduleRoute(route);
 
         // Commit transaction
         connection.commit();
@@ -151,7 +150,7 @@ public class TrainDispatchController {
     /**
      * Get scheduling result for a route
      */
-    public TrainSchedulerService.SchedulingResult getScheduleForRoute(int routeId) throws SQLException {
+    public SchedulingResult getScheduleForRoute(int routeId) throws SQLException {
         Route route = routeRepository.getById(routeId);
         if (route == null) {
             throw new IllegalArgumentException("Route not found: " + routeId);

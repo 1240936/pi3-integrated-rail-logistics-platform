@@ -25,35 +25,6 @@ public class TrainEventRepository {
     }
 
     /**
-     * Get all train events for a route
-     */
-    public List<TrainEvent> getByRouteId(int routeId) throws SQLException {
-        String sql = "SELECT ID, RouteID, TrainID, FacilityID, eventTime " +
-                     "FROM TrainEvent WHERE RouteID = ? ORDER BY eventTime";
-        List<TrainEvent> events = new ArrayList<>();
-        
-        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
-            stmt.setInt(1, routeId);
-            try (ResultSet rs = stmt.executeQuery()) {
-                while (rs.next()) {
-                    Facility facility = facilityRepository.getById(rs.getInt("FacilityID"));
-                    Timestamp eventTime = rs.getTimestamp("eventTime");
-                    LocalDateTime eventDateTime = eventTime != null ? eventTime.toLocalDateTime() : null;
-                    
-                    events.add(new TrainEvent(
-                        rs.getInt("ID"),
-                        rs.getInt("RouteID"),
-                        rs.getInt("TrainID"),
-                        facility,
-                        eventDateTime
-                    ));
-                }
-            }
-        }
-        return events;
-    }
-
-    /**
      * Create a new train event
      */
     public void createEvent(int routeId, int trainId, int facilityId, LocalDateTime eventTime) throws SQLException {

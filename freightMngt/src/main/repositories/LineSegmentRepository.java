@@ -122,29 +122,6 @@ public class LineSegmentRepository {
     }
 
     /**
-     * Get sidings by line segment ID
-     */
-    public List<Siding> getSidingsByLineSegmentId(int lineSegmentId) throws SQLException {
-        String sql = "SELECT ID, LineSegmentID, position, length FROM Siding WHERE LineSegmentID = ?";
-        List<Siding> sidings = new ArrayList<>();
-        
-        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
-            stmt.setInt(1, lineSegmentId);
-            try (ResultSet rs = stmt.executeQuery()) {
-                while (rs.next()) {
-                    sidings.add(new Siding(
-                        rs.getInt("ID"),
-                        rs.getInt("LineSegmentID"),
-                        rs.getDouble("position"),
-                        rs.getDouble("length")
-                    ));
-                }
-            }
-        }
-        return sidings;
-    }
-
-    /**
      * Get a map of line segment ID to list of sidings
      */
     public Map<Integer, List<Siding>> getSidingsBySegmentMap() throws SQLException {

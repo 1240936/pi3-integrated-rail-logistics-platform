@@ -89,39 +89,5 @@ public class LocomotiveRepository {
         }
         return locomotives;
     }
-
-    /**
-     * Get locomotive by ID
-     */
-    public Locomotive getById(int id) throws SQLException {
-        String sql = "SELECT l.ID, l.VehicleModelID, l.TrainOperatorID, " +
-                     "ls.make, ls.power, ls.acceleration, ls.maxSpeed, ls.numberOfWheels " +
-                     "FROM Locomotive l " +
-                     "JOIN LocomotiveSpecs ls ON l.VehicleModelID = ls.VehicleModelID " +
-                     "WHERE l.ID = ?";
-        
-        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
-            stmt.setInt(1, id);
-            try (ResultSet rs = stmt.executeQuery()) {
-                if (rs.next()) {
-                    LocomotiveSpecs specs = new LocomotiveSpecs(
-                        rs.getInt("VehicleModelID"),
-                        rs.getString("make"),
-                        rs.getDouble("power"),
-                        rs.getObject("acceleration", Double.class),
-                        rs.getDouble("maxSpeed"),
-                        rs.getInt("numberOfWheels")
-                    );
-                    return new Locomotive(
-                        rs.getInt("ID"),
-                        rs.getInt("VehicleModelID"),
-                        rs.getInt("TrainOperatorID"),
-                        specs
-                    );
-                }
-            }
-        }
-        return null;
-    }
 }
 

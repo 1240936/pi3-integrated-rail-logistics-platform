@@ -114,19 +114,5 @@ public class RailLineRepository {
         }
         return railLines;
     }
-
-    /**
-     * Get a map of facility pairs to rail lines for quick lookups
-     */
-    public Map<String, RailLine> getFacilityPairToRailLineMap() throws SQLException {
-        Map<String, RailLine> map = new HashMap<>();
-        for (RailLine railLine : getAll()) {
-            String key1 = railLine.getStartFacility().getId() + "-" + railLine.getEndFacility().getId();
-            String key2 = railLine.getEndFacility().getId() + "-" + railLine.getStartFacility().getId();
-            map.put(key1, railLine);
-            map.put(key2, railLine);
-        }
-        return map;
-    }
 }
 

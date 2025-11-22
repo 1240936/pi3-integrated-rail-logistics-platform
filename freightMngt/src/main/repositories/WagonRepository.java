@@ -110,21 +110,5 @@ public class WagonRepository {
         }
         return false;
     }
-
-    /**
-     * Get loaded wagons (wagons with freight assigned)
-     */
-    public Set<Integer> getLoadedWagonIds() throws SQLException {
-        String sql = "SELECT DISTINCT WagonID FROM Freight_Wagon";
-        Set<Integer> loadedIds = new HashSet<>();
-        
-        try (PreparedStatement stmt = connection.prepareStatement(sql);
-             ResultSet rs = stmt.executeQuery()) {
-            while (rs.next()) {
-                loadedIds.add(rs.getInt("WagonID"));
-            }
-        }
-        return loadedIds;
-    }
 }
 

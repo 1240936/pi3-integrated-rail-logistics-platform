@@ -276,17 +276,12 @@ public class FreightManagerUI {
 
         // Dispatch the train
         System.out.println("\nDispatching train...");
-        try {
-            TrainSchedulerService.SchedulingResult result = controller.dispatchTrain(
-                    trainId, startFacilityId, endFacilityId, startDate, pathFacilityIds);
+        SchedulingResult result = controller.dispatchTrain(
+                trainId, startFacilityId, endFacilityId, startDate, pathFacilityIds);
 
-            System.out.println("\n✓ Train dispatched successfully!");
-            System.out.println("\nSchedule:");
-            printSchedule(result);
-        } catch (IllegalArgumentException e) {
-            System.out.println("\n " + e.getMessage());
-            throw e; // Re-throw to be caught by outer exception handler
-        }
+        System.out.println("\n✓ Train dispatched successfully!");
+        System.out.println("\nSchedule:");
+        printSchedule(result);
     }
 
     private void viewScheduledRoutes(TrainDispatchController controller) throws Exception {
@@ -322,7 +317,7 @@ public class FreightManagerUI {
         }
 
         try {
-            TrainSchedulerService.SchedulingResult result = controller.getScheduleForRoute(routeId);
+            SchedulingResult result = controller.getScheduleForRoute(routeId);
             printSchedule(result);
         } catch (IllegalArgumentException e) {
             System.out.println("\n " + e.getMessage());
@@ -330,7 +325,7 @@ public class FreightManagerUI {
         }
     }
 
-    private void printSchedule(TrainSchedulerService.SchedulingResult result) throws Exception {
+    private void printSchedule(SchedulingResult result) throws Exception {
         System.out.println("\n=== ESTIMATED PASSAGE TIMES ===");
         System.out.printf("Route ID: %d, Train ID: %d\n",
                 result.getRoute().getId(), result.getRoute().getTrainId());
