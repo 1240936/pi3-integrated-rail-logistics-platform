@@ -1,0 +1,54 @@
+Francisco Vasconcelos:
+3 Nov: Started USEI07 implementation; needed teacher clarification.
+5 Nov: Advanced USEI07 coding; refining logic.
+7 Nov: Progressed USEI07; preparing testing.
+10 Nov: Continued USEI07; preparing integration tests.
+12 Nov: Completed core logic of USEI07; testing integration.
+14 Nov: Finalized USEI07; preparing Sprint 2 (USAC02).
+17 Nov: Began USAC02 and USBD30 with Gonçalo; testing Caesar Cipher.
+19 Nov: Advanced USAC02, USBD30, USAC06; testing buffer logic.
+21 Nov: Completed USAC02, USBD30, USAC06; all stable.
+
+Gabriel Inácio:
+3 Nov: Completed glossary/domain with Maria; began USEI08.
+5 Nov: Started USEI08 tasks; moved to In Process.
+7 Nov: Advanced USEI08; continued development.
+10 Nov: Advanced USEI10 coding; validating expiry date logic.
+12 Nov: Progressed USEI10 expiry handling; preparing test cases.
+14 Nov: Completed USEI10 core logic; preparing Sprint 2 (USAC04).
+17 Nov: Began USAC04 and USAC07 with Paulo; testing command formatting.
+19 Nov: Advanced USAC04, USAC07, USBD28; testing with Paulo/Gonçalo.
+21 Nov: Completed USAC04, USAC07, USEI10, USBD28.
+
+Gonçalo Azevedo:
+3 Nov: Corrected relational model with Paulo; began USEI06.
+5 Nov: Initial work on USEI06; continued development.
+7 Nov: Progressed USEI06; preparing testing.
+10 Nov: Progressed USBD21 with Paulo; reviewing constraints.
+12 Nov: Advanced USBD21 corrections; preparing Oracle instantiation.
+14 Nov: Finalized USBD21 with Paulo; preparing USBD22.
+17 Nov: Began USBD22, USBD23, USBD28, USBD29; testing queries with Maria/Paulo.
+19 Nov: Advanced USBD22, USBD23, USBD29, USAC05, USAC06; testing with Maria/Francisco.
+21 Nov: Completed USBD22, USBD23, USBD28, USBD29, USAC05, USAC06, USBD30.
+
+Maria Pinto:
+3 Nov: Finished glossary/domain with Inácio; supporting ESINF.
+5 Nov: Supported ESINF planning; began USEI010 documentation.
+7 Nov: Completed USEI010 documentation; supported USEI07 testing.
+10 Nov: Advanced USEI08 validation; preparing documentation.
+12 Nov: Completed USEI08 documentation; supported Gonçalo in database validation.
+14 Nov: Supported Gonçalo in USBD21 validation; began USAC01 and USAC09.
+17 Nov: Began USAC01 and USAC09; supported Gonçalo in USBD23.
+19 Nov: Advanced USAC01, USAC09, USBD23; testing median function.
+21 Nov: Completed USAC01, USAC09, USBD23.
+
+Paulo Ferreira:
+3 Nov: Corrected relational model with Gonçalo; preparing USEI09 support.
+5 Nov: Finalized relational model corrections; supporting USEI06.
+7 Nov: Assisted Gonçalo in USEI06; preparing validation for relational model.
+10 Nov: Supported Gonçalo in USBD21; preparing validation scripts.
+12 Nov: Assisted Gonçalo in USBD21; preparing validation scripts.
+14 Nov: Completed USBD21 with Gonçalo; preparing USEI09.
+17 Nov: Began USEI09, USBD29, USAC04, USAC08; testing assembly functions with Gabriel.
+19 Nov: Advanced USEI09, USBD29, USAC04, USAC08; testing command formatting.
+21 Nov: Completed USEI09, USBD29, USAC04, USAC08.

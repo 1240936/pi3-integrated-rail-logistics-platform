@@ -1,0 +1,42 @@
+Francisco Vasconcelos 
+Francisco drove the progression of USEI07 from inception to completion, then pivoted smoothly into Sprint 2 assembly tasks.
+Initiated USEI07 despite initial logic uncertainties.
+Advanced through coding, integration, and testing phases with steady pace.
+Transitioned into USAC02, USBD30, and buffer logic tasks, finalizing them by 21 Nov.
+Assessment: Francisco showed resilience and adaptability, mastering both service logic and assembly functions. His delivery was consistent and aligned with sprint milestones.
+
+Gabriel Inácio
+Gabriel contributed heavily to inventory and expiry logic before moving into assembly coding.
+Completed glossary/domain with Maria, enabling early consistency.
+Advanced USEI08 and USEI10 with strong validation focus.
+Transitioned into USAC04 and USAC07, finalizing them alongside database tasks.
+Assessment: Gabriel demonstrated precision in expiry handling and modular assembly coding. His ability to balance validation and development made him a key driver of robustness.
+
+Gonçalo Azevedo 
+Gonçalo anchored database integrity and expanded into assembly tasks.
+Corrected and finalized relational models with Paulo.
+Advanced USBD21 through testing and Oracle instantiation.
+Delivered multiple database queries (USBD22–30) and assembly buffer logic (USAC05–06).
+Assessment: Gonçalo’s methodical approach ensured database stability and query reliability. His dual focus on relational corrections and assembly integration reinforced backend strength.
+
+Maria Pinto 
+Maria balanced documentation, validation, and assembly contributions.
+Completed glossary/domain tasks early, enabling team cohesion.
+Delivered USEI010 and USEI08 documentation with clarity.
+Transitioned into assembly functions (USAC01, USAC09) and database support.
+Assessment: Maria’s emphasis on clarity and validation strengthened deliverables. Her assembly contributions added breadth to her role, ensuring smooth sprint progression.
+
+Paulo Ferreira
+Paulo consistently supported relational corrections and expanded into assembly and integration.
+Partnered with Gonçalo on relational model corrections and validations.
+Advanced into USEI09, USBD29, and assembly functions (USAC04, USAC08).
+Finalized all assigned tasks by 21 Nov.
+Assessment: Paulo’s steady contributions across database and assembly ensured stability. His collaborative style reinforced team efficiency and integration quality.
+
+Global Team Assessment
+The team demonstrated strong synergy and progression across November:
+Clear task evolution: Early focus on glossary, relational corrections, and service logic transitioned into assembly and database queries.
+Collaborative testing: Members consistently paired (e.g., Gonçalo with Paulo, Maria with Gabriel) to validate outputs.
+Balanced ownership: Each member had distinct focus areas (Francisco on service/assembly, Gabriel on expiry/assembly, Gonçalo on database, Maria on documentation/assembly, Paulo on validation/assembly).
+Sprint closure: By 22 Nov, all major tasks were finalized, reflecting maturity and cohesion.
+Overall Evaluation: The team operated with high technical maturity and adaptability. Their sprint output reflects a well-structured, thoroughly tested, and assembly-integrated system. The balance between individual ownership and collaborative refinement remained exemplary.
