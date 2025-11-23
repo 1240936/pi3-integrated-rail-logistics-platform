@@ -10,7 +10,17 @@ import java.time.LocalDateTime;
 import java.util.*;
 
 /**
- * Service for train scheduling including speed calculation, crossing detection, and time estimation
+ * Service for train scheduling including speed calculation, crossing detection, and time estimation.
+ * This service handles all scheduling logic including:
+ * <ul>
+ *   <li>Speed calculation based on train power, weight, and track constraints</li>
+ *   <li>Travel time estimation for routes</li>
+ *   <li>Route passage time calculation with freight pickup/delivery</li>
+ *   <li>Crossing detection on single-track segments</li>
+ * </ul>
+ * 
+ * @author Freight Management System
+ * @version 1.0
  */
 public class TrainSchedulerService {
     private final FacilityRepository facilityRepository;
@@ -21,6 +31,12 @@ public class TrainSchedulerService {
     private final TrainEventRepository trainEventRepository;
     private final FreightRepository freightRepository;
 
+    /**
+     * Constructs a TrainSchedulerService with the given database connection.
+     * Initializes all required repositories for train scheduling operations.
+     * 
+     * @param connection the database connection to use for repository operations
+     */
     public TrainSchedulerService(Connection connection) {
         this.facilityRepository = new FacilityRepository(connection);
         LocomotiveRepository locoRepo = new LocomotiveRepository(connection);
@@ -35,10 +51,20 @@ public class TrainSchedulerService {
     }
 
     /**
-     * Calculate the maximum speed for a train on a line segment based on:
-     * - Track speed limit
-     * - Locomotive power and train weight
-     * - Locomotive max speed
+     * Calculate the maximum speed for a train on a line segment.
+     * The speed is determined by taking the minimum of:
+     * <ul>
+     *   <li>Track speed limit (if specified)</li>
+     *   <li>Locomotive maximum speed</li>
+     *   <li>Calculated speed based on power-to-weight ratio</li>
+     * </ul>
+     * 
+     * The power-to-weight calculation uses the formula: v = k * sqrt(P/W)
+     * where k is approximately 18 km/h for trains.
+     * 
+     * @param train the train for which to calculate speed
+     * @param segment the line segment on which the train will travel
+     * @return the maximum speed in km/h, or 0 if train weight is zero
      */
     public double calculateSpeed(Train train, LineSegment segment) {
         // Start with locomotive's max speed
@@ -69,7 +95,13 @@ public class TrainSchedulerService {
     }
 
     /**
-     * Calculate travel time for a train on a line segment
+     * Calculate travel time for a train on a line segment.
+     * The travel time is calculated based on the segment length and the train's
+     * calculated speed (which considers power, weight, and speed limits).
+     * 
+     * @param train the train for which to calculate travel time
+     * @param segment the line segment on which the train will travel
+     * @return the travel time as a Duration, or Duration.ZERO if speed is zero
      */
     public Duration calculateTravelTime(Train train, LineSegment segment) {
         double speed = calculateSpeed(train, segment); // km/h
@@ -89,8 +121,24 @@ public class TrainSchedulerService {
     }
 
     /**
-     * Calculate estimated passage times for a train along its route
-     * Handles freight pickup/drop-off which affects train weight and speed
+     * Calculate estimated passage times for a train along its route.
+     * This method processes the entire route, handling:
+     * <ul>
+     *   <li>Travel between consecutive facilities in the path</li>
+     *   <li>Freight pickup and delivery operations (which affect train weight)</li>
+     *   <li>Speed recalculation as train weight changes</li>
+     *   <li>Direction handling for bidirectional rail lines</li>
+     * </ul>
+     * 
+     * The method returns a list of TrainEvent objects representing passage times
+     * at each facility along the route, including the start and end facilities.
+     * 
+     * @param route the route for which to calculate passage times
+     * @param train the train that will travel the route
+     * @return a list of TrainEvent objects representing passage times at each facility
+     * @throws SQLException if there is a database error during calculation
+     * @throws IllegalArgumentException if facilities are not properly connected by rail lines,
+     *         or if travel time cannot be calculated (zero-length segments, zero speed, etc.)
      */
     public List<TrainEvent> calculateRouteTimes(Route route, Train train) throws SQLException {
         List<TrainEvent> events = new ArrayList<>();
@@ -313,7 +361,21 @@ public class TrainSchedulerService {
     }
 
     /**
-     * Process freight pickup and drop-off at a facility, updating wagon load status and train weight
+     * Process freight pickup and drop-off at a facility.
+     * This method updates wagon load status based on freight operations:
+     * <ul>
+     *   <li>Unloads wagons for freight deliveries at the facility</li>
+     *   <li>Loads wagons for freight pickups at the facility</li>
+     * </ul>
+     * The wagon load status affects train weight, which in turn affects speed calculations.
+     * 
+     * @param train the train at the facility
+     * @param facilityId the ID of the facility where freight operations occur
+     * @param pickupsByFacility map of facility ID to list of freight to be picked up
+     * @param deliveriesByFacility map of facility ID to list of freight to be delivered
+     * @param wagonToFreightMap map tracking which wagons are loaded with which freight
+     * @param freightRepository repository for freight operations
+     * @throws SQLException if there is a database error during freight processing
      */
     private void processFreightAtFacility(Train train, int facilityId,
                                          Map<Integer, List<Freight>> pickupsByFacility,
@@ -358,7 +420,22 @@ public class TrainSchedulerService {
     }
 
     /**
-     * Detect potential crossings between trains on single-track segments
+     * Detect potential crossings between trains on single-track segments.
+     * This method analyzes all provided routes and identifies conflicts where two trains
+     * need to use the same single-track segment at overlapping times. For each conflict,
+     * a CrossingOperation is created specifying:
+     * <ul>
+     *   <li>The two trains involved</li>
+     *   <li>The location where the crossing should occur</li>
+     *   <li>Any available sidings for the crossing</li>
+     *   <li>The scheduled crossing time</li>
+     * </ul>
+     * 
+     * Only single-track segments are checked; multi-track segments allow parallel travel.
+     * 
+     * @param routes the list of routes to check for crossings
+     * @return a list of CrossingOperation objects representing detected conflicts
+     * @throws SQLException if there is a database error during crossing detection
      */
     public List<CrossingOperation> detectCrossings(List<Route> routes) throws SQLException {
         List<CrossingOperation> crossings = new ArrayList<>();
@@ -585,7 +662,16 @@ public class TrainSchedulerService {
     }
 
     /**
-     * Find the best location for a crossing operation
+     * Find the best location for a crossing operation.
+     * This method selects an appropriate facility where two trains can cross,
+     * preferring facilities with sidings if available. The location is typically
+     * the start facility of the rail line containing the segment.
+     * 
+     * @param segment the line segment where the crossing will occur
+     * @param sidings list of available sidings on the segment (may be empty)
+     * @param facilities map of facility ID to Facility object for lookup
+     * @return the Facility where the crossing should occur
+     * @throws SQLException if a crossing location cannot be determined
      */
     private Facility findCrossingLocation(LineSegment segment, List<Siding> sidings,
                                          Map<Integer, Facility> facilities) throws SQLException {
@@ -615,7 +701,19 @@ public class TrainSchedulerService {
     }
 
     /**
-     * Schedule a route: calculate times and detect crossings
+     * Schedule a route: calculate passage times and detect crossings with other routes.
+     * This is the main scheduling method that:
+     * <ul>
+     *   <li>Calculates passage times for all facilities on the route</li>
+     *   <li>Saves train events to the database</li>
+     *   <li>Detects crossings with other scheduled routes</li>
+     *   <li>Filters crossings to only include those involving this route</li>
+     * </ul>
+     * 
+     * @param route the route to schedule
+     * @return a SchedulingResult containing the route, calculated events, and detected crossings
+     * @throws SQLException if there is a database error during scheduling
+     * @throws IllegalArgumentException if the train for the route is not found
      */
     public SchedulingResult scheduleRoute(Route route) throws SQLException {
         Train train = trainRepository.getById(route.getTrainId());

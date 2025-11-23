@@ -12,7 +12,18 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Controller for train dispatch operations
+ * Controller for train dispatch operations.
+ * This controller coordinates the dispatch of trains by:
+ * <ul>
+ *   <li>Validating train and facility availability</li>
+ *   <li>Checking for overlapping routes</li>
+ *   <li>Creating routes with manually defined paths</li>
+ *   <li>Validating and assigning freight to routes</li>
+ *   <li>Scheduling routes and detecting crossings</li>
+ * </ul>
+ * 
+ * @author Freight Management System
+ * @version 1.0
  */
 public class TrainDispatchController {
     private final Connection connection;
@@ -22,6 +33,12 @@ public class TrainDispatchController {
     private final FacilityRepository facilityRepository;
     private final FreightRepository freightRepository;
 
+    /**
+     * Constructs a TrainDispatchController with the given database connection.
+     * Initializes all required repositories and services for dispatch operations.
+     * 
+     * @param connection the database connection to use for operations
+     */
     public TrainDispatchController(Connection connection) {
         this.connection = connection;
         this.schedulerService = new TrainSchedulerService(connection);
@@ -35,7 +52,28 @@ public class TrainDispatchController {
     }
 
     /**
-     * Dispatch a train: create route, define path, assign freight, and schedule
+     * Dispatch a train: create route, define path, assign freight, and schedule.
+     * This method performs the complete dispatch process:
+     * <ol>
+     *   <li>Validates train and facilities exist</li>
+     *   <li>Checks for overlapping routes with the same train</li>
+     *   <li>Creates the route in the database</li>
+     *   <li>Adds path points to the route</li>
+     *   <li>Validates and assigns freight to the route</li>
+     *   <li>Schedules the route and detects crossings</li>
+     *   <li>Commits the transaction</li>
+     * </ol>
+     * 
+     * @param trainId the ID of the train to dispatch
+     * @param startFacilityId the ID of the starting facility
+     * @param endFacilityId the ID of the ending facility
+     * @param startDate the departure date and time from the start facility
+     * @param pathFacilityIds ordered list of facility IDs forming the route path (intermediate facilities)
+     * @param freightIds list of freight IDs to assign to this route (may be empty)
+     * @return a SchedulingResult containing the route, calculated events, and detected crossings
+     * @throws SQLException if there is a database error during dispatch
+     * @throws IllegalArgumentException if train or facilities are not found,
+     *         if the train has overlapping routes, or if freight validation fails
      */
     public SchedulingResult dispatchTrain(int trainId, int startFacilityId, 
                                                                  int endFacilityId, 
@@ -136,8 +174,25 @@ public class TrainDispatchController {
     }
 
     /**
-     * Validate that freight can be assigned to route and assign it
-     * Route must pass through both origin and destination facilities of each freight
+     * Validate that freight can be assigned to route and assign it.
+     * This method validates that:
+     * <ul>
+     *   <li>Freight exists and is not already assigned to another route</li>
+     *   <li>The route passes through the freight's origin facility</li>
+     *   <li>The route passes through the freight's destination facility</li>
+     *   <li>The destination facility comes after the origin facility in the route order</li>
+     * </ul>
+     * 
+     * If all validations pass, the freight is assigned to the route.
+     * 
+     * @param route the route to assign freight to
+     * @param startFacilityId the ID of the route's start facility
+     * @param endFacilityId the ID of the route's end facility
+     * @param pathFacilityIds ordered list of intermediate facility IDs in the route
+     * @param freightIds list of freight IDs to validate and assign
+     * @throws SQLException if there is a database error during validation or assignment
+     * @throws IllegalArgumentException if freight is not found, already assigned to another route,
+     *         origin/destination not on route, or destination comes before origin
      */
     private void validateAndAssignFreight(Route route, int startFacilityId, int endFacilityId,
                                          List<Integer> pathFacilityIds, List<Integer> freightIds) throws SQLException {
@@ -197,35 +252,54 @@ public class TrainDispatchController {
     }
 
     /**
-     * Get all unassigned freight (freight not yet assigned to any route)
+     * Get all unassigned freight (freight not yet assigned to any route).
+     * 
+     * @return a list of Freight objects that have not been assigned to any route
+     * @throws SQLException if there is a database error while retrieving freight
      */
     public List<Freight> getUnassignedFreight() throws SQLException {
         return freightRepository.getUnassignedFreight();
     }
 
     /**
-     * Get all available trains
+     * Get all available trains.
+     * 
+     * @return a list of all Train objects in the system
+     * @throws SQLException if there is a database error while retrieving trains
      */
     public List<Train> getAllTrains() throws SQLException {
         return trainRepository.getAll();
     }
 
     /**
-     * Get all available facilities
+     * Get all available facilities.
+     * 
+     * @return a list of all Facility objects in the system
+     * @throws SQLException if there is a database error while retrieving facilities
      */
     public List<Facility> getAllFacilities() throws SQLException {
         return facilityRepository.getAll();
     }
 
     /**
-     * Get all routes for a train
+     * Get all routes for a specific train.
+     * 
+     * @param trainId the ID of the train
+     * @return a list of Route objects associated with the specified train
+     * @throws SQLException if there is a database error while retrieving routes
      */
     public List<Route> getRoutesByTrainId(int trainId) throws SQLException {
         return routeRepository.getByTrainId(trainId);
     }
 
     /**
-     * Get scheduling result for a route
+     * Get scheduling result for a route.
+     * This method calculates passage times and detects crossings for an existing route.
+     * 
+     * @param routeId the ID of the route to schedule
+     * @return a SchedulingResult containing the route, calculated events, and detected crossings
+     * @throws SQLException if there is a database error during scheduling
+     * @throws IllegalArgumentException if the route is not found
      */
     public SchedulingResult getScheduleForRoute(int routeId) throws SQLException {
         Route route = routeRepository.getById(routeId);
@@ -236,7 +310,14 @@ public class TrainDispatchController {
     }
 
     /**
-     * Delete a route
+     * Delete a route from the system.
+     * This method also handles unassigning any freight associated with the route
+     * before deletion to maintain referential integrity.
+     * 
+     * @param routeId the ID of the route to delete
+     * @return true if the route was successfully deleted, false otherwise
+     * @throws SQLException if there is a database error during deletion
+     * @throws IllegalArgumentException if the route is not found
      */
     public boolean deleteRoute(int routeId) throws SQLException {
         Route route = routeRepository.getById(routeId);
@@ -252,7 +333,18 @@ public class TrainDispatchController {
     }
 
     /**
-     * Parse date time string
+     * Parse a date-time string using multiple supported formats.
+     * This method attempts to parse the string using the following formats in order:
+     * <ul>
+     *   <li>yyyy-MM-dd HH:mm:ss</li>
+     *   <li>yyyy-MM-dd HH:mm</li>
+     *   <li>dd/MM/yyyy HH:mm:ss</li>
+     *   <li>dd/MM/yyyy HH:mm</li>
+     * </ul>
+     * 
+     * @param dateTimeStr the date-time string to parse
+     * @return a LocalDateTime object representing the parsed date and time
+     * @throws DateTimeParseException if the string cannot be parsed using any of the supported formats
      */
     public static LocalDateTime parseDateTime(String dateTimeStr) throws DateTimeParseException {
         DateTimeFormatter[] formatters = {
