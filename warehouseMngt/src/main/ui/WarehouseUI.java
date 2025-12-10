@@ -2,13 +2,15 @@ package main.ui;
 
 import main.domain.AVL;
 import main.controller.InventoryService;
+import main.controller.MinimalBackboneService;
 import main.controller.PickingService;
 import main.controller.QuarantineService;
+import main.controller.RailwayUpgradeService;
 import main.controller.StationService;
 import main.repositories.*;
 import main.domain.*;
 
-
+import java.io.IOException;
 import java.util.*;
 
 /**
@@ -21,6 +23,8 @@ public class WarehouseUI {
     private PickingService pickingService;
     private QuarantineService quarantineService;
     private StationService stationService;
+    private RailwayUpgradeService railwayUpgradeService;
+    private MinimalBackboneService minimalBackboneService;
     private Scanner scanner;
     private boolean dataLoaded = false;
     private boolean stationDataLoaded = false;
@@ -36,6 +40,8 @@ public class WarehouseUI {
         this.pickingService = new PickingService();
         this.quarantineService = new QuarantineService(inventoryService, "audit_log.txt");
         this.stationService = new StationService();
+        this.railwayUpgradeService = new RailwayUpgradeService();
+        this.minimalBackboneService = new MinimalBackboneService(stationService);
         this.scanner = new Scanner(System.in);
     }
 
@@ -54,6 +60,9 @@ public class WarehouseUI {
                 case 2:
                     showSprint2Menu();
                     break;
+                case 3:
+                    showSprint3Menu();
+                    break;
                 case 0:
                     System.out.println("Exiting.");
                     return;
@@ -67,6 +76,7 @@ public class WarehouseUI {
         System.out.println("\n=== MAIN MENU ===");
         System.out.println("1. Sprint 1 - Warehouse Operations");
         System.out.println("2. Sprint 2 - Station Indexing");
+        System.out.println("3. Sprint 3 - Graph Algorithms");
         System.out.println("0. Exit");
         System.out.println("Current warehouse: " + currentWarehouseId + ", Aisle: " + currentAisle);
     }
@@ -1713,5 +1723,145 @@ public class WarehouseUI {
                 System.out.println("Invalid number. Please try again.");
             }
         }
+    }
+
+    /**
+     * Shows the Sprint 3 menu for Graph Algorithms (USEI11 and USEI12).
+     */
+    private void showSprint3Menu() {
+        while (true) {
+            System.out.println("\n=== SPRINT 3 - GRAPH ALGORITHMS ===");
+            System.out.println("1. USEI11 - Directed Line Upgrade Plan");
+            System.out.println("2. USEI12 - Minimal Backbone Network");
+            System.out.println("0. Back to Main Menu");
+            
+            int choice = getIntInput("Enter your choice: ");
+            
+            switch (choice) {
+                case 1:
+                    manageUSEI11();
+                    break;
+                case 2:
+                    manageUSEI12();
+                    break;
+                case 0:
+                    return;
+                default:
+                    System.out.println("Invalid choice. Please try again.");
+            }
+        }
+    }
+
+    /**
+     * Manages USEI11 - Directed Line Upgrade Plan (Topological Sort).
+     */
+    private void manageUSEI11() {
+        System.out.println("\n=== USEI11 - DIRECTED LINE UPGRADE PLAN ===");
+        System.out.println("Computes topological order for station upgrades based on directed dependencies.");
+        
+        try {
+            System.out.println("\nEnter paths to CSV files:");
+            String stationsCsvPath = getValidFilePath(
+                "Stations CSV path (format: Station id,Station,Lat,Lon,CoordX,CoordY): ", 
+                "stations CSV"
+            );
+            String connectionsCsvPath = getValidFilePath(
+                "Station connections CSV path (format: departure_stid,arrival_stid,dist,capacity,cost): ", 
+                "connections CSV"
+            );
+            
+            System.out.println("\nComputing upgrade order...");
+            TopologicalSortResult result = railwayUpgradeService.computeUpgradeOrder(
+                stationsCsvPath, 
+                connectionsCsvPath
+            );
+            
+            System.out.println("\n=== RESULTS ===");
+            
+            if (result.hasCycle()) {
+                System.out.println("The graph contains cycles. Cannot determine a unique upgrade order.");
+                System.out.println("\nStations involved in cycles:");
+                for (Station station : result.getCycleStations()) {
+                    System.out.println("  - " + station.getName());
+                }
+            } else {
+                System.out.println(" Graph is DAG (no cycles)");
+                System.out.println("\nTopological Order of Upgrade:");
+                int index = 1;
+                for (Station station : result.getTopologicalOrder()) {
+                    System.out.printf("  %d. %s%n", index++, station.getName());
+                }
+                System.out.println("\nTotal stations: " + result.getTopologicalOrder().size());
+            }
+            
+        } catch (IOException e) {
+            System.out.println("Error reading files: " + e.getMessage());
+        } catch (Exception e) {
+            System.out.println("Error: " + e.getMessage());
+            e.printStackTrace();
+        }
+        
+        System.out.println("\nPress Enter to continue...");
+        scanner.nextLine();
+    }
+
+    /**
+     * Manages USEI12 - Minimal Backbone Network (MST).
+     */
+    private void manageUSEI12() {
+        System.out.println("\n=== USEI12 - MINIMAL BACKBONE NETWORK ===");
+        System.out.println("Computes Minimum Spanning Tree (MST) for railway network.");
+        
+        try {
+            System.out.println("\nEnter paths to CSV files:");
+            String stationsCsvPath = getValidFilePath(
+                "Stations CSV path (format: Station id,Station,Lat,Lon,CoordX,CoordY): ", 
+                "stations CSV"
+            );
+            String connectionsCsvPath = getValidFilePath(
+                "Station connections CSV path (format: departure_stid,arrival_stid,dist,capacity,cost): ", 
+                "connections CSV"
+            );
+            
+            String outputDir = getStringInput("Output directory for DOT and SVG files (press Enter for './output'): ");
+            if (outputDir.isEmpty()) {
+                outputDir = "./output";
+            }
+            
+            System.out.println("\nComputing Minimal Backbone Network...");
+            MinimalBackboneResult result = minimalBackboneService.computeMinimalBackbone(
+                stationsCsvPath,
+                connectionsCsvPath,
+                outputDir
+            );
+            
+            System.out.println("\n=== RESULTS ===");
+            System.out.println(" Minimal Backbone Network computed successfully!");
+            System.out.println("\nStatistics:");
+            System.out.println("\nGenerated Files:");
+            System.out.println("  DOT: " + result.getDotFilePath());
+            if (result.getSvgFilePath() != null) {
+                System.out.println("  SVG: " + result.getSvgFilePath());
+            } else {
+                System.out.println("  SVG: Not generated (Graphviz may not be installed)");
+            }
+            
+            System.out.println("\n" + result.toString());
+            
+        } catch (IOException e) {
+            System.out.println("Error: " + e.getMessage());
+            if (e.getMessage() != null && e.getMessage().contains("neato")) {
+                System.out.println("\nNote: Graphviz may not be installed or 'neato' is not in PATH.");
+                System.out.println("The DOT file was still generated and can be converted manually.");
+            }
+        } catch (InterruptedException e) {
+            System.out.println("Process interrupted: " + e.getMessage());
+        } catch (Exception e) {
+            System.out.println("Error: " + e.getMessage());
+            e.printStackTrace();
+        }
+        
+        System.out.println("\nPress Enter to continue...");
+        scanner.nextLine();
     }
 }
