@@ -1,5 +1,6 @@
 package main.graph;
 
+import main.graph.map.MapGraph;
 import main.graph.matrix.MatrixGraph;
 
 import java.util.*;
@@ -268,6 +269,91 @@ public class Algorithms {
         }
         
         color.put(vert, 2);  // BLACK
+    }
+
+    /**
+     * Computes the Minimum Spanning Tree (MST) of an undirected graph using Prim's algorithm.
+     * Uses a PriorityQueue (Heap) for efficient edge selection.
+     *
+     * @param graph Graph instance (must be undirected)
+     * @param startVertex Starting vertex for MST construction
+     * @param weightComparator Comparator to compare edge weights
+     * @param sum Binary operator to sum edge weights (for future use)
+     * @param zero Zero value for edge weight type (for future use)
+     * @return Graph representing the MST
+     * @throws IllegalArgumentException if graph is directed or startVertex is invalid
+     */
+    public static <V, E extends Comparable<E>> Graph<V, E> primMST(
+            Graph<V, E> graph,
+            V startVertex,
+            Comparator<E> weightComparator,
+            BinaryOperator<E> sum,
+            E zero) {
+
+        if (graph.isDirected()) {
+            throw new IllegalArgumentException("Prim's algorithm requires an undirected graph");
+        }
+
+        if (!graph.validVertex(startVertex)) {
+            throw new IllegalArgumentException("Start vertex not in graph");
+        }
+
+        // Create empty MST graph (undirected)
+        MapGraph<V, E> mst = new MapGraph<>(false);
+
+        // Data structures
+        Set<V> inMST = new HashSet<>();  // Vertices already in MST
+        PriorityQueue<Edge<V, E>> pq = new PriorityQueue<>(
+                (e1, e2) -> weightComparator.compare(e1.getWeight(), e2.getWeight())
+        );
+
+        // Initialize with start vertex
+        inMST.add(startVertex);
+        mst.addVertex(startVertex);
+
+        // Add edges from start vertex to priority queue
+        Collection<Edge<V, E>> startEdges = graph.outgoingEdges(startVertex);
+        if (startEdges != null) {
+            for (Edge<V, E> edge : startEdges) {
+                pq.offer(edge);
+            }
+        }
+
+        // Process until MST has V-1 edges
+        while (!pq.isEmpty() && mst.numEdges() < graph.numVertices() - 1) {
+            Edge<V, E> minEdge = pq.poll();
+            V u = minEdge.getVOrig();
+            V v = minEdge.getVDest();
+
+            // Determine which vertex is in MST and which is not
+            V inTree = inMST.contains(u) ? u : v;
+            V notInTree = inMST.contains(u) ? v : u;
+
+            // Skip if both vertices are already in MST (would form cycle)
+            if (inMST.contains(notInTree)) {
+                continue;
+            }
+
+            // Add vertex and edge to MST
+            inMST.add(notInTree);
+            mst.addVertex(notInTree);
+            mst.addEdge(inTree, notInTree, minEdge.getWeight());
+
+            // Add edges from new vertex to priority queue
+            Collection<Edge<V, E>> newEdges = graph.outgoingEdges(notInTree);
+            if (newEdges != null) {
+                for (Edge<V, E> edge : newEdges) {
+                    // Determine neighbor (graph is undirected, so edge can be u->v or v->u)
+                    V neighbor = edge.getVDest().equals(notInTree) ?
+                            edge.getVOrig() : edge.getVDest();
+                    if (!inMST.contains(neighbor)) {
+                        pq.offer(edge);
+                    }
+                }
+            }
+        }
+
+        return mst;
     }
 }
 
