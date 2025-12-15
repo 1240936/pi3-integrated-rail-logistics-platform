@@ -1,12 +1,7 @@
 package main.ui;
 
 import main.domain.AVL;
-import main.controller.InventoryService;
-import main.controller.MinimalBackboneService;
-import main.controller.PickingService;
-import main.controller.QuarantineService;
-import main.controller.RailwayUpgradeService;
-import main.controller.StationService;
+import main.controller.*;
 import main.repositories.*;
 import main.domain.*;
 
