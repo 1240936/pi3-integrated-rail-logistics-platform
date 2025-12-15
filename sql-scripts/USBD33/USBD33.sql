@@ -79,69 +79,69 @@ INSERT INTO RailLine (ID, OwnerID, StartFacilityID, EndFacilityID, GaugeID, isEl
 VALUES (37, 1, 35, 11, 1, 1);
 
 INSERT INTO LineSegment (ID, RailLineID, maxWeight, length, numberOfTracks, speedLimit, orderNum)
-VALUES (1, 1, 8000, 2618, 4, 0, 1);
+VALUES (1, 1, 8000, 2618, 4, 110, 1);
 INSERT INTO LineSegment (ID, RailLineID, maxWeight, length, numberOfTracks, speedLimit, orderNum)
-VALUES (3, 2, 8000, 2443, 4, 0, 2);
+VALUES (3, 2, 8000, 2443, 4, 110, 2);
 INSERT INTO LineSegment (ID, RailLineID, maxWeight, length, numberOfTracks, speedLimit, orderNum)
-VALUES (10, 3, 8000, 26560, 2, 0, 1);
+VALUES (10, 3, 8000, 26560, 2, 110, 1);
 INSERT INTO LineSegment (ID, RailLineID, maxWeight, length, numberOfTracks, speedLimit, orderNum)
-VALUES (11, 3, 8000, 10000, 2, 0, 2);
+VALUES (11, 3, 8000, 10000, 2, 110, 2);
 INSERT INTO LineSegment (ID, RailLineID, maxWeight, length, numberOfTracks, speedLimit, orderNum)
-VALUES (15, 4, 8000, 5286, 2, 0, 1);
+VALUES (15, 4, 8000, 5286, 2, 110, 1);
 INSERT INTO LineSegment (ID, RailLineID, maxWeight, length, numberOfTracks, speedLimit, orderNum)
-VALUES (16, 4, 8000, 6000, 2, 0, 2);
+VALUES (16, 4, 8000, 6000, 2, 110, 2);
 INSERT INTO LineSegment (ID, RailLineID, maxWeight, length, numberOfTracks, speedLimit, orderNum)
-VALUES (14, 5, 8000, 10387, 2, 0, 1);
+VALUES (14, 5, 8000, 10387, 2, 110, 1);
 INSERT INTO LineSegment (ID, RailLineID, maxWeight, length, numberOfTracks, speedLimit, orderNum)
-VALUES (12, 5, 8000, 12000, 2, 0, 2);
+VALUES (12, 5, 8000, 12000, 2, 110, 2);
 INSERT INTO LineSegment (ID, RailLineID, maxWeight, length, numberOfTracks, speedLimit, orderNum)
-VALUES (13, 5, 8000, 3100, 2, 0, 3);
+VALUES (13, 5, 8000, 3100, 2, 110, 3);
 INSERT INTO LineSegment (ID, RailLineID, maxWeight, length, numberOfTracks, speedLimit, orderNum)
-VALUES (20, 6, 6400, 4890, 2, 0, 1);
+VALUES (20, 6, 6400, 4890, 2, 110, 1);
 INSERT INTO LineSegment (ID, RailLineID, maxWeight, length, numberOfTracks, speedLimit, orderNum)
-VALUES (18, 7, 8000, 6000, 1, 0, 1);
+VALUES (18, 7, 8000, 6000, 1, 110, 1);
 INSERT INTO LineSegment (ID, RailLineID, maxWeight, length, numberOfTracks, speedLimit, orderNum)
-VALUES (21, 7, 8000, 5000, 1, 0, 2);
+VALUES (21, 7, 8000, 5000, 1, 110, 2);
 INSERT INTO LineSegment (ID, RailLineID, maxWeight, length, numberOfTracks, speedLimit, orderNum)
-VALUES (22, 7, 8000, 12000, 1, 0, 3);
+VALUES (22, 7, 8000, 12000, 1, 110, 3);
 INSERT INTO LineSegment (ID, RailLineID, maxWeight, length, numberOfTracks, speedLimit, orderNum)
-VALUES (25, 8, 8000, 20829, 1, 0, 1);
+VALUES (25, 8, 8000, 20829, 1, 110, 1);
 INSERT INTO LineSegment (ID, RailLineID, maxWeight, length, numberOfTracks, speedLimit, orderNum)
-VALUES (26, 9, 8000, 4264, 1, 0, 1);
+VALUES (26, 9, 8000, 4264, 1, 110, 1);
 INSERT INTO LineSegment (ID, RailLineID, maxWeight, length, numberOfTracks, speedLimit, orderNum)
-VALUES (30, 21, 8000, 3883, 2, 0, 1);
+VALUES (30, 21, 8000, 3883, 2, 110, 1);
 INSERT INTO LineSegment (ID, RailLineID, maxWeight, length, numberOfTracks, speedLimit, orderNum)
-VALUES (31, 22, 8400, 1174, 2, 0, 1);
+VALUES (31, 22, 8400, 1174, 2, 110, 1);
 INSERT INTO LineSegment (ID, RailLineID, maxWeight, length, numberOfTracks, speedLimit, orderNum)
-VALUES (32, 22, 8000, 2534, 2, 0, 2);
+VALUES (32, 22, 8000, 2534, 2, 110, 2);
 INSERT INTO LineSegment (ID, RailLineID, maxWeight, length, numberOfTracks, speedLimit, orderNum)
-VALUES (33, 23, 8000, 1566, 2, 0, 1);
+VALUES (33, 23, 8000, 1566, 2, 110, 1);
 INSERT INTO LineSegment (ID, RailLineID, maxWeight, length, numberOfTracks, speedLimit, orderNum)
-VALUES (34, 23, 8000, 1453, 2, 0, 2);
+VALUES (34, 23, 8000, 1453, 2, 110, 2);
 INSERT INTO LineSegment (ID, RailLineID, maxWeight, length, numberOfTracks, speedLimit, orderNum)
-VALUES (35, 24, 8100, 3597, 2, 0, 1);
+VALUES (35, 24, 8100, 3597, 2, 110, 1);
 INSERT INTO LineSegment (ID, RailLineID, maxWeight, length, numberOfTracks, speedLimit, orderNum)
-VALUES (36, 24, 8000, 4334, 2, 0, 2);
+VALUES (36, 24, 8000, 4334, 2, 110, 2);
 INSERT INTO LineSegment (ID, RailLineID, maxWeight, length, numberOfTracks, speedLimit, orderNum)
-VALUES (50, 30, 8000, 3555, 1, 0, 1);
+VALUES (50, 30, 8000, 3555, 1, 110, 1);
 INSERT INTO LineSegment (ID, RailLineID, maxWeight, length, numberOfTracks, speedLimit, orderNum)
-VALUES (51, 31, 8000, 1222, 1, 0, 5);
+VALUES (51, 31, 8000, 1222, 1, 110, 5);
 INSERT INTO LineSegment (ID, RailLineID, maxWeight, length, numberOfTracks, speedLimit, orderNum)
-VALUES (52, 31, 8000, 1760, 1, 0, 4);
+VALUES (52, 31, 8000, 1760, 1, 110, 4);
 INSERT INTO LineSegment (ID, RailLineID, maxWeight, length, numberOfTracks, speedLimit, orderNum)
-VALUES (53, 31, 8000, 1720, 1, 0, 3);
+VALUES (53, 31, 8000, 1720, 1, 110, 3);
 INSERT INTO LineSegment (ID, RailLineID, maxWeight, length, numberOfTracks, speedLimit, orderNum)
-VALUES (54, 31, 8000, 3350, 1, 0, 2);
+VALUES (54, 31, 8000, 3350, 1, 110, 2);
 INSERT INTO LineSegment (ID, RailLineID, maxWeight, length, numberOfTracks, speedLimit, orderNum)
-VALUES (55, 31, 8000, 3470, 1, 0, 1);
+VALUES (55, 31, 8000, 3470, 1, 110, 1);
 INSERT INTO LineSegment (ID, RailLineID, maxWeight, length, numberOfTracks, speedLimit, orderNum)
-VALUES (58, 32, 8000, 8050, 1, 0, 1);
+VALUES (58, 32, 8000, 8050, 1, 110, 1);
 INSERT INTO LineSegment (ID, RailLineID, maxWeight, length, numberOfTracks, speedLimit, orderNum)
-VALUES (59, 35, 8000, 22320, 1, 0, 1);
+VALUES (59, 35, 8000, 22320, 1, 110, 1);
 INSERT INTO LineSegment (ID, RailLineID, maxWeight, length, numberOfTracks, speedLimit, orderNum)
-VALUES (60, 36, 8000, 16310, 1, 0, 1);
+VALUES (60, 36, 8000, 16310, 1, 110, 1);
 INSERT INTO LineSegment (ID, RailLineID, maxWeight, length, numberOfTracks, speedLimit, orderNum)
-VALUES (61, 37, 8000, 15200, 1, 0, 1);
+VALUES (61, 37, 8000, 15200, 1, 110, 1);
 
 INSERT INTO Siding (ID, LineSegmentID, position, length) VALUES (1, 21, 2000, 864);
 INSERT INTO Siding (ID, LineSegmentID, position, length) VALUES (2, 25, 11000, 266);
@@ -182,10 +182,6 @@ INSERT INTO VehicleModel (ID, modelName, length, width, height, tare, yearEIS)
 VALUES (335001, 'E4000', 23.02, 3.0, 4.264, 124, 2019);
 INSERT INTO VehicleModel (ID, modelName, length, width, height, tare, yearEIS)
 VALUES (335003, 'E4000', 23.02, 3.0, 4.264, 124, 2019);
-INSERT INTO VehicleModel (ID, modelName, length, width, height, tare, yearEIS)
-VALUES (8001, 'TestLoco A', 20.0, 3.0, 4.2, 90, 2020);
-INSERT INTO VehicleModel (ID, modelName, length, width, height, tare, yearEIS)
-VALUES (8002, 'TestLoco B', 21.5, 3.1, 4.3, 95, 2021);
 
 INSERT INTO LocomotiveSpecs (VehicleModelID, make, power, acceleration, operationalSpeed, maxSpeed, numberOfWheels)
 VALUES (1903, 'Sorefame - Alsthom', 1623, 0.3, 42.5 , 100, 12);
@@ -259,10 +255,6 @@ INSERT INTO VehicleModel_Gauge (VehicleModelID, GaugeID) VALUES (5623, 1);
 INSERT INTO VehicleModel_Gauge (VehicleModelID, GaugeID) VALUES (5630, 1);
 INSERT INTO VehicleModel_Gauge (VehicleModelID, GaugeID) VALUES (335001, 1);
 INSERT INTO VehicleModel_Gauge (VehicleModelID, GaugeID) VALUES (335003, 1);
-INSERT INTO VehicleModel_Gauge (VehicleModelID, GaugeID) VALUES (8001, 1);
-INSERT INTO VehicleModel_Gauge (VehicleModelID, GaugeID) VALUES (8001, 2);
-INSERT INTO VehicleModel_Gauge (VehicleModelID, GaugeID) VALUES (8002, 1);
-INSERT INTO VehicleModel_Gauge (VehicleModelID, GaugeID) VALUES (8002, 2);
 
 INSERT INTO Train (ID, TrainOperatorID, maxLength) VALUES (5421, 1, 500);
 INSERT INTO Train (ID, TrainOperatorID, maxLength) VALUES (5435, 1, 500);
