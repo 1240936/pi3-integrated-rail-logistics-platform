@@ -264,12 +264,12 @@ INSERT INTO Route (ID, StartFacilityID, EndFacilityID) VALUES (1, 50, 11);
 INSERT INTO Route (ID, StartFacilityID, EndFacilityID) VALUES (2, 11, 50);
 INSERT INTO Route (ID, StartFacilityID, EndFacilityID) VALUES (3, 11, 50);
 
-INSERT INTO Route_Train (RouteID, TrainID, startDate)
-VALUES (1, 5421, TO_DATE('2025-10-03 09:45:00', 'YYYY-MM-DD HH24:MI:SS'));
-INSERT INTO Route_Train (RouteID, TrainID, startDate)
-VALUES (2, 5435, TO_DATE('2025-10-03 18:00:00', 'YYYY-MM-DD HH24:MI:SS'));
-INSERT INTO Route_Train (RouteID, TrainID, startDate)
-VALUES (3, 5437, TO_DATE('2025-10-06 10:00:00', 'YYYY-MM-DD HH24:MI:SS'));
+INSERT INTO Planned_Train (TrainID, startDate, RouteID)
+VALUES (5421, TO_DATE('2025-10-03 09:45:00', 'YYYY-MM-DD HH24:MI:SS'), 1);
+INSERT INTO Planned_Train (TrainID, startDate, RouteID)
+VALUES (5435, TO_DATE('2025-10-03 18:00:00', 'YYYY-MM-DD HH24:MI:SS'), 2);
+INSERT INTO Planned_Train (TrainID, startDate, RouteID)
+VALUES (5437, TO_DATE('2025-10-06 10:00:00', 'YYYY-MM-DD HH24:MI:SS'), 3);
 
 INSERT INTO Path (RouteID, FacilityID, seqNumber) VALUES (1, 48, 2);
 INSERT INTO Path (RouteID, FacilityID, seqNumber) VALUES (1, 45, 3);
