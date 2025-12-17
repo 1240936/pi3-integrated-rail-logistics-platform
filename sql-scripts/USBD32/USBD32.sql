@@ -256,9 +256,9 @@ INSERT INTO VehicleModel_Gauge (VehicleModelID, GaugeID) VALUES (5630, 1);
 INSERT INTO VehicleModel_Gauge (VehicleModelID, GaugeID) VALUES (335001, 1);
 INSERT INTO VehicleModel_Gauge (VehicleModelID, GaugeID) VALUES (335003, 1);
 
-INSERT INTO Train (ID, TrainOperatorID, maxLength) VALUES (5421, 1, 500);
-INSERT INTO Train (ID, TrainOperatorID, maxLength) VALUES (5435, 1, 500);
-INSERT INTO Train (ID, TrainOperatorID, maxLength) VALUES (5437, 2, 500);
+INSERT INTO Train (ID, TrainOperatorID, maxLength) VALUES (5421, 1, 250);
+INSERT INTO Train (ID, TrainOperatorID, maxLength) VALUES (5435, 1, 250);
+INSERT INTO Train (ID, TrainOperatorID, maxLength) VALUES (5437, 2, 250);
 
 INSERT INTO Route (ID, StartFacilityID, EndFacilityID) VALUES (1, 50, 11);
 INSERT INTO Route (ID, StartFacilityID, EndFacilityID) VALUES (2, 11, 50);
@@ -469,3 +469,23 @@ INSERT INTO TrainEvent (ID, TrainID, FacilityID, eventTime, eventType) VALUES (4
 INSERT INTO TrainEvent (ID, TrainID, FacilityID, eventTime, eventType) VALUES (42, 5437, 45, TO_DATE('2025-10-06 14:50:00','YYYY-MM-DD HH24:MI:SS'), 'Passing');
 INSERT INTO TrainEvent (ID, TrainID, FacilityID, eventTime, eventType) VALUES (43, 5437, 48, TO_DATE('2025-10-06 15:15:00','YYYY-MM-DD HH24:MI:SS'), 'Passing');
 INSERT INTO TrainEvent (ID, TrainID, FacilityID, eventTime, eventType) VALUES (44, 5437, 50, TO_DATE('2025-10-06 15:30:00','YYYY-MM-DD HH24:MI:SS'), 'Arrival');
+
+INSERT INTO BuildingType (ID, type) VALUES (1, 'GrainSilo');
+INSERT INTO BuildingType (ID, type) VALUES (2, 'Warehouse');
+INSERT INTO BuildingType (ID, type) VALUES (3, 'RefrigeratedArea');
+
+INSERT INTO Building (ID, FacilityID, BuildingTypeID) VALUES (1001, 5, 1);
+INSERT INTO Building (ID, FacilityID, BuildingTypeID) VALUES (1002, 12, 1);
+INSERT INTO Building (ID, FacilityID, BuildingTypeID) VALUES (1003, 20, 1);
+INSERT INTO Building (ID, FacilityID, BuildingTypeID) VALUES (1004, 30, 1);
+INSERT INTO Building (ID, FacilityID, BuildingTypeID) VALUES (1005, 50, 1);
+INSERT INTO Building (ID, FacilityID, BuildingTypeID) VALUES (1006, 7, 2);
+INSERT INTO Building (ID, FacilityID, BuildingTypeID) VALUES (1007, 11, 2);
+INSERT INTO Building (ID, FacilityID, BuildingTypeID) VALUES (1008, 13, 2);
+INSERT INTO Building (ID, FacilityID, BuildingTypeID) VALUES (1009, 17, 2);
+INSERT INTO Building (ID, FacilityID, BuildingTypeID) VALUES (1010, 43, 2);
+INSERT INTO Building (ID, FacilityID, BuildingTypeID) VALUES (1011, 48, 2);
+INSERT INTO Building (ID, FacilityID, BuildingTypeID) VALUES (1012, 8, 3);
+INSERT INTO Building (ID, FacilityID, BuildingTypeID) VALUES (1013, 13, 3);
+INSERT INTO Building (ID, FacilityID, BuildingTypeID) VALUES (1014, 21, 3);
+INSERT INTO Building (ID, FacilityID, BuildingTypeID) VALUES (1015, 45, 3);
