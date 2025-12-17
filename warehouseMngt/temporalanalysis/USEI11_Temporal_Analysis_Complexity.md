@@ -31,7 +31,7 @@ Quando o caso médio é difícil de modelar, assume-se que tende para o pior cas
 
 - **Tipo:** Determinístico
 - **Estrutura:** Sequencial (sem ciclos)
-- **Recursivo:** Nao
+- **Recursivo:** Não
 
 ### 1.2 Análise de Operações Primitivas
 
