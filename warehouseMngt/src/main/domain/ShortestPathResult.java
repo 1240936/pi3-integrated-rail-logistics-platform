@@ -167,18 +167,7 @@ public class ShortestPathResult {
     public boolean pathExists() {
         return pathExists;
     }
-    
-    public long getExecutionTimeMs() {
-        return executionTimeMs;
-    }
-    
-    public int getVerticesProcessed() {
-        return verticesProcessed;
-    }
-    
-    public int getEdgesProcessed() {
-        return edgesProcessed;
-    }
+
     
     @Override
     public String toString() {

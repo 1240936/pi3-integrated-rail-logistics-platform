@@ -1,7 +1,6 @@
 package main.ui;
 
 import main.domain.AVL;
-import main.domain.HubScoreResult;
 import main.controller.*;
 import main.repositories.*;
 import main.domain.*;
@@ -21,7 +20,7 @@ public class WarehouseUI {
     private StationService stationService;
     private RailwayUpgradeService railwayUpgradeService;
     private MinimalBackboneService minimalBackboneService;
-    private HubCentralityService hubCentralityService;
+    private RiskAwarePathService riskAwarePathService;
     private Scanner scanner;
     private boolean dataLoaded = false;
     private boolean stationDataLoaded = false;
@@ -39,7 +38,7 @@ public class WarehouseUI {
         this.stationService = new StationService();
         this.railwayUpgradeService = new RailwayUpgradeService();
         this.minimalBackboneService = new MinimalBackboneService(stationService);
-        this.hubCentralityService = new HubCentralityService();
+        this.riskAwarePathService = new RiskAwarePathService();
         this.scanner = new Scanner(System.in);
     }
 
@@ -1724,14 +1723,14 @@ public class WarehouseUI {
     }
 
     /**
-     * Shows the Sprint 3 menu for Graph Algorithms (USEI11 and USEI12).
+     * Shows the Sprint 3 menu for Graph Algorithms (USEI11, USEI12, and USEI15).
      */
     private void showSprint3Menu() {
         while (true) {
             System.out.println("\n=== SPRINT 3 - GRAPH ALGORITHMS ===");
             System.out.println("1. USEI11 - Directed Line Upgrade Plan");
             System.out.println("2. USEI12 - Minimal Backbone Network");
-            System.out.println("3. USEI13 - Rail Hub Centrality Analysis");
+            System.out.println("3. USEI15 - Risk-Aware Shortest Paths");
             System.out.println("0. Back to Main Menu");
             
             int choice = getIntInput("Enter your choice: ");
@@ -1744,7 +1743,7 @@ public class WarehouseUI {
                     manageUSEI12();
                     break;
                 case 3:
-                    manageUSEI13();
+                    manageUSEI15();
                     break;
                 case 0:
                     return;
@@ -1868,12 +1867,12 @@ public class WarehouseUI {
     }
 
     /**
-     * Manages USEI13 - Rail Hub Centrality Analysis.
+     * Manages USEI15 - Risk-Aware Shortest Paths (Bellman-Ford).
      */
-    private void manageUSEI13() {
-        System.out.println("\n=== USEI13 - RAIL HUB CENTRALITY ANALYSIS ===");
-        System.out.println("Computes centrality measures (betweenness, harmonic closeness, strength/degree)");
-        System.out.println("and combines them into a composite HubScore.");
+    private void manageUSEI15() {
+        System.out.println("\n=== USEI15 - RISK-AWARE SHORTEST PATHS ===");
+        System.out.println("Computes shortest path between two stations using edge costs that include");
+        System.out.println("distance and penalties/bonuses. Detects negative cycles if present.");
         
         try {
             System.out.println("\nEnter paths to CSV files:");
@@ -1886,36 +1885,58 @@ public class WarehouseUI {
                 "connections CSV"
             );
             
-            System.out.println("\nComputing hub centrality measures...");
-            List<HubScoreResult> results = hubCentralityService.computeHubCentrality(
-                stationsCsvPath, 
-                connectionsCsvPath
+            System.out.println("\nEnter station IDs:");
+            String sourceStationId = getStringInput("Source station ID: ");
+            if (sourceStationId.isEmpty()) {
+                System.out.println("Source station ID is required.");
+                System.out.println("\nPress Enter to continue...");
+                scanner.nextLine();
+                return;
+            }
+            
+            String targetStationId = getStringInput("Target station ID: ");
+            if (targetStationId.isEmpty()) {
+                System.out.println("Target station ID is required.");
+                System.out.println("\nPress Enter to continue...");
+                scanner.nextLine();
+                return;
+            }
+            
+            System.out.println("\nComputing shortest path...");
+            ShortestPathResult result = riskAwarePathService.computeShortestPath(
+                stationsCsvPath,
+                connectionsCsvPath,
+                sourceStationId,
+                targetStationId
             );
             
             System.out.println("\n=== RESULTS ===");
-            System.out.println("Total stations analyzed: " + results.size());
-            System.out.println("\nTop 20 Hubs (sorted by HubScore, descending):");
-            System.out.printf("%-10s %-40s %-8s %-12s %-12s %-18s %-10s%n",
-                "Station ID", "Station Name", "Degree", "Strength", "Betweenness", "Harmonic Closeness", "HubScore");
-            System.out.println("-".repeat(120));
+            System.out.println(result.toString());
             
-            int displayLimit = Math.min(20, results.size());
-            for (int i = 0; i < displayLimit; i++) {
-                HubScoreResult result = results.get(i);
-                System.out.printf("%-10s %-40s %-8d %-12.2f %-12.4f %-18.4f %-10.4f%n",
-                    result.getStationId(),
-                    result.getStationName(),
-                    result.getDegree(),
-                    result.getStrength(),
-                    result.getBetweenness(),
-                    result.getHarmonicCloseness(),
-                    result.getHubScore());
+            // Additional detailed output
+            if (result.hasNegativeCycle()) {
+                System.out.println("\n WARNING: Negative cycle detected!");
+                System.out.println("This indicates a configuration error in the track network.");
+                ShortestPathResult.NegativeCycle cycle = result.getNegativeCycle();
+                if (cycle != null) {
+                    System.out.println("\nCycle Details:");
+                    System.out.println("  Stations in cycle: " + cycle.getStations().size());
+                    System.out.println("  Edges in cycle: " + cycle.getEdges().size());
+                }
+            } else if (result.pathExists()) {
+                System.out.println("\n✓ Path found successfully!");
+                List<ShortestPathResult.PathStep> path = result.getPath();
+                if (path != null) {
+                    System.out.println("\nPath Summary:");
+                    System.out.println("  Number of stations: " + path.size());
+                    System.out.println("  Total cost: " + String.format("%.2f", result.getTotalCost()));
+                }
+            } else {
+                System.out.println("\n✗ No path exists between the specified stations.");
             }
             
-            if (results.size() > displayLimit) {
-                System.out.println("\n... (" + (results.size() - displayLimit) + " more stations not shown)");
-            }
-            
+        } catch (IllegalArgumentException e) {
+            System.out.println("Error: " + e.getMessage());
         } catch (IOException e) {
             System.out.println("Error reading files: " + e.getMessage());
         } catch (Exception e) {
