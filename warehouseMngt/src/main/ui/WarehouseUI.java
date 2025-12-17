@@ -21,6 +21,7 @@ public class WarehouseUI {
     private RailwayUpgradeService railwayUpgradeService;
     private MinimalBackboneService minimalBackboneService;
     private RiskAwarePathService riskAwarePathService;
+    private HubCentralityService hubCentralityService;
     private Scanner scanner;
     private boolean dataLoaded = false;
     private boolean stationDataLoaded = false;
@@ -39,6 +40,7 @@ public class WarehouseUI {
         this.railwayUpgradeService = new RailwayUpgradeService();
         this.minimalBackboneService = new MinimalBackboneService(stationService);
         this.riskAwarePathService = new RiskAwarePathService();
+        this.hubCentralityService = new HubCentralityService();
         this.scanner = new Scanner(System.in);
     }
 
@@ -1730,7 +1732,8 @@ public class WarehouseUI {
             System.out.println("\n=== SPRINT 3 - GRAPH ALGORITHMS ===");
             System.out.println("1. USEI11 - Directed Line Upgrade Plan");
             System.out.println("2. USEI12 - Minimal Backbone Network");
-            System.out.println("3. USEI15 - Risk-Aware Shortest Paths");
+            System.out.println("3. USEI13 - Rail Hub Centrality Analysis");
+            System.out.println("4. USEI15 - Risk-Aware Shortest Paths");
             System.out.println("0. Back to Main Menu");
             
             int choice = getIntInput("Enter your choice: ");
@@ -1743,6 +1746,9 @@ public class WarehouseUI {
                     manageUSEI12();
                     break;
                 case 3:
+                    manageUSEI13();
+                    break;
+                case 4:
                     manageUSEI15();
                     break;
                 case 0:
@@ -1857,6 +1863,79 @@ public class WarehouseUI {
             }
         } catch (InterruptedException e) {
             System.out.println("Process interrupted: " + e.getMessage());
+        } catch (Exception e) {
+            System.out.println("Error: " + e.getMessage());
+            e.printStackTrace();
+        }
+        
+        System.out.println("\nPress Enter to continue...");
+        scanner.nextLine();
+    }
+
+    /**
+     * Manages USEI13 - Rail Hub Centrality Analysis.
+     */
+    private void manageUSEI13() {
+        System.out.println("\n=== USEI13 - RAIL HUB CENTRALITY ANALYSIS ===");
+        System.out.println("Computes hub centrality measures (betweenness, harmonic closeness, strength)");
+        System.out.println("and combines them into a composite HubScore for all stations.");
+        
+        try {
+            System.out.println("\nEnter paths to CSV files:");
+            String stationsCsvPath = getValidFilePath(
+                "Stations CSV path (format: Station id,Station,Lat,Lon,CoordX,CoordY): ", 
+                "stations CSV"
+            );
+            String connectionsCsvPath = getValidFilePath(
+                "Station connections CSV path (format: departure_stid,arrival_stid,dist,capacity,cost): ", 
+                "connections CSV"
+            );
+            
+            System.out.println("\nComputing hub centrality...");
+            List<HubScoreResult> results = hubCentralityService.computeHubCentrality(
+                stationsCsvPath,
+                connectionsCsvPath
+            );
+            
+            System.out.println("\n=== RESULTS ===");
+            System.out.println("Total stations analyzed: " + results.size());
+            System.out.println("\nHub Score Ranking (sorted by HubScore, descending):");
+            System.out.println(String.format("%-5s %-30s %-8s %-12s %-12s %-18s %-10s", 
+                "Rank", "Station Name", "Degree", "Strength", "Betweenness", "Harmonic Closeness", "HubScore"));
+            System.out.println(String.format("%-5s %-30s %-8s %-12s %-12s %-18s %-10s", 
+                "----", "------------", "------", "--------", "-----------", "------------------", "--------"));
+            
+            int rank = 1;
+            for (HubScoreResult result : results) {
+                System.out.println(String.format("%-5d %-30s %-8d %-12.2f %-12.4f %-18.4f %-10.4f",
+                    rank++,
+                    result.getStationName(),
+                    result.getDegree(),
+                    result.getStrength(),
+                    result.getBetweenness(),
+                    result.getHarmonicCloseness(),
+                    result.getHubScore()
+                ));
+            }
+            
+            // Show top 10 stations
+            if (results.size() > 10) {
+                System.out.println("\n=== TOP 10 HUB STATIONS ===");
+                for (int i = 0; i < Math.min(10, results.size()); i++) {
+                    HubScoreResult result = results.get(i);
+                    System.out.println(String.format("%d. %s (ID: %s) - HubScore: %.4f",
+                        i + 1,
+                        result.getStationName(),
+                        result.getStationId(),
+                        result.getHubScore()
+                    ));
+                }
+            }
+            
+        } catch (IOException e) {
+            System.out.println("Error reading files: " + e.getMessage());
+        } catch (IllegalStateException e) {
+            System.out.println("Error: " + e.getMessage());
         } catch (Exception e) {
             System.out.println("Error: " + e.getMessage());
             e.printStackTrace();
