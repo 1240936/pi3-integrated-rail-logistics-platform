@@ -250,6 +250,7 @@ INSERT INTO VehicleModel_Gauge (VehicleModelID, GaugeID) VALUES (1525, 1);
 INSERT INTO VehicleModel_Gauge (VehicleModelID, GaugeID) VALUES (1903, 1);
 INSERT INTO VehicleModel_Gauge (VehicleModelID, GaugeID) VALUES (5034, 1);
 INSERT INTO VehicleModel_Gauge (VehicleModelID, GaugeID) VALUES (5036, 1);
+INSERT INTO VehicleModel_Gauge (VehicleModelID, GaugeID) VALUES (5036, 2);
 INSERT INTO VehicleModel_Gauge (VehicleModelID, GaugeID) VALUES (5621, 1);
 INSERT INTO VehicleModel_Gauge (VehicleModelID, GaugeID) VALUES (5623, 1);
 INSERT INTO VehicleModel_Gauge (VehicleModelID, GaugeID) VALUES (5630, 1);
