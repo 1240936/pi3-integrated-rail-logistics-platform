@@ -145,8 +145,17 @@ public class TrainSchedulerService {
         List<Route.RoutePathPoint> path = route.getPath();
 
         // Get freight data for this route
-        Map<Integer, List<Freight>> pickupsByFacility = freightRepository.getPickupsByFacility(route.getId());
-        Map<Integer, List<Freight>> deliveriesByFacility = freightRepository.getDeliveriesByFacility(route.getId());
+        // IMPORTANT: Use startDate to ensure we get freights for the correct journey
+        Map<Integer, List<Freight>> pickupsByFacility;
+        Map<Integer, List<Freight>> deliveriesByFacility;
+        if (route.getStartDate() != null) {
+            pickupsByFacility = freightRepository.getPickupsByFacility(route.getId(), route.getStartDate());
+            deliveriesByFacility = freightRepository.getDeliveriesByFacility(route.getId(), route.getStartDate());
+        } else {
+            // Fallback if startDate is not available
+            pickupsByFacility = freightRepository.getPickupsByFacility(route.getId());
+            deliveriesByFacility = freightRepository.getDeliveriesByFacility(route.getId());
+        }
 
         // Track which wagons are loaded (map of wagon ID to freight ID)
         Map<Integer, Integer> wagonToFreightMap = new HashMap<>();

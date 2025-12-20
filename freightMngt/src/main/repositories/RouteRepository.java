@@ -24,11 +24,19 @@ public class RouteRepository {
     }
 
     /**
-     * Get route by ID with path points
+     * Get route by ID with path points.
+     * Based on USBD31: Route table doesn't have TrainID or startDate.
+     * These are in Planned_Train table, so we join to get them.
      */
     public Route getById(int routeId) throws SQLException {
-        String sql = "SELECT ID, StartFacilityID, EndFacilityID, TrainID, startDate " +
-                     "FROM Route WHERE ID = ?";
+        // In USBD31, Route table has: ID, StartFacilityID, EndFacilityID
+        // TrainID and startDate are in Planned_Train table
+        // We join to get the train and startDate, using the first Planned_Train entry for this route
+        String sql = "SELECT r.ID, r.StartFacilityID, r.EndFacilityID, pt.TrainID, pt.startDate " +
+                     "FROM Route r " +
+                     "LEFT JOIN Planned_Train pt ON r.ID = pt.RouteID " +
+                     "WHERE r.ID = ? " +
+                     "AND ROWNUM = 1";
         
         try (PreparedStatement stmt = connection.prepareStatement(sql)) {
             stmt.setInt(1, routeId);
@@ -36,12 +44,15 @@ public class RouteRepository {
                 if (rs.next()) {
                     Facility startFacility = facilityRepository.getById(rs.getInt("StartFacilityID"));
                     Facility endFacility = facilityRepository.getById(rs.getInt("EndFacilityID"));
+                    
+                    // TrainID and startDate may be NULL if no Planned_Train entry exists
+                    Integer trainId = rs.getObject("TrainID") != null ? rs.getInt("TrainID") : 0;
                     Timestamp startDate = rs.getTimestamp("startDate");
                     LocalDateTime startDateTime = startDate != null ? startDate.toLocalDateTime() : null;
                     
                     Route route = new Route(
                         rs.getInt("ID"),
-                        rs.getInt("TrainID"),
+                        trainId,
                         startFacility,
                         endFacility,
                         startDateTime
@@ -77,17 +88,19 @@ public class RouteRepository {
     }
 
     /**
-     * Get routes for a specific train
+     * Get routes for a specific train.
+     * Based on USBD31: Uses Planned_Train to find routes for a train.
      */
     public List<Route> getByTrainId(int trainId) throws SQLException {
-        String sql = "SELECT ID FROM Route WHERE TrainID = ? ORDER BY ID";
+        // In USBD31, train-to-route relationship is in Planned_Train table
+        String sql = "SELECT DISTINCT RouteID FROM Planned_Train WHERE TrainID = ? ORDER BY RouteID";
         List<Route> routes = new java.util.ArrayList<>();
         
         try (PreparedStatement stmt = connection.prepareStatement(sql)) {
             stmt.setInt(1, trainId);
             try (ResultSet rs = stmt.executeQuery()) {
                 while (rs.next()) {
-                    Route route = getById(rs.getInt("ID"));
+                    Route route = getById(rs.getInt("RouteID"));
                     if (route != null) {
                         routes.add(route);
                     }
@@ -118,28 +131,69 @@ public class RouteRepository {
     }
 
     /**
-     * Create a new route
+     * Create a new route.
+     * Based on USBD31: Creates Route entry and Planned_Train entry separately.
      */
     public int createRoute(int trainId, int startFacilityId, int endFacilityId, 
                           LocalDateTime startDate) throws SQLException {
-        String sql = "INSERT INTO Route (StartFacilityID, EndFacilityID, TrainID, startDate) " +
-                     "VALUES (?, ?, ?, ?)";
+        // In USBD31, Route table has: ID, StartFacilityID, EndFacilityID
+        // TrainID and startDate go in Planned_Train table
+        // First, get next Route ID from Route table
+        // In Oracle, unquoted identifiers are stored in uppercase
+        int routeId = 1; // Default starting ID
+        String routeIdSql = "SELECT NVL(MAX(ID), 0) + 1 AS NEXT_ID FROM Route";
+        try (PreparedStatement stmt = connection.prepareStatement(routeIdSql);
+             ResultSet rs = stmt.executeQuery()) {
+            if (rs.next()) {
+                routeId = rs.getInt("NEXT_ID");
+            }
+        } catch (SQLException e) {
+            // If query fails (e.g., table doesn't exist), start with ID 1
+            routeId = 1;
+        }
         
-        try (PreparedStatement stmt = connection.prepareStatement(
-                sql, new String[]{"ID"})) {
-            stmt.setInt(1, startFacilityId);
-            stmt.setInt(2, endFacilityId);
-            stmt.setInt(3, trainId);
-            stmt.setTimestamp(4, Timestamp.valueOf(startDate));
+        // Insert into Route table
+        String sql = "INSERT INTO Route (ID, StartFacilityID, EndFacilityID) " +
+                     "VALUES (?, ?, ?)";
+        
+        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+            stmt.setInt(1, routeId);
+            stmt.setInt(2, startFacilityId);
+            stmt.setInt(3, endFacilityId);
             stmt.executeUpdate();
-            
-            try (ResultSet rs = stmt.getGeneratedKeys()) {
-                if (rs.next()) {
-                    return rs.getInt(1);
+        } catch (SQLException e) {
+            // If insertion fails due to duplicate ID (error code 1), get a new one and retry
+            if (e.getErrorCode() == 1) { // Unique constraint violation
+                String maxIdSql = "SELECT NVL(MAX(ID), 0) FROM Route";
+                try (PreparedStatement maxStmt = connection.prepareStatement(maxIdSql);
+                     ResultSet maxRs = maxStmt.executeQuery()) {
+                    if (maxRs.next()) {
+                        routeId = maxRs.getInt(1) + 1;
+                    }
                 }
+                // Retry insertion with new ID
+                try (PreparedStatement retryStmt = connection.prepareStatement(sql)) {
+                    retryStmt.setInt(1, routeId);
+                    retryStmt.setInt(2, startFacilityId);
+                    retryStmt.setInt(3, endFacilityId);
+                    retryStmt.executeUpdate();
+                }
+            } else {
+                throw e;
             }
         }
-        throw new SQLException("Failed to create route");
+        
+        // Insert into Planned_Train to link train and startDate to route
+        String plannedTrainSql = "INSERT INTO Planned_Train (TrainID, startDate, RouteID) " +
+                                  "VALUES (?, ?, ?)";
+        try (PreparedStatement stmt = connection.prepareStatement(plannedTrainSql)) {
+            stmt.setInt(1, trainId);
+            stmt.setTimestamp(2, Timestamp.valueOf(startDate));
+            stmt.setInt(3, routeId);
+            stmt.executeUpdate();
+        }
+        
+        return routeId;
     }
 
     /**
@@ -167,11 +221,41 @@ public class RouteRepository {
             stmt.executeUpdate();
         }
         
-        // Delete train events (foreign key constraint)
-        String deleteEventsSql = "DELETE FROM TrainEvent WHERE RouteID = ?";
-        try (PreparedStatement stmt = connection.prepareStatement(deleteEventsSql)) {
+        // Delete planned trains (foreign key constraint)
+        String deletePlannedTrainSql = "DELETE FROM Planned_Train WHERE RouteID = ?";
+        try (PreparedStatement stmt = connection.prepareStatement(deletePlannedTrainSql)) {
             stmt.setInt(1, routeId);
             stmt.executeUpdate();
+        }
+        
+        // Delete train events for this route
+        // In USBD31, TrainEvent doesn't have RouteID, so we delete by eventType (which stores route ID)
+        try {
+            String deleteEventsSql = "DELETE FROM TrainEvent WHERE eventType = ?";
+            try (PreparedStatement stmt = connection.prepareStatement(deleteEventsSql)) {
+                stmt.setString(1, "ROUTE_" + routeId);
+                stmt.executeUpdate();
+            }
+        } catch (SQLException e) {
+            // If that fails, try deleting by train ID from Planned_Train
+            try {
+                String trainSql = "SELECT TrainID FROM Planned_Train WHERE RouteID = ? AND ROWNUM = 1";
+                try (PreparedStatement trainStmt = connection.prepareStatement(trainSql)) {
+                    trainStmt.setInt(1, routeId);
+                    try (ResultSet rs = trainStmt.executeQuery()) {
+                        if (rs.next()) {
+                            int trainId = rs.getInt("TrainID");
+                            String deleteSql = "DELETE FROM TrainEvent WHERE TrainID = ?";
+                            try (PreparedStatement deleteStmt = connection.prepareStatement(deleteSql)) {
+                                deleteStmt.setInt(1, trainId);
+                                deleteStmt.executeUpdate();
+                            }
+                        }
+                    }
+                }
+            } catch (SQLException e2) {
+                // If deletion fails, continue - route deletion should still proceed
+            }
         }
         
         // Finally delete the route

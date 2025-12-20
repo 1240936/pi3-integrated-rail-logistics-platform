@@ -35,11 +35,12 @@ public class LocomotiveRepository {
         try (PreparedStatement stmt = connection.prepareStatement(sql);
              ResultSet rs = stmt.executeQuery()) {
             while (rs.next()) {
+                // In USBD31, acceleration is NOT NULL in LocomotiveSpecs
                 LocomotiveSpecs specs = new LocomotiveSpecs(
                     rs.getInt("VehicleModelID"),
                     rs.getString("make"),
                     rs.getDouble("power"),
-                    rs.getObject("acceleration", Double.class),
+                    rs.getDouble("acceleration"), // NOT NULL in USBD31
                     rs.getDouble("maxSpeed"),
                     rs.getInt("numberOfWheels")
                 );
@@ -70,11 +71,12 @@ public class LocomotiveRepository {
             stmt.setInt(1, trainId);
             try (ResultSet rs = stmt.executeQuery()) {
                 while (rs.next()) {
+                    // In USBD31, acceleration is NOT NULL in LocomotiveSpecs
                     LocomotiveSpecs specs = new LocomotiveSpecs(
                         rs.getInt("VehicleModelID"),
                         rs.getString("make"),
                         rs.getDouble("power"),
-                        rs.getObject("acceleration", Double.class),
+                        rs.getDouble("acceleration"), // NOT NULL in USBD31
                         rs.getDouble("maxSpeed"),
                         rs.getInt("numberOfWheels")
                     );

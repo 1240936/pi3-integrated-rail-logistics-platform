@@ -2,6 +2,7 @@ package main.ui;
 
 import main.controller.TrainDispatchController;
 import main.controller.TrainSchedulerService;
+import main.controller.RoutePlannerService;
 import main.domain.*;
 import main.repositories.DatabaseConnection;
 import main.repositories.FreightRepository;
@@ -20,7 +21,8 @@ import java.util.Scanner;
  */
 public class FreightManagerUI {
     private final Scanner scanner;
-    private final TrainDispatchController controller;
+    private TrainDispatchController controller;
+    private RoutePlannerService routePlannerService;
     private Connection connection;
 
     public FreightManagerUI() {
@@ -98,7 +100,9 @@ public class FreightManagerUI {
             return;
         }
 
-        TrainDispatchController controller = new TrainDispatchController(connection);
+        this.controller = new TrainDispatchController(connection);
+        RoutePlannerService routePlannerService = new RoutePlannerService(connection);
+        this.routePlannerService = routePlannerService;
 
         boolean running = true;
         while (running) {
@@ -128,6 +132,15 @@ public class FreightManagerUI {
                         break;
                     case "7":
                         deleteRoute(controller);
+                        break;
+                    case "8":
+                        viewPendingFreights(routePlannerService);
+                        break;
+                    case "9":
+                        createRoutePlan(routePlannerService);
+                        break;
+                    case "10":
+                        viewRoutePlan(routePlannerService);
                         break;
                     case "0":
                         running = false;
@@ -189,6 +202,9 @@ public class FreightManagerUI {
         System.out.println("5. View all trains");
         System.out.println("6. View all facilities");
         System.out.println("7. Delete a route");
+        System.out.println("8. View pending freights");
+        System.out.println("9. Create route plan");
+        System.out.println("10. View route plan with cargo operations");
         System.out.println("0. Exit");
     }
 
@@ -431,7 +447,7 @@ public class FreightManagerUI {
                     otherRouteId = crossing.getRoute1Id();
                 }
                 
-                System.out.printf("  ⚠ Train %d (Route %d) will cross with Train %d (Route %d) at %s\n",
+                System.out.printf("Train %d (Route %d) will cross with Train %d (Route %d) at %s\n",
                         currentTrain.getId(),
                         currentRouteId,
                         otherTrain.getId(),
@@ -566,6 +582,195 @@ public class FreightManagerUI {
             }
         } else {
             System.out.println("Deletion cancelled.");
+        }
+    }
+
+    private void viewPendingFreights(RoutePlannerService routePlannerService) throws Exception {
+        System.out.println("\n=== PENDING FREIGHTS ===");
+        
+        List<Freight> pendingFreights = routePlannerService.getPendingFreights();
+        
+        if (pendingFreights.isEmpty()) {
+            System.out.println("No pending (unassigned) freights available.");
+            return;
+        }
+        
+        System.out.println("Total pending freights: " + pendingFreights.size());
+        System.out.println("\nPending Freights:");
+        for (Freight freight : pendingFreights) {
+            System.out.printf("  Freight ID: %d\n", freight.getId());
+            System.out.printf("    Origin: %s (ID: %d)\n", 
+                    freight.getOriginFacility().getName(), 
+                    freight.getOriginFacility().getId());
+            System.out.printf("    Destination: %s (ID: %d)\n",
+                    freight.getDestinationFacility().getName(),
+                    freight.getDestinationFacility().getId());
+        }
+    }
+
+    private void createRoutePlan(RoutePlannerService routePlannerService) throws Exception {
+        System.out.println("\n=== CREATE ROUTE PLAN ===");
+        
+        // Show pending freights
+        List<Freight> pendingFreights = routePlannerService.getPendingFreights();
+        if (pendingFreights.isEmpty()) {
+            System.out.println("No pending freights available. Cannot create route plan.");
+            return;
+        }
+        
+        System.out.println("\nPending freights:");
+        for (Freight freight : pendingFreights) {
+            System.out.printf("  Freight ID: %d - %s -> %s\n",
+                    freight.getId(),
+                    freight.getOriginFacility().getName(),
+                    freight.getDestinationFacility().getName());
+        }
+        
+        // Get train information
+        List<Train> trains = controller.getAllTrains();
+        if (trains.isEmpty()) {
+            System.out.println("No trains available.");
+            return;
+        }
+        
+        System.out.println("\nAvailable trains:");
+        for (Train train : trains) {
+            System.out.printf("  Train ID: %d\n", train.getId());
+        }
+        
+        System.out.print("\nEnter train ID: ");
+        int trainId = Integer.parseInt(scanner.nextLine().trim());
+        
+        // Get facilities
+        List<Facility> facilities = controller.getAllFacilities();
+        System.out.println("\nAvailable facilities:");
+        for (Facility facility : facilities) {
+            System.out.printf("  ID: %d - %s\n", facility.getId(), facility.getName());
+        }
+        
+        System.out.print("\nEnter start facility ID: ");
+        int startFacilityId = Integer.parseInt(scanner.nextLine().trim());
+        
+        System.out.print("Enter end facility ID: ");
+        int endFacilityId = Integer.parseInt(scanner.nextLine().trim());
+        
+        System.out.print("Enter departure date/time (yyyy-MM-dd HH:mm:ss): ");
+        String dateTimeStr = scanner.nextLine().trim();
+        LocalDateTime startDate = TrainDispatchController.parseDateTime(dateTimeStr);
+        
+        // Ask if route should be simple or complex
+        System.out.print("\nCreate simple route (direct) or complex route (with intermediate stops)? (simple/complex): ");
+        String routeType = scanner.nextLine().trim().toLowerCase();
+        
+        int routeId;
+        if ("complex".equals(routeType)) {
+            // Get intermediate facilities
+            System.out.println("\nEnter intermediate facility IDs in order (press Enter with empty line to finish):");
+            List<Integer> intermediateFacilityIds = new ArrayList<>();
+            while (true) {
+                System.out.print("Facility ID (or press Enter to finish): ");
+                String input = scanner.nextLine().trim();
+                if (input.isEmpty()) {
+                    break;
+                }
+                try {
+                    int facilityId = Integer.parseInt(input);
+                    intermediateFacilityIds.add(facilityId);
+                    Facility facility = facilities.stream()
+                            .filter(f -> f.getId() == facilityId)
+                            .findFirst()
+                            .orElse(null);
+                    if (facility != null) {
+                        System.out.println("  Added: " + facility.getName());
+                    }
+                } catch (NumberFormatException e) {
+                    System.out.println("Invalid facility ID. Please enter a number.");
+                }
+            }
+            routeId = routePlannerService.createComplexRoute(trainId, startFacilityId, endFacilityId, 
+                    intermediateFacilityIds, startDate);
+        } else {
+            routeId = routePlannerService.createSimpleRoute(trainId, startFacilityId, endFacilityId, startDate);
+        }
+        
+        System.out.println("\n✓ Route created with ID: " + routeId);
+        
+        // Assign freights to route
+        System.out.println("\nAssign freights to this route:");
+        System.out.println("Enter freight IDs to assign (press Enter with empty line to finish):");
+        List<Integer> freightIds = new ArrayList<>();
+        while (true) {
+            System.out.print("Freight ID (or press Enter to finish): ");
+            String input = scanner.nextLine().trim();
+            if (input.isEmpty()) {
+                break;
+            }
+            try {
+                int freightId = Integer.parseInt(input);
+                Freight freight = pendingFreights.stream()
+                        .filter(f -> f.getId() == freightId)
+                        .findFirst()
+                        .orElse(null);
+                if (freight != null) {
+                    freightIds.add(freightId);
+                    System.out.println("  Added: Freight " + freightId);
+                } else {
+                    System.out.println("Invalid freight ID. Please enter a valid freight ID from the list above.");
+                }
+            } catch (NumberFormatException e) {
+                System.out.println("Invalid freight ID. Please enter a number.");
+            }
+        }
+        
+        if (!freightIds.isEmpty()) {
+            routePlannerService.assignFreightsToRoute(freightIds, routeId);
+            System.out.println("\n✓ Assigned " + freightIds.size() + " freight(s) to route " + routeId);
+            connection.commit();
+        } else {
+            System.out.println("\nNo freights assigned to this route.");
+        }
+    }
+
+    private void viewRoutePlan(RoutePlannerService routePlannerService) throws Exception {
+        System.out.println("\n=== VIEW ROUTE PLAN WITH CARGO OPERATIONS ===");
+        
+        // Show all routes
+        List<Train> trains = controller.getAllTrains();
+        List<Route> allRoutes = new ArrayList<>();
+        for (Train train : trains) {
+            allRoutes.addAll(controller.getRoutesByTrainId(train.getId()));
+        }
+        
+        if (allRoutes.isEmpty()) {
+            System.out.println("No routes available.");
+            return;
+        }
+        
+        System.out.println("\nAvailable routes:");
+        for (Route route : allRoutes) {
+            System.out.printf("  Route ID: %d - Train %d: %s -> %s (Departure: %s)\n",
+                    route.getId(),
+                    route.getTrainId(),
+                    route.getStartFacility().getName(),
+                    route.getEndFacility().getName(),
+                    route.getStartDate().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+        }
+        
+        System.out.print("\nEnter route ID: ");
+        String routeIdInput = scanner.nextLine().trim();
+        int routeId;
+        try {
+            routeId = Integer.parseInt(routeIdInput);
+        } catch (NumberFormatException e) {
+            System.out.println("\n Error: Invalid route ID. Please enter a number.");
+            return;
+        }
+        
+        try {
+            String routePlanText = routePlannerService.presentRoutePlan(routeId);
+            System.out.println("\n" + routePlanText);
+        } catch (IllegalArgumentException e) {
+            System.out.println("\n Error: " + e.getMessage());
         }
     }
 }

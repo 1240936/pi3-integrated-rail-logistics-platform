@@ -33,13 +33,14 @@ public class LineSegmentRepository {
         try (PreparedStatement stmt = connection.prepareStatement(sql);
              ResultSet rs = stmt.executeQuery()) {
             while (rs.next()) {
+                // In USBD31, speedLimit is NOT NULL
                 segments.add(new LineSegment(
                     rs.getInt("ID"),
                     rs.getInt("RailLineID"),
                     rs.getDouble("maxWeight"),
                     rs.getDouble("length"),
                     rs.getInt("numberOfTracks"),
-                    rs.getObject("speedLimit", Double.class),
+                    rs.getDouble("speedLimit"), // NOT NULL in USBD31
                     rs.getInt("orderNum")
                 ));
             }

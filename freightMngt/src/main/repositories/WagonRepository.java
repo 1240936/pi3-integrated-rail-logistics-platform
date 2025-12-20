@@ -66,7 +66,7 @@ public class WagonRepository {
                      "FROM Wagon w " +
                      "JOIN WagonSpecs ws ON w.VehicleModelID = ws.VehicleModelID " +
                      "JOIN VehicleModel vm ON w.VehicleModelID = vm.ID " +
-                     "JOIN Wagon_Train wt ON w.ID = wt.WagonID " +
+                     "JOIN Train_Wagon wt ON w.ID = wt.WagonID " +
                      "WHERE wt.TrainID = ?";
         List<Wagon> wagons = new ArrayList<>();
         
