@@ -83,8 +83,8 @@ BEGIN
     SELECT COUNT(*) INTO v_already_associated
     FROM Planned_Train_Locomotive
     WHERE LocomotiveID = p_locomotive_id
-      AND Planned_TrainTrainID = v_train_id
-      AND Planned_TrainstartDate = v_start_date;
+      AND PlannedTrainID = v_train_id
+      AND PlannedTrainStartDate = v_start_date;
 
     IF v_already_associated > 0 THEN
         RAISE_APPLICATION_ERROR(-20005, 'Locomotive ' || p_locomotive_id || ' is already associated with train ' || v_train_id || ' for the planned trip starting at ' || TO_CHAR(v_start_date, 'YYYY-MM-DD HH24:MI:SS') || '.');
@@ -96,7 +96,7 @@ BEGIN
         SELECT pt2.TrainID, pt2.startDate
         INTO v_conflicting_train_id, v_conflicting_start_date
         FROM Planned_Train_Locomotive ptl
-        JOIN Planned_Train pt2 ON ptl.Planned_TrainTrainID = pt2.TrainID AND ptl.Planned_TrainstartDate = pt2.startDate
+        JOIN Planned_Train pt2 ON ptl.PlannedTrainID = pt2.TrainID AND ptl.PlannedTrainStartDate = pt2.startDate
         WHERE ptl.LocomotiveID = p_locomotive_id
           AND pt2.RouteID != p_route_id
           AND pt2.startDate = v_start_date;  -- Same start date indicates potential conflict
@@ -112,7 +112,7 @@ BEGIN
     END;
 
     -- 7. Insert the association into Planned_Train_Locomotive
-    INSERT INTO Planned_Train_Locomotive (Planned_TrainTrainID, Planned_TrainstartDate, LocomotiveID)
+    INSERT INTO Planned_Train_Locomotive (PlannedTrainID, PlannedTrainStartDate, LocomotiveID)
     VALUES (v_train_id, v_start_date, p_locomotive_id);
 
     RETURN v_train_id;
@@ -138,7 +138,7 @@ BEGIN
     
     SELECT COUNT(*) INTO v_verified_count
     FROM Planned_Train_Locomotive ptl
-    JOIN Planned_Train pt ON ptl.Planned_TrainTrainID = pt.TrainID AND ptl.Planned_TrainstartDate = pt.startDate
+    JOIN Planned_Train pt ON ptl.PlannedTrainID = pt.TrainID AND ptl.PlannedTrainStartDate = pt.startDate
     WHERE ptl.LocomotiveID = v_locomotive_id
       AND pt.RouteID = v_route_id;
     
@@ -150,8 +150,8 @@ BEGIN
     
     DELETE FROM Planned_Train_Locomotive 
     WHERE LocomotiveID = v_locomotive_id 
-      AND Planned_TrainTrainID = v_train_id
-      AND Planned_TrainstartDate = (SELECT startDate FROM Planned_Train WHERE RouteID = v_route_id);
+      AND PlannedTrainID = v_train_id
+      AND PlannedTrainStartDate = (SELECT startDate FROM Planned_Train WHERE RouteID = v_route_id);
     ROLLBACK;
 
 EXCEPTION
