@@ -1,5 +1,5 @@
 CREATE OR REPLACE TRIGGER TRG_VALIDATE_TRAIN_LENGTH_WAGON
-BEFORE INSERT OR UPDATE ON Train_Wagon
+BEFORE INSERT OR UPDATE ON Planned_Train_Wagon
 FOR EACH ROW
 DECLARE
     v_train_max_length NUMBER;
@@ -12,23 +12,22 @@ BEGIN
         SELECT maxLength
         INTO v_train_max_length
         FROM Train
-        WHERE ID = :NEW.TrainID;
+        WHERE ID = :NEW.Planned_TrainTrainID;
     EXCEPTION
         WHEN NO_DATA_FOUND THEN
-            RAISE_APPLICATION_ERROR(-20002, 'Train ' || :NEW.TrainID || ' not found');
+            RAISE_APPLICATION_ERROR(-20002, 'Train ' || :NEW.Planned_TrainTrainID || ' not found');
     END;
     
-    -- Calculate total length of wagons already assigned to this train
+    -- Calculate total length of wagons already assigned to this planned trip (TrainID + startDate)
     -- For INSERT: new row not in table yet, so we'll add it manually
-    -- For UPDATE: exclude the current row if TrainID unchanged, or include all if TrainID changed
     IF INSERTING THEN
-        -- Get existing wagons (new row not in table yet)
+        -- Get existing wagons for this planned trip (new row not in table yet)
         SELECT CASE WHEN SUM(VM.length) IS NULL THEN 0 ELSE SUM(VM.length) END
         INTO v_total_wagons_length
-        FROM Train_Wagon TW
-        JOIN Wagon W ON TW.WagonID = W.ID
+        FROM Planned_Train_Wagon PTW
+        JOIN Wagon W ON PTW.WagonID = W.ID
         JOIN VehicleModel VM ON W.VehicleModelID = VM.ID
-        WHERE TW.TrainID = :NEW.TrainID;
+        WHERE PTW.Planned_TrainTrainID = :NEW.Planned_TrainTrainID AND PTW.Planned_TrainstartDate = :NEW.Planned_TrainstartDate;
         
         -- Add the new wagon's length
         SELECT v_total_wagons_length + VM.length
@@ -37,70 +36,24 @@ BEGIN
         JOIN VehicleModel VM ON W.VehicleModelID = VM.ID
         WHERE W.ID = :NEW.WagonID;
     ELSE
-        -- UPDATE: get all wagons (including current row if TrainID unchanged)
+        -- UPDATE: get all wagons for this planned trip (including current row)
         SELECT CASE WHEN SUM(VM.length) IS NULL THEN 0 ELSE SUM(VM.length) END
         INTO v_total_wagons_length
-        FROM Train_Wagon TW
-        JOIN Wagon W ON TW.WagonID = W.ID
+        FROM Planned_Train_Wagon PTW
+        JOIN Wagon W ON PTW.WagonID = W.ID
         JOIN VehicleModel VM ON W.VehicleModelID = VM.ID
-        WHERE TW.TrainID = :NEW.TrainID;
+        WHERE PTW.Planned_TrainTrainID = :NEW.Planned_TrainTrainID AND PTW.Planned_TrainstartDate = :NEW.Planned_TrainstartDate;
     END IF;
     
-    -- For UPDATE, if TrainID changed, also check the old train
-    IF UPDATING AND :OLD.TrainID IS NOT NULL AND :OLD.TrainID != :NEW.TrainID THEN
-        DECLARE
-            v_old_train_max_length NUMBER;
-            v_old_total_wagons_length NUMBER := 0;
-            v_old_total_locomotives_length NUMBER := 0;
-            v_old_current_total_length NUMBER;
-        BEGIN
-            SELECT maxLength
-            INTO v_old_train_max_length
-            FROM Train
-            WHERE ID = :OLD.TrainID;
-            
-            SELECT SUM(VM.length)
-            INTO v_old_total_wagons_length
-            FROM Train_Wagon TW
-            JOIN Wagon W ON TW.WagonID = W.ID
-            JOIN VehicleModel VM ON W.VehicleModelID = VM.ID
-            WHERE TW.TrainID = :OLD.TrainID;
-            
-            SELECT SUM(VM.length)
-            INTO v_old_total_locomotives_length
-            FROM Locomotive_Train LT
-            JOIN Locomotive L ON LT.LocomotiveID = L.ID
-            JOIN VehicleModel VM ON L.VehicleModelID = VM.ID
-            WHERE LT.TrainID = :OLD.TrainID;
-            
-            IF v_old_total_wagons_length IS NULL THEN
-                v_old_total_wagons_length := 0;
-            END IF;
-            IF v_old_total_locomotives_length IS NULL THEN
-                v_old_total_locomotives_length := 0;
-            END IF;
-            
-            v_old_current_total_length := v_old_total_wagons_length + v_old_total_locomotives_length;
-            
-            IF v_old_current_total_length > v_old_train_max_length THEN
-                RAISE_APPLICATION_ERROR(-20001, 
-                    'Cannot move wagon from train: Total length (' || 
-                    TO_CHAR(v_old_current_total_length) || 
-                    ') exceeds train maximum length (' || 
-                    TO_CHAR(v_old_train_max_length) || ') for Train ID ' || :OLD.TrainID);
-            END IF;
-        END;
-    END IF;
-    
-    -- Calculate total length of ALL locomotives assigned to this train
-    SELECT SUM(VM.length)
+    -- Calculate total length of locomotives assigned to this planned trip (TrainID + startDate)
+    SELECT CASE WHEN SUM(VM.length) IS NULL THEN 0 ELSE SUM(VM.length) END
     INTO v_total_locomotives_length
-    FROM Locomotive_Train LT
-    JOIN Locomotive L ON LT.LocomotiveID = L.ID
+    FROM Planned_Train_Locomotive PTL
+    JOIN Locomotive L ON PTL.LocomotiveID = L.ID
     JOIN VehicleModel VM ON L.VehicleModelID = VM.ID
-    WHERE LT.TrainID = :NEW.TrainID;
+    WHERE PTL.Planned_TrainTrainID = :NEW.Planned_TrainTrainID AND PTL.Planned_TrainstartDate = :NEW.Planned_TrainstartDate;
     
-    -- Total length = all wagons + all locomotives (both in meters)
+    -- Total length = all wagons + all locomotives for this planned trip (both in meters)
     v_current_total_length := v_total_wagons_length + v_total_locomotives_length;
     
     -- Check if total length exceeds the train's defined limit
@@ -109,13 +62,13 @@ BEGIN
             'Cannot add wagon to train: Total length (' || 
             TO_CHAR(v_current_total_length) || 
             ') exceeds train maximum length (' || 
-            TO_CHAR(v_train_max_length) || ') for Train ID ' || :NEW.TrainID);
+            TO_CHAR(v_train_max_length) || ') for Train ID ' || :NEW.Planned_TrainTrainID);
     END IF;
 END;
 /
 
 CREATE OR REPLACE TRIGGER TRG_VALIDATE_TRAIN_LENGTH_LOCOMOTIVE
-BEFORE INSERT OR UPDATE ON Locomotive_Train
+BEFORE INSERT OR UPDATE ON Planned_Train_Locomotive
 FOR EACH ROW
 DECLARE
     v_train_max_length NUMBER;
@@ -128,21 +81,21 @@ BEGIN
         SELECT maxLength
         INTO v_train_max_length
         FROM Train
-        WHERE ID = :NEW.TrainID;
+        WHERE ID = :NEW.Planned_TrainTrainID;
     EXCEPTION
         WHEN NO_DATA_FOUND THEN
-            RAISE_APPLICATION_ERROR(-20004, 'Train ' || :NEW.TrainID || ' not found');
+            RAISE_APPLICATION_ERROR(-20004, 'Train ' || :NEW.Planned_TrainTrainID || ' not found');
     END;
     
-    -- Calculate total length of locomotives assigned to this train
+    -- Calculate total length of locomotives already assigned to this planned trip (TrainID + startDate)
     IF INSERTING THEN
-        -- Get existing locomotives (new row not in table yet)
+        -- Get existing locomotives for this planned trip (new row not in table yet)
         SELECT CASE WHEN SUM(VM.length) IS NULL THEN 0 ELSE SUM(VM.length) END
         INTO v_total_locomotives_length
-        FROM Locomotive_Train LT
-        JOIN Locomotive L ON LT.LocomotiveID = L.ID
+        FROM Planned_Train_Locomotive PTL
+        JOIN Locomotive L ON PTL.LocomotiveID = L.ID
         JOIN VehicleModel VM ON L.VehicleModelID = VM.ID
-        WHERE LT.TrainID = :NEW.TrainID;
+        WHERE PTL.Planned_TrainTrainID = :NEW.Planned_TrainTrainID AND PTL.Planned_TrainstartDate = :NEW.Planned_TrainstartDate;
         
         -- Add the new locomotive's length
         SELECT v_total_locomotives_length + VM.length
@@ -151,70 +104,24 @@ BEGIN
         JOIN VehicleModel VM ON L.VehicleModelID = VM.ID
         WHERE L.ID = :NEW.LocomotiveID;
     ELSE
-        -- UPDATE: get all locomotives (including current row if TrainID unchanged)
+        -- UPDATE: get all locomotives for this planned trip (including current row)
         SELECT CASE WHEN SUM(VM.length) IS NULL THEN 0 ELSE SUM(VM.length) END
         INTO v_total_locomotives_length
-        FROM Locomotive_Train LT
-        JOIN Locomotive L ON LT.LocomotiveID = L.ID
+        FROM Planned_Train_Locomotive PTL
+        JOIN Locomotive L ON PTL.LocomotiveID = L.ID
         JOIN VehicleModel VM ON L.VehicleModelID = VM.ID
-        WHERE LT.TrainID = :NEW.TrainID;
+        WHERE PTL.Planned_TrainTrainID = :NEW.Planned_TrainTrainID AND PTL.Planned_TrainstartDate = :NEW.Planned_TrainstartDate;
     END IF;
     
-    -- For UPDATE, if TrainID changed, also check the old train
-    IF UPDATING AND :OLD.TrainID IS NOT NULL AND :OLD.TrainID != :NEW.TrainID THEN
-        DECLARE
-            v_old_train_max_length NUMBER;
-            v_old_total_locomotives_length NUMBER := 0;
-            v_old_total_wagons_length NUMBER := 0;
-            v_old_current_total_length NUMBER;
-        BEGIN
-            SELECT maxLength
-            INTO v_old_train_max_length
-            FROM Train
-            WHERE ID = :OLD.TrainID;
-            
-            SELECT SUM(VM.length)
-            INTO v_old_total_locomotives_length
-            FROM Locomotive_Train LT
-            JOIN Locomotive L ON LT.LocomotiveID = L.ID
-            JOIN VehicleModel VM ON L.VehicleModelID = VM.ID
-            WHERE LT.TrainID = :OLD.TrainID;
-            
-            SELECT SUM(VM.length)
-            INTO v_old_total_wagons_length
-            FROM Train_Wagon TW
-            JOIN Wagon W ON TW.WagonID = W.ID
-            JOIN VehicleModel VM ON W.VehicleModelID = VM.ID
-            WHERE TW.TrainID = :OLD.TrainID;
-            
-            IF v_old_total_locomotives_length IS NULL THEN
-                v_old_total_locomotives_length := 0;
-            END IF;
-            IF v_old_total_wagons_length IS NULL THEN
-                v_old_total_wagons_length := 0;
-            END IF;
-            
-            v_old_current_total_length := v_old_total_locomotives_length + v_old_total_wagons_length;
-            
-            IF v_old_current_total_length > v_old_train_max_length THEN
-                RAISE_APPLICATION_ERROR(-20003, 
-                    'Cannot move locomotive from train: Total length (' || 
-                    TO_CHAR(v_old_current_total_length) || 
-                    ') exceeds train maximum length (' || 
-                    TO_CHAR(v_old_train_max_length) || ') for Train ID ' || :OLD.TrainID);
-            END IF;
-        END;
-    END IF;
-    
-    -- Calculate total length of wagons assigned to this train
+    -- Calculate total length of wagons assigned to this planned trip (TrainID + startDate)
     SELECT CASE WHEN SUM(VM.length) IS NULL THEN 0 ELSE SUM(VM.length) END
     INTO v_total_wagons_length
-    FROM Train_Wagon TW
-    JOIN Wagon W ON TW.WagonID = W.ID
+    FROM Planned_Train_Wagon PTW
+    JOIN Wagon W ON PTW.WagonID = W.ID
     JOIN VehicleModel VM ON W.VehicleModelID = VM.ID
-    WHERE TW.TrainID = :NEW.TrainID;
+    WHERE PTW.Planned_TrainTrainID = :NEW.Planned_TrainTrainID AND PTW.Planned_TrainstartDate = :NEW.Planned_TrainstartDate;
     
-    -- Total length = all locomotives + all wagons (both in meters)
+    -- Total length = all locomotives + all wagons for this planned trip (both in meters)
     v_current_total_length := v_total_locomotives_length + v_total_wagons_length;
     
     -- Check if total length exceeds the train's defined limit
@@ -223,7 +130,7 @@ BEGIN
             'Cannot add locomotive to train: Total length (' || 
             TO_CHAR(v_current_total_length) || 
             ') exceeds train maximum length (' || 
-            TO_CHAR(v_train_max_length) || ') for Train ID ' || :NEW.TrainID);
+            TO_CHAR(v_train_max_length) || ') for Train ID ' || :NEW.Planned_TrainTrainID);
     END IF;
 END;
 /
@@ -231,13 +138,14 @@ END;
 -- Test: Try to add wagon 3563082 to train 5421 (should fail)
 DECLARE
     v_train_id NUMBER := 5421;
+    v_start_date DATE := TO_DATE('2025-10-03 09:45:00', 'YYYY-MM-DD HH24:MI:SS');  -- Route 1 startDate
     v_wagon_length NUMBER;
     v_max_length NUMBER;
     v_total_wagon_length NUMBER;
     v_total_locomotive_length NUMBER;
     v_total_length NUMBER;
 BEGIN
-    DBMS_OUTPUT.PUT_LINE('=== Test: Try to add wagon 3563082 to train 5421 ===');
+    DBMS_OUTPUT.PUT_LINE('Test 3a: Current status of train 5421');
     
     -- Check current status of train
     SELECT maxLength
@@ -247,22 +155,21 @@ BEGIN
     
     SELECT CASE WHEN SUM(VM.length) IS NULL THEN 0 ELSE SUM(VM.length) END
     INTO v_total_wagon_length
-    FROM Train_Wagon TW
-    JOIN Wagon W ON TW.WagonID = W.ID
+    FROM Planned_Train_Wagon PTW
+    JOIN Wagon W ON PTW.WagonID = W.ID
     JOIN VehicleModel VM ON W.VehicleModelID = VM.ID
-    WHERE TW.TrainID = v_train_id;
+    WHERE PTW.Planned_TrainTrainID = v_train_id AND PTW.Planned_TrainstartDate = v_start_date;
     
     SELECT CASE WHEN SUM(VM.length) IS NULL THEN 0 ELSE SUM(VM.length) END
     INTO v_total_locomotive_length
-    FROM Locomotive_Train LT
-    JOIN Locomotive L ON LT.LocomotiveID = L.ID
+    FROM Planned_Train_Locomotive PTL
+    JOIN Locomotive L ON PTL.LocomotiveID = L.ID
     JOIN VehicleModel VM ON L.VehicleModelID = VM.ID
-    WHERE LT.TrainID = v_train_id;
+    WHERE PTL.Planned_TrainTrainID = v_train_id AND PTL.Planned_TrainstartDate = v_start_date;
     
     v_total_length := v_total_wagon_length + v_total_locomotive_length;
     
-    DBMS_OUTPUT.PUT_LINE('Train ' || v_train_id || ': WagonLength=' || v_total_wagon_length || 
-        'm, LocoLength=' || v_total_locomotive_length || 'm, Total=' || v_total_length || 
+    DBMS_OUTPUT.PUT_LINE('Train ' || v_train_id || ': Total=' || v_total_length || 
         'm, Max=' || v_max_length || 'm');
     DBMS_OUTPUT.PUT_LINE('Remaining capacity: ' || (v_max_length - v_total_length) || 'm');
     
@@ -272,7 +179,8 @@ BEGIN
     JOIN VehicleModel VM ON W.VehicleModelID = VM.ID
     WHERE W.ID = 3563082;
     
-    INSERT INTO Train_Wagon (TrainID, WagonID) VALUES (v_train_id, 3563082);
+    INSERT INTO Planned_Train_Wagon (Planned_TrainTrainID, Planned_TrainstartDate, WagonID) 
+    VALUES (v_train_id, v_start_date, 3563082);
     DBMS_OUTPUT.PUT_LINE('Insert succeeded');
     ROLLBACK;
 EXCEPTION
@@ -289,13 +197,14 @@ END;
 -- Test: Try to add a locomotive to train 5421 (should fail)
 DECLARE
     v_train_id NUMBER := 5421;
+    v_start_date DATE := TO_DATE('2025-10-03 09:45:00', 'YYYY-MM-DD HH24:MI:SS');  -- Route 1 startDate
     v_loco_id NUMBER;
     v_max_length NUMBER;
     v_total_wagon_length NUMBER;
     v_total_locomotive_length NUMBER;
     v_total_length NUMBER;
 BEGIN
-    DBMS_OUTPUT.PUT_LINE('=== Test: Try to add a locomotive to train 5421 ===');
+    DBMS_OUTPUT.PUT_LINE('Test 5: Current status of train 5421');
     
     -- Check current status of train
     SELECT maxLength
@@ -305,33 +214,33 @@ BEGIN
     
     SELECT CASE WHEN SUM(VM.length) IS NULL THEN 0 ELSE SUM(VM.length) END
     INTO v_total_wagon_length
-    FROM Train_Wagon TW
-    JOIN Wagon W ON TW.WagonID = W.ID
+    FROM Planned_Train_Wagon PTW
+    JOIN Wagon W ON PTW.WagonID = W.ID
     JOIN VehicleModel VM ON W.VehicleModelID = VM.ID
-    WHERE TW.TrainID = v_train_id;
+    WHERE PTW.Planned_TrainTrainID = v_train_id AND PTW.Planned_TrainstartDate = v_start_date;
     
     SELECT CASE WHEN SUM(VM.length) IS NULL THEN 0 ELSE SUM(VM.length) END
     INTO v_total_locomotive_length
-    FROM Locomotive_Train LT
-    JOIN Locomotive L ON LT.LocomotiveID = L.ID
+    FROM Planned_Train_Locomotive PTL
+    JOIN Locomotive L ON PTL.LocomotiveID = L.ID
     JOIN VehicleModel VM ON L.VehicleModelID = VM.ID
-    WHERE LT.TrainID = v_train_id;
+    WHERE PTL.Planned_TrainTrainID = v_train_id AND PTL.Planned_TrainstartDate = v_start_date;
     
     v_total_length := v_total_wagon_length + v_total_locomotive_length;
     
-    DBMS_OUTPUT.PUT_LINE('Train ' || v_train_id || ': WagonLength=' || v_total_wagon_length || 
-        'm, LocoLength=' || v_total_locomotive_length || 'm, Total=' || v_total_length || 
+    DBMS_OUTPUT.PUT_LINE('Train ' || v_train_id || ': Total=' || v_total_length || 
         'm, Max=' || v_max_length || 'm');
     DBMS_OUTPUT.PUT_LINE('Remaining capacity: ' || (v_max_length - v_total_length) || 'm');
     
     -- Continue with test logic
     SELECT L.ID INTO v_loco_id
     FROM Locomotive L
-    WHERE L.ID NOT IN (SELECT LocomotiveID FROM Locomotive_Train WHERE TrainID = v_train_id)
+    WHERE L.ID NOT IN (SELECT LocomotiveID FROM Planned_Train_Locomotive 
+                       WHERE Planned_TrainTrainID = v_train_id AND Planned_TrainstartDate = v_start_date)
       AND ROWNUM = 1;
     
-    INSERT INTO Locomotive_Train (LocomotiveID, TrainID) 
-    VALUES (v_loco_id, v_train_id);
+    INSERT INTO Planned_Train_Locomotive (Planned_TrainTrainID, Planned_TrainstartDate, LocomotiveID) 
+    VALUES (v_train_id, v_start_date, v_loco_id);
     
     DBMS_OUTPUT.PUT_LINE('ERROR: Insert should have failed but it succeeded!');
     ROLLBACK;
@@ -346,18 +255,18 @@ EXCEPTION
 END;
 /
 
--- Test: Try to add a wagon to train 5437 (should pass)
+-- Test: Try to add a wagon to train 5437 (should pass if within limit)
 DECLARE
     v_train_id NUMBER := 5437;
+    v_start_date DATE := TO_DATE('2025-10-06 10:00:00', 'YYYY-MM-DD HH24:MI:SS');  -- Route 3 startDate
     v_wagon_id NUMBER;
     v_current_length NUMBER;
     v_max_length NUMBER;
-    v_loco_total NUMBER;
     v_total_wagon_length NUMBER;
     v_total_locomotive_length NUMBER;
     v_total_length NUMBER;
 BEGIN
-    DBMS_OUTPUT.PUT_LINE('=== Test: Try to add a wagon to train 5437 ===');
+    DBMS_OUTPUT.PUT_LINE('Test 6: Current status of train 5437');
     
     -- Check current status of train
     SELECT maxLength
@@ -367,22 +276,21 @@ BEGIN
     
     SELECT CASE WHEN SUM(VM.length) IS NULL THEN 0 ELSE SUM(VM.length) END
     INTO v_total_wagon_length
-    FROM Train_Wagon TW
-    JOIN Wagon W2 ON TW.WagonID = W2.ID
+    FROM Planned_Train_Wagon PTW
+    JOIN Wagon W2 ON PTW.WagonID = W2.ID
     JOIN VehicleModel VM ON W2.VehicleModelID = VM.ID
-    WHERE TW.TrainID = v_train_id;
+    WHERE PTW.Planned_TrainTrainID = v_train_id AND PTW.PLANNED_TRAINSTARTDATE = v_start_date;
     
     SELECT CASE WHEN SUM(VM.length) IS NULL THEN 0 ELSE SUM(VM.length) END
     INTO v_total_locomotive_length
-    FROM Locomotive_Train LT
-    JOIN Locomotive L ON LT.LocomotiveID = L.ID
+    FROM Planned_Train_Locomotive PTL
+    JOIN Locomotive L ON PTL.LocomotiveID = L.ID
     JOIN VehicleModel VM ON L.VehicleModelID = VM.ID
-    WHERE LT.TrainID = v_train_id;
+    WHERE PTL.Planned_TrainTrainID = v_train_id AND PTL.Planned_TrainstartDate = v_start_date;
     
     v_total_length := v_total_wagon_length + v_total_locomotive_length;
     
-    DBMS_OUTPUT.PUT_LINE('Train ' || v_train_id || ': WagonLength=' || v_total_wagon_length || 
-        'm, LocoLength=' || v_total_locomotive_length || 'm, Total=' || v_total_length || 
+    DBMS_OUTPUT.PUT_LINE('Train ' || v_train_id || ': Total=' || v_total_length || 
         'm, Max=' || v_max_length || 'm');
     DBMS_OUTPUT.PUT_LINE('Remaining capacity: ' || (v_max_length - v_total_length) || 'm');
     
@@ -390,14 +298,15 @@ BEGIN
     SELECT W.ID
     INTO v_wagon_id
     FROM Wagon W
-    WHERE W.ID NOT IN (SELECT WagonID FROM Train_Wagon WHERE TrainID = v_train_id)
+    WHERE W.ID NOT IN (SELECT WagonID FROM Planned_Train_Wagon 
+                       WHERE Planned_TrainTrainID = v_train_id AND Planned_TrainstartDate = v_start_date)
       AND ROWNUM = 1;
     
     v_current_length := v_total_length;
     
     IF v_current_length <= v_max_length THEN
-        INSERT INTO Train_Wagon (TrainID, WagonID) 
-        VALUES (v_train_id, v_wagon_id);
+        INSERT INTO Planned_Train_Wagon (Planned_TrainTrainID, Planned_TrainstartDate, WagonID) 
+        VALUES (v_train_id, v_start_date, v_wagon_id);
         DBMS_OUTPUT.PUT_LINE('Insert succeeded');
         ROLLBACK;
     END IF;
