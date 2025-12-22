@@ -39,21 +39,12 @@ public class FreightManagerUI {
             System.out.println("=== DATABASE CONNECTION ===");
             System.out.println("Enter database connection details:");
             
-            System.out.print("URL (default: jdbc:oracle:thin:@localhost:1521:XE): ");
-            String url = scanner.nextLine().trim();
-            if (url.isEmpty()) {
-                url = "jdbc:oracle:thin:@localhost:1521:XE";
-            }
-            
             System.out.print("Username: ");
             String username = scanner.nextLine().trim();
             if (username.isEmpty()) {
                 System.out.println("Username cannot be empty.");
                 return false;
             }
-            
-            System.out.print("Password: ");
-            String password = scanner.nextLine().trim();
             
             System.out.print("Connect as SYSDBA? (y/n, default: yes if user is 'sys'): ");
             String sysdbaInput = scanner.nextLine().trim().toLowerCase();
@@ -64,6 +55,26 @@ public class FreightManagerUI {
             } else {
                 asSysdba = "y".equals(sysdbaInput) || "yes".equals(sysdbaInput);
             }
+            
+            // Show appropriate default URL based on SYSDBA connection
+            String defaultUrl;
+            String urlPrompt;
+            if (asSysdba) {
+                defaultUrl = "jdbc:oracle:thin:@localhost:1521:XE";
+                urlPrompt = "URL (default for SYSDBA: " + defaultUrl + "): ";
+            } else {
+                defaultUrl = "jdbc:oracle:thin:@localhost:1521/XEPDB1";
+                urlPrompt = "URL (default for regular user: " + defaultUrl + "): ";
+            }
+            
+            System.out.print(urlPrompt);
+            String url = scanner.nextLine().trim();
+            if (url.isEmpty()) {
+                url = defaultUrl;
+            }
+            
+            System.out.print("Password: ");
+            String password = scanner.nextLine().trim();
             
             System.out.println("\nConnecting to database...");
             connection = DatabaseConnection.getConnection(url, username, password, asSysdba);
@@ -226,7 +237,24 @@ public class FreightManagerUI {
         }
 
         System.out.print("\nEnter train ID: ");
-        int trainId = Integer.parseInt(scanner.nextLine().trim());
+        int trainId;
+        try {
+            trainId = Integer.parseInt(scanner.nextLine().trim());
+        } catch (NumberFormatException e) {
+            System.out.println("  Error: Invalid input. Please enter a valid train ID number.");
+            return;
+        }
+        
+        // Validate train ID exists
+        Train selectedTrain = trains.stream()
+                .filter(t -> t.getId() == trainId)
+                .findFirst()
+                .orElse(null);
+        if (selectedTrain == null) {
+            System.out.println("  Error: Invalid train ID. Train ID " + trainId + " does not exist.");
+            System.out.println("  Please enter a valid train ID from the available trains list.");
+            return;
+        }
 
         // Show available facilities
         List<Facility> facilities = controller.getAllFacilities();
@@ -639,7 +667,24 @@ public class FreightManagerUI {
         }
         
         System.out.print("\nEnter train ID: ");
-        int trainId = Integer.parseInt(scanner.nextLine().trim());
+        int trainId;
+        try {
+            trainId = Integer.parseInt(scanner.nextLine().trim());
+        } catch (NumberFormatException e) {
+            System.out.println("  Error: Invalid input. Please enter a valid train ID number.");
+            return;
+        }
+        
+        // Validate train ID exists
+        Train selectedTrain = trains.stream()
+                .filter(t -> t.getId() == trainId)
+                .findFirst()
+                .orElse(null);
+        if (selectedTrain == null) {
+            System.out.println("  Error: Invalid train ID. Train ID " + trainId + " does not exist.");
+            System.out.println("  Please enter a valid train ID from the available trains list.");
+            return;
+        }
         
         // Get facilities
         List<Facility> facilities = controller.getAllFacilities();
@@ -658,48 +703,156 @@ public class FreightManagerUI {
         String dateTimeStr = scanner.nextLine().trim();
         LocalDateTime startDate = TrainDispatchController.parseDateTime(dateTimeStr);
         
-        // Ask if route should be simple or complex
-        System.out.print("\nCreate simple route (direct) or complex route (with intermediate stops)? (simple/complex): ");
-        String routeType = scanner.nextLine().trim().toLowerCase();
+        // Get intermediate facilities (path points)
+        System.out.println("\n=== DEFINE ROUTE PATH ===");
+        System.out.println("Enter intermediate facility IDs in order (press Enter with empty line to finish):");
+        List<Integer> intermediateFacilityIds = new ArrayList<>();
         
-        int routeId;
-        if ("complex".equals(routeType)) {
-            // Get intermediate facilities
-            System.out.println("\nEnter intermediate facility IDs in order (press Enter with empty line to finish):");
-            List<Integer> intermediateFacilityIds = new ArrayList<>();
-            while (true) {
-                System.out.print("Facility ID (or press Enter to finish): ");
-                String input = scanner.nextLine().trim();
-                if (input.isEmpty()) {
-                    break;
-                }
-                try {
-                    int facilityId = Integer.parseInt(input);
-                    intermediateFacilityIds.add(facilityId);
-                    Facility facility = facilities.stream()
-                            .filter(f -> f.getId() == facilityId)
-                            .findFirst()
-                            .orElse(null);
-                    if (facility != null) {
-                        System.out.println("  Added: " + facility.getName());
+        // Determine the current facility to show connections from
+        int currentFacilityId = startFacilityId;
+        
+        while (true) {
+            // Show connected facilities to help user choose next path point
+            try {
+                final int currentFacilityIdForLambda = currentFacilityId;
+                List<Facility> connectedFacilities = routePlannerService.getConnectedFacilities(currentFacilityId);
+                if (!connectedFacilities.isEmpty()) {
+                    System.out.println("\nFacilities connected to " + 
+                        facilities.stream().filter(f -> f.getId() == currentFacilityIdForLambda).findFirst()
+                            .map(Facility::getName).orElse("current facility") + 
+                        " (ID: " + currentFacilityId + "):");
+                    
+                    // Separate facilities that can reach the end vs those already visited
+                    List<Facility> canReachEnd = new ArrayList<>();
+                    List<Facility> alreadyVisited = new ArrayList<>();
+                    
+                    for (Facility connectedFacility : connectedFacilities) {
+                        int facilityId = connectedFacility.getId();
+                        
+                        // Skip start facility only if we're at the start facility itself (no self-connection needed)
+                        if (facilityId == startFacilityId && currentFacilityId == startFacilityId) {
+                            continue;
+                        }
+                        
+                        // Check if facility has been visited (is in the path)
+                        boolean isVisited = intermediateFacilityIds.contains(facilityId);
+                        
+                        if (facilityId == startFacilityId) {
+                            if (isVisited) {
+                                alreadyVisited.add(connectedFacility);
+                            } else {
+                                if (routePlannerService.hasPath(startFacilityId, endFacilityId)) {
+                                    canReachEnd.add(connectedFacility);
+                                }
+                            }
+                        } else if (facilityId == endFacilityId) {
+                            canReachEnd.add(connectedFacility);
+                        } else if (isVisited) {
+                            alreadyVisited.add(connectedFacility);
+                        } else if (routePlannerService.hasPath(facilityId, endFacilityId)) {
+                            canReachEnd.add(connectedFacility);
+                        }
                     }
-                } catch (NumberFormatException e) {
-                    System.out.println("Invalid facility ID. Please enter a number.");
+                    
+                    // Show facilities that can reach the end
+                    for (Facility connectedFacility : canReachEnd) {
+                        int facilityId = connectedFacility.getId();
+                        if (facilityId == startFacilityId) {
+                            System.out.printf("  ID: %d - %s (origin)\n", facilityId, connectedFacility.getName());
+                        } else if (facilityId == endFacilityId) {
+                            System.out.printf("  ID: %d - %s (destination)\n", facilityId, connectedFacility.getName());
+                        } else {
+                            System.out.printf("  ID: %d - %s\n", facilityId, connectedFacility.getName());
+                        }
+                    }
+                    
+                    // Show already visited facilities
+                    if (!alreadyVisited.isEmpty()) {
+                        System.out.println("  (Already visited):");
+                        for (Facility connectedFacility : alreadyVisited) {
+                            int facilityId = connectedFacility.getId();
+                            if (facilityId == startFacilityId) {
+                                System.out.printf("  ID: %d - %s (origin)\n", facilityId, connectedFacility.getName());
+                            } else if (facilityId == endFacilityId) {
+                                System.out.printf("  ID: %d - %s (destination)\n", facilityId, connectedFacility.getName());
+                            } else {
+                                System.out.printf("  ID: %d - %s\n", facilityId, connectedFacility.getName());
+                            }
+                        }
+                    }
                 }
+            } catch (Exception e) {
+                // If we can't get connected facilities, continue without showing them
             }
+            
+            System.out.print("\nFacility ID (or press Enter to finish): ");
+            String input = scanner.nextLine().trim();
+            if (input.isEmpty()) {
+                break;
+            }
+            try {
+                int facilityId = Integer.parseInt(input);
+                Facility facility = facilities.stream()
+                        .filter(f -> f.getId() == facilityId)
+                        .findFirst()
+                        .orElse(null);
+                
+                if (facility == null) {
+                    System.out.println("  Error: Invalid facility ID. Facility ID " + facilityId + " does not exist.");
+                    System.out.println("  Please enter a valid facility ID from the available facilities list.");
+                    continue;
+                }
+                
+                // Prevent adding the same facility twice in a row
+                if (!intermediateFacilityIds.isEmpty() && 
+                    intermediateFacilityIds.get(intermediateFacilityIds.size() - 1).equals(facilityId)) {
+                    System.out.println("  Error: Cannot add the same facility twice in a row. Please choose a different facility.");
+                    continue;
+                }
+                
+                intermediateFacilityIds.add(facilityId);
+                System.out.println("  Added: " + facility.getName());
+                // Update current facility for next iteration
+                currentFacilityId = facilityId;
+            } catch (NumberFormatException e) {
+                System.out.println("  Error: Invalid input. Please enter a valid facility ID number.");
+            }
+        }
+        
+        // Create route (simple if no intermediates, complex if intermediates exist)
+        int routeId;
+        if (intermediateFacilityIds.isEmpty()) {
+            routeId = routePlannerService.createSimpleRoute(trainId, startFacilityId, endFacilityId, startDate);
+        } else {
             routeId = routePlannerService.createComplexRoute(trainId, startFacilityId, endFacilityId, 
                     intermediateFacilityIds, startDate);
-        } else {
-            routeId = routePlannerService.createSimpleRoute(trainId, startFacilityId, endFacilityId, startDate);
         }
         
         System.out.println("\n✓ Route created with ID: " + routeId);
         
         // Assign freights to route
         System.out.println("\nAssign freights to this route:");
-        System.out.println("Enter freight IDs to assign (press Enter with empty line to finish):");
         List<Integer> freightIds = new ArrayList<>();
         while (true) {
+            // Filter out already selected freights
+            List<Freight> availableFreights = pendingFreights.stream()
+                    .filter(f -> !freightIds.contains(f.getId()))
+                    .collect(java.util.stream.Collectors.toList());
+            
+            // Show available freight list before each prompt (excluding already selected)
+            if (!availableFreights.isEmpty()) {
+                System.out.println("\nAvailable unassigned freight:");
+                for (Freight freight : availableFreights) {
+                    System.out.printf("  Freight ID: %d - %s -> %s\n",
+                            freight.getId(),
+                            freight.getOriginFacility().getName(),
+                            freight.getDestinationFacility().getName());
+                }
+            } else {
+                System.out.println("\nNo more unassigned freight available.");
+            }
+            
+            System.out.println("\nEnter freight IDs to assign (press Enter with empty line to finish):");
             System.out.print("Freight ID (or press Enter to finish): ");
             String input = scanner.nextLine().trim();
             if (input.isEmpty()) {
@@ -707,7 +860,7 @@ public class FreightManagerUI {
             }
             try {
                 int freightId = Integer.parseInt(input);
-                Freight freight = pendingFreights.stream()
+                Freight freight = availableFreights.stream()
                         .filter(f -> f.getId() == freightId)
                         .findFirst()
                         .orElse(null);
@@ -715,10 +868,10 @@ public class FreightManagerUI {
                     freightIds.add(freightId);
                     System.out.println("  Added: Freight " + freightId);
                 } else {
-                    System.out.println("Invalid freight ID. Please enter a valid freight ID from the list above.");
+                    System.out.println("  Error: Invalid freight ID. Please enter a valid freight ID from the list above.");
                 }
             } catch (NumberFormatException e) {
-                System.out.println("Invalid freight ID. Please enter a number.");
+                System.out.println("  Error: Invalid input. Please enter a valid freight ID number.");
             }
         }
         

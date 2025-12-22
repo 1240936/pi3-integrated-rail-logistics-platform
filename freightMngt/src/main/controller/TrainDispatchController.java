@@ -114,7 +114,11 @@ public class TrainDispatchController {
             
             // Check for overlaps with existing routes
             for (Route existingRoute : existingRoutes) {
-                List<TrainEvent> existingEvents = schedulerService.calculateRouteTimes(existingRoute, train);
+                Train existingTrain = trainRepository.getTrainForRoute(existingRoute.getId());
+                if (existingTrain == null) {
+                    existingTrain = train; // Fallback to basic train if route doesn't exist yet
+                }
+                List<TrainEvent> existingEvents = schedulerService.calculateRouteTimes(existingRoute, existingTrain);
                 LocalDateTime existingRouteStart = existingRoute.getStartDate();
                 LocalDateTime existingRouteEnd = existingRouteStart;
                 if (!existingEvents.isEmpty()) {
@@ -148,7 +152,8 @@ public class TrainDispatchController {
         int routeId = routeRepository.createRoute(trainId, startFacilityId, endFacilityId, startDate);
 
         // Add path points manually defined by Freight Manager
-        int seqNumber = 1;
+        // seqNumber must be >= 2 because 1 is the start facility
+        int seqNumber = 2;
         for (Integer facilityId : pathFacilityIds) {
             Facility facility = facilityRepository.getById(facilityId);
             if (facility != null) {

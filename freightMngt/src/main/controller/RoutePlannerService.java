@@ -30,6 +30,7 @@ public class RoutePlannerService {
     private final FreightRepository freightRepository;
     private final RouteRepository routeRepository;
     private final FacilityRepository facilityRepository;
+    private final RailLineRepository railLineRepository;
 
     /**
      * Constructs a RoutePlannerService with the given database connection.
@@ -41,6 +42,7 @@ public class RoutePlannerService {
         this.facilityRepository = new FacilityRepository(connection);
         this.freightRepository = new FreightRepository(connection, facilityRepository);
         this.routeRepository = new RouteRepository(connection, facilityRepository);
+        this.railLineRepository = new RailLineRepository(connection, facilityRepository);
     }
 
     /**
@@ -84,12 +86,30 @@ public class RoutePlannerService {
     public int createComplexRoute(int trainId, int startFacilityId, int endFacilityId,
                                    List<Integer> intermediateFacilityIds, 
                                    LocalDateTime startDate) throws SQLException {
+        // Validate that if there are intermediate facilities, the last one can reach the end facility
+        // (using pathfinding to allow backtracking through other facilities)
+        if (intermediateFacilityIds != null && !intermediateFacilityIds.isEmpty()) {
+            int lastFacilityId = intermediateFacilityIds.get(intermediateFacilityIds.size() - 1);
+            if (!railLineRepository.hasPath(lastFacilityId, endFacilityId)) {
+                Facility lastFacility = facilityRepository.getById(lastFacilityId);
+                Facility endFacility = facilityRepository.getById(endFacilityId);
+                throw new IllegalArgumentException(
+                    String.format("The last facility in the path (%s, ID: %d) cannot reach the end facility (%s, ID: %d). " +
+                                "Please ensure there is a path from the last facility to the destination.",
+                        lastFacility != null ? lastFacility.getName() : "Unknown",
+                        lastFacilityId,
+                        endFacility != null ? endFacility.getName() : "Unknown",
+                        endFacilityId));
+            }
+        }
+        
         // Create the base route
         int routeId = routeRepository.createRoute(trainId, startFacilityId, endFacilityId, startDate);
         
         // Add intermediate path points
+        // seqNumber must be >= 2 because 1 is the start facility
         if (intermediateFacilityIds != null) {
-            int sequenceNumber = 1;
+            int sequenceNumber = 2;
             for (Integer facilityId : intermediateFacilityIds) {
                 routeRepository.addPathPoint(routeId, facilityId, sequenceNumber);
                 sequenceNumber++;
@@ -112,13 +132,67 @@ public class RoutePlannerService {
 
     /**
      * Assigns multiple freights to a route.
+     * Validates that each freight's origin and destination facilities are on the route.
      * 
      * @param freightIds list of freight IDs to assign
      * @param routeId the ID of the route to assign the freights to
      * @throws SQLException if there is a database error
+     * @throws IllegalArgumentException if freight origin/destination not on route
      */
     public void assignFreightsToRoute(List<Integer> freightIds, int routeId) throws SQLException {
+        Route route = routeRepository.getById(routeId);
+        if (route == null) {
+            throw new IllegalArgumentException("Route not found: " + routeId);
+        }
+        
+        // Build ordered list of all facilities in the route
+        List<Integer> routeFacilities = new ArrayList<>();
+        routeFacilities.add(route.getStartFacility().getId());
+        for (Route.RoutePathPoint pathPoint : route.getPath()) {
+            routeFacilities.add(pathPoint.getFacility().getId());
+        }
+        routeFacilities.add(route.getEndFacility().getId());
+        
+        // Validate each freight before assigning
         for (Integer freightId : freightIds) {
+            Freight freight = freightRepository.getById(freightId);
+            if (freight == null) {
+                throw new IllegalArgumentException("Freight not found: " + freightId);
+            }
+            
+            int originId = freight.getOriginFacility().getId();
+            int destinationId = freight.getDestinationFacility().getId();
+            
+            // Check if origin is on the route
+            int originIndex = routeFacilities.indexOf(originId);
+            if (originIndex == -1) {
+                throw new IllegalArgumentException(
+                    String.format("Freight %d origin facility (%s, ID: %d) is not on the route. " +
+                                "The route must pass through the freight's origin facility.",
+                        freightId, freight.getOriginFacility().getName(), originId));
+            }
+            
+            // Check if destination is on the route
+            int destinationIndex = routeFacilities.indexOf(destinationId);
+            if (destinationIndex == -1) {
+                throw new IllegalArgumentException(
+                    String.format("Freight %d destination facility (%s, ID: %d) is not on the route. " +
+                                "The route must pass through the freight's destination facility.",
+                        freightId, freight.getDestinationFacility().getName(), destinationId));
+            }
+            
+            // Check that destination comes after origin in the route order
+            if (destinationIndex <= originIndex) {
+                throw new IllegalArgumentException(
+                    String.format("Freight %d destination facility (%s, ID: %d) must come after origin facility " +
+                                "(%s, ID: %d) in the route. Origin is at position %d, destination is at position %d.",
+                        freightId,
+                        freight.getDestinationFacility().getName(), destinationId,
+                        freight.getOriginFacility().getName(), originId,
+                        originIndex + 1, destinationIndex + 1));
+            }
+            
+            // Assign freight to route (moves from Unassigned_Freight to Assigned_Freight)
             freightRepository.assignFreightToRoute(freightId, routeId);
         }
     }
@@ -162,23 +236,31 @@ public class RoutePlannerService {
 
         // Create station operations for each facility
         // IMPORTANT: Show ALL facilities in the path, even if no cargo operations occur
+        // Track which freight operations have already been performed (to avoid duplicates on backtracking)
+        java.util.Set<Integer> loadedFreightIds = new java.util.HashSet<>();
+        java.util.Set<Integer> unloadedFreightIds = new java.util.HashSet<>();
+        
         int sequenceNumber = 1;
         for (Facility facility : facilitiesInOrder) {
             StationCargoOperation operation = new StationCargoOperation(facility, sequenceNumber);
 
             // Find freights to load at this facility (freights that originate here)
-            // Only include freights that are actually assigned to this route
+            // Only include freights that are actually assigned to this route and haven't been loaded yet
             for (Freight freight : routeFreights) {
-                if (freight.getOriginFacility().getId() == facility.getId()) {
+                if (freight.getOriginFacility().getId() == facility.getId() && 
+                    !loadedFreightIds.contains(freight.getId())) {
                     operation.addFreightToLoad(freight);
+                    loadedFreightIds.add(freight.getId());
                 }
             }
 
             // Find freights to unload at this facility (freights that end here)
-            // Only include freights that are actually assigned to this route
+            // Only include freights that are actually assigned to this route and haven't been unloaded yet
             for (Freight freight : routeFreights) {
-                if (freight.getDestinationFacility().getId() == facility.getId()) {
+                if (freight.getDestinationFacility().getId() == facility.getId() && 
+                    !unloadedFreightIds.contains(freight.getId())) {
                     operation.addFreightToUnload(freight);
+                    unloadedFreightIds.add(freight.getId());
                 }
             }
 
@@ -218,6 +300,30 @@ public class RoutePlannerService {
     }
 
     /**
+     * Gets all facilities directly connected to a given facility via rail lines.
+     * 
+     * @param facilityId the ID of the facility
+     * @return a list of facilities connected to the given facility
+     * @throws SQLException if there is a database error
+     */
+    public List<Facility> getConnectedFacilities(int facilityId) throws SQLException {
+        return railLineRepository.getConnectedFacilities(facilityId);
+    }
+
+    /**
+     * Check if there's a path from one facility to another using pathfinding.
+     * This allows checking connectivity while allowing backtracking through other facilities.
+     * 
+     * @param fromFacilityId the starting facility ID
+     * @param toFacilityId the destination facility ID
+     * @return true if a path exists, false otherwise
+     * @throws SQLException if there is a database error
+     */
+    public boolean hasPath(int fromFacilityId, int toFacilityId) throws SQLException {
+        return railLineRepository.hasPath(fromFacilityId, toFacilityId);
+    }
+
+    /**
      * Gets a formatted string representation of the route plan showing the sequence
      * of stations and cargo operations (load/unload).
      * 
@@ -236,7 +342,8 @@ public class RoutePlannerService {
 
         StringBuilder sb = new StringBuilder();
         sb.append("=== Route Plan for Route ID: ").append(routeId).append(" ===\n");
-        sb.append("Route Type: ").append(plan.isSimple() ? "Simple (Direct)" : "Complex (With Intermediate Stops)").append("\n");
+        int freightCount = plan.getAllFreight().size();
+        sb.append("Route Type: ").append(plan.isSimple() ? "Simple (1 freight)" : "Complex (" + freightCount + " freights)").append("\n");
         sb.append("Total Stations: ").append(plan.getStationOperations().size()).append("\n");
         sb.append("Total Cargos (Freight): ").append(plan.getAllFreight().size()).append("\n\n");
 

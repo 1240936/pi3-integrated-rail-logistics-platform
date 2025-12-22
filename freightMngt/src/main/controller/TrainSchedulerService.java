@@ -456,7 +456,7 @@ public class TrainSchedulerService {
         // Build a map of route ID to train for quick lookup
         Map<Integer, Train> routeToTrainMap = new HashMap<>();
         for (Route route : routes) {
-            Train train = trainRepository.getById(route.getTrainId());
+            Train train = trainRepository.getTrainForRoute(route.getId());
             if (train != null) {
                 routeToTrainMap.put(route.getId(), train);
             }
@@ -466,7 +466,7 @@ public class TrainSchedulerService {
         Map<Integer, List<SegmentUsage>> segmentUsages = new HashMap<>();
 
         for (Route route : routes) {
-            Train train = trainRepository.getById(route.getTrainId());
+            Train train = trainRepository.getTrainForRoute(route.getId());
             if (train == null) continue;
 
             List<TrainEvent> events = calculateRouteTimes(route, train);
@@ -725,9 +725,9 @@ public class TrainSchedulerService {
      * @throws IllegalArgumentException if the train for the route is not found
      */
     public SchedulingResult scheduleRoute(Route route) throws SQLException {
-        Train train = trainRepository.getById(route.getTrainId());
+        Train train = trainRepository.getTrainForRoute(route.getId());
         if (train == null) {
-            throw new IllegalArgumentException("Train not found: " + route.getTrainId());
+            throw new IllegalArgumentException("Train not found for route: " + route.getId());
         }
 
         // Calculate route times

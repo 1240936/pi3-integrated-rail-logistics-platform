@@ -76,28 +76,33 @@ public class RoutePlan {
     }
 
     /**
-     * Checks if this route plan is simple (no intermediate stops) or complex.
+     * Checks if this route plan is simple or complex based on the number of freight items.
      * 
-     * @return true if the route has only start and end facilities (simple),
-     *         false if it has intermediate stops (complex)
+     * @return true if exactly one freight item is assigned (simple),
+     *         false if more than one freight item is assigned (complex)
      */
     public boolean isSimple() {
-        // Simple route: only start and end facilities
-        // Complex route: has intermediate path points
-        return route.getPath().isEmpty();
+        // Simple route: exactly one freight item
+        // Complex route: more than one freight item
+        return getAllFreight().size() == 1;
     }
 
     /**
      * Gets all freight items associated with this route plan.
+     * Returns all unique freight items that are loaded at any station.
      * 
-     * @return list of all freight items that will be transported on this route
+     * @return list of all unique freight items that will be transported on this route
      */
     public List<Freight> getAllFreight() {
-        List<Freight> allFreight = new ArrayList<>();
+        java.util.Set<Freight> allFreightSet = new java.util.HashSet<>();
         for (StationCargoOperation op : stationOperations) {
-            allFreight.addAll(op.getFreightToLoad());
+            allFreightSet.addAll(op.getFreightToLoad());
         }
-        return allFreight;
+        // Also include freight that are unloaded (in case they're not loaded on this route)
+        for (StationCargoOperation op : stationOperations) {
+            allFreightSet.addAll(op.getFreightToUnload());
+        }
+        return new ArrayList<>(allFreightSet);
     }
 
     @Override

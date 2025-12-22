@@ -3,6 +3,7 @@ package main.repositories;
 import main.domain.LineSegment;
 import main.domain.Siding;
 
+import java.sql.CallableStatement;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -11,6 +12,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import oracle.jdbc.OracleTypes;
 
 /**
  * Repository for LineSegment and Siding entities
@@ -24,25 +27,27 @@ public class LineSegmentRepository {
 
     /**
      * Get all line segments
+     * Uses PL/SQL function GET_ALL_LINE_SEGMENTS (USLP10).
      */
     public List<LineSegment> getAll() throws SQLException {
-        String sql = "SELECT ID, RailLineID, maxWeight, length, numberOfTracks, speedLimit, orderNum " +
-                     "FROM LineSegment ORDER BY RailLineID, orderNum";
         List<LineSegment> segments = new ArrayList<>();
         
-        try (PreparedStatement stmt = connection.prepareStatement(sql);
-             ResultSet rs = stmt.executeQuery()) {
-            while (rs.next()) {
-                // In USBD31, speedLimit is NOT NULL
-                segments.add(new LineSegment(
-                    rs.getInt("ID"),
-                    rs.getInt("RailLineID"),
-                    rs.getDouble("maxWeight"),
-                    rs.getDouble("length"),
-                    rs.getInt("numberOfTracks"),
-                    rs.getDouble("speedLimit"), // NOT NULL in USBD31
-                    rs.getInt("orderNum")
-                ));
+        try (CallableStatement stmt = connection.prepareCall("{? = CALL GET_ALL_LINE_SEGMENTS()}")) {
+            stmt.registerOutParameter(1, OracleTypes.CURSOR);
+            stmt.execute();
+            
+            try (ResultSet rs = (ResultSet) stmt.getObject(1)) {
+                while (rs.next()) {
+                    segments.add(new LineSegment(
+                        rs.getInt("ID"),
+                        rs.getInt("RailLineID"),
+                        rs.getDouble("maxWeight"),
+                        rs.getDouble("length"),
+                        rs.getInt("numberOfTracks"),
+                        rs.getDouble("speedLimit"),
+                        rs.getInt("orderNum")
+                    ));
+                }
             }
         }
         return segments;
@@ -50,15 +55,17 @@ public class LineSegmentRepository {
 
     /**
      * Get line segments by rail line ID
+     * Uses PL/SQL function GET_LINE_SEGMENTS_BY_RAIL_LINE_ID (USLP10).
      */
     public List<LineSegment> getByRailLineId(int railLineId) throws SQLException {
-        String sql = "SELECT ID, RailLineID, maxWeight, length, numberOfTracks, speedLimit, orderNum " +
-                     "FROM LineSegment WHERE RailLineID = ? ORDER BY orderNum";
         List<LineSegment> segments = new ArrayList<>();
         
-        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
-            stmt.setInt(1, railLineId);
-            try (ResultSet rs = stmt.executeQuery()) {
+        try (CallableStatement stmt = connection.prepareCall("{? = CALL GET_LINE_SEGMENTS_BY_RAIL_LINE_ID(?)}")) {
+            stmt.registerOutParameter(1, OracleTypes.CURSOR);
+            stmt.setInt(2, railLineId);
+            stmt.execute();
+            
+            try (ResultSet rs = (ResultSet) stmt.getObject(1)) {
                 while (rs.next()) {
                     segments.add(new LineSegment(
                         rs.getInt("ID"),
@@ -77,14 +84,15 @@ public class LineSegmentRepository {
 
     /**
      * Get line segment by ID
+     * Uses PL/SQL function GET_LINE_SEGMENT_BY_ID (USLP10).
      */
     public LineSegment getById(int id) throws SQLException {
-        String sql = "SELECT ID, RailLineID, maxWeight, length, numberOfTracks, speedLimit, orderNum " +
-                     "FROM LineSegment WHERE ID = ?";
-        
-        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
-            stmt.setInt(1, id);
-            try (ResultSet rs = stmt.executeQuery()) {
+        try (CallableStatement stmt = connection.prepareCall("{? = CALL GET_LINE_SEGMENT_BY_ID(?)}")) {
+            stmt.registerOutParameter(1, OracleTypes.CURSOR);
+            stmt.setInt(2, id);
+            stmt.execute();
+            
+            try (ResultSet rs = (ResultSet) stmt.getObject(1)) {
                 if (rs.next()) {
                     return new LineSegment(
                         rs.getInt("ID"),
@@ -103,20 +111,24 @@ public class LineSegmentRepository {
 
     /**
      * Get all sidings
+     * Uses PL/SQL function GET_ALL_SIDINGS (USLP10).
      */
     public List<Siding> getAllSidings() throws SQLException {
-        String sql = "SELECT ID, LineSegmentID, position, length FROM Siding";
         List<Siding> sidings = new ArrayList<>();
         
-        try (PreparedStatement stmt = connection.prepareStatement(sql);
-             ResultSet rs = stmt.executeQuery()) {
-            while (rs.next()) {
-                sidings.add(new Siding(
-                    rs.getInt("ID"),
-                    rs.getInt("LineSegmentID"),
-                    rs.getDouble("position"),
-                    rs.getDouble("length")
-                ));
+        try (CallableStatement stmt = connection.prepareCall("{? = CALL GET_ALL_SIDINGS()}")) {
+            stmt.registerOutParameter(1, OracleTypes.CURSOR);
+            stmt.execute();
+            
+            try (ResultSet rs = (ResultSet) stmt.getObject(1)) {
+                while (rs.next()) {
+                    sidings.add(new Siding(
+                        rs.getInt("ID"),
+                        rs.getInt("LineSegmentID"),
+                        rs.getDouble("position"),
+                        rs.getDouble("length")
+                    ));
+                }
             }
         }
         return sidings;

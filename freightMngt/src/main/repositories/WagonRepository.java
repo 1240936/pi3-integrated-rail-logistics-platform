@@ -3,6 +3,7 @@ package main.repositories;
 import main.domain.Wagon;
 import main.domain.WagonSpecs;
 
+import java.sql.CallableStatement;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -11,6 +12,8 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+
+import oracle.jdbc.OracleTypes;
 
 /**
  * Repository for Wagon entities
@@ -24,55 +27,52 @@ public class WagonRepository {
 
     /**
      * Get all wagons with their specifications
+     * Uses PL/SQL function GET_ALL_WAGONS (USLP09).
      */
     public List<Wagon> getAll() throws SQLException {
-        String sql = "SELECT w.ID, w.VehicleModelID, w.TrainOperatorID, " +
-                     "ws.WagonTypeID, ws.volumeCapacity, ws.payload, vm.tare " +
-                     "FROM Wagon w " +
-                     "JOIN WagonSpecs ws ON w.VehicleModelID = ws.VehicleModelID " +
-                     "JOIN VehicleModel vm ON w.VehicleModelID = vm.ID";
         List<Wagon> wagons = new ArrayList<>();
         
-        try (PreparedStatement stmt = connection.prepareStatement(sql);
-             ResultSet rs = stmt.executeQuery()) {
-            while (rs.next()) {
-                WagonSpecs specs = new WagonSpecs(
-                    rs.getInt("VehicleModelID"),
-                    rs.getInt("WagonTypeID"),
-                    rs.getDouble("volumeCapacity"),
-                    rs.getDouble("payload")
-                );
-                Wagon wagon = new Wagon(
-                    rs.getInt("ID"),
-                    rs.getInt("VehicleModelID"),
-                    rs.getInt("TrainOperatorID"),
-                    specs,
-                    rs.getDouble("tare")
-                );
-                // Check if wagon is loaded (has freight assigned)
-                wagon.setLoaded(isWagonLoaded(rs.getInt("ID")));
-                wagons.add(wagon);
+        try (CallableStatement stmt = connection.prepareCall("{? = CALL GET_ALL_WAGONS()}")) {
+            stmt.registerOutParameter(1, OracleTypes.CURSOR);
+            stmt.execute();
+            
+            try (ResultSet rs = (ResultSet) stmt.getObject(1)) {
+                while (rs.next()) {
+                    WagonSpecs specs = new WagonSpecs(
+                        rs.getInt("VehicleModelID"),
+                        rs.getInt("WagonTypeID"),
+                        rs.getDouble("volumeCapacity"),
+                        rs.getDouble("payload")
+                    );
+                    Wagon wagon = new Wagon(
+                        rs.getInt("ID"),
+                        rs.getInt("VehicleModelID"),
+                        rs.getInt("TrainOperatorID"),
+                        specs,
+                        rs.getDouble("tare")
+                    );
+                    // Check if wagon is loaded (has freight assigned) - uses PL/SQL function
+                    wagon.setLoaded(isWagonLoaded(rs.getInt("ID")));
+                    wagons.add(wagon);
+                }
             }
         }
         return wagons;
     }
 
     /**
-     * Get wagons for a specific train
+     * Get wagons for a specific train (for a specific planned trip via routeId)
+     * Uses PL/SQL function GET_WAGONS_BY_ROUTE_ID (USLP09/USLP10).
      */
-    public List<Wagon> getByTrainId(int trainId) throws SQLException {
-        String sql = "SELECT w.ID, w.VehicleModelID, w.TrainOperatorID, " +
-                     "ws.WagonTypeID, ws.volumeCapacity, ws.payload, vm.tare " +
-                     "FROM Wagon w " +
-                     "JOIN WagonSpecs ws ON w.VehicleModelID = ws.VehicleModelID " +
-                     "JOIN VehicleModel vm ON w.VehicleModelID = vm.ID " +
-                     "JOIN Train_Wagon wt ON w.ID = wt.WagonID " +
-                     "WHERE wt.TrainID = ?";
+    public List<Wagon> getByRouteId(int routeId) throws SQLException {
         List<Wagon> wagons = new ArrayList<>();
         
-        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
-            stmt.setInt(1, trainId);
-            try (ResultSet rs = stmt.executeQuery()) {
+        try (CallableStatement stmt = connection.prepareCall("{? = CALL GET_WAGONS_BY_ROUTE_ID(?)}")) {
+            stmt.registerOutParameter(1, OracleTypes.CURSOR);
+            stmt.setInt(2, routeId);
+            stmt.execute();
+            
+            try (ResultSet rs = (ResultSet) stmt.getObject(1)) {
                 while (rs.next()) {
                     WagonSpecs specs = new WagonSpecs(
                         rs.getInt("VehicleModelID"),
@@ -96,19 +96,54 @@ public class WagonRepository {
     }
 
     /**
-     * Check if a wagon is loaded (has freight assigned)
+     * Get wagons for a specific train (for a specific planned trip via trainId and startDate)
+     * Uses PL/SQL function GET_WAGONS_BY_TRAIN_ID (USLP09/USLP10).
      */
-    private boolean isWagonLoaded(int wagonId) throws SQLException {
-        String sql = "SELECT COUNT(*) as count FROM Freight_Wagon WHERE WagonID = ?";
-        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
-            stmt.setInt(1, wagonId);
-            try (ResultSet rs = stmt.executeQuery()) {
-                if (rs.next()) {
-                    return rs.getInt("count") > 0;
+    public List<Wagon> getByTrainId(int trainId, java.sql.Timestamp startDate) throws SQLException {
+        List<Wagon> wagons = new ArrayList<>();
+        
+        try (CallableStatement stmt = connection.prepareCall("{? = CALL GET_WAGONS_BY_TRAIN_ID(?, ?)}")) {
+            stmt.registerOutParameter(1, OracleTypes.CURSOR);
+            stmt.setInt(2, trainId);
+            stmt.setTimestamp(3, startDate);
+            stmt.execute();
+            
+            try (ResultSet rs = (ResultSet) stmt.getObject(1)) {
+                while (rs.next()) {
+                    WagonSpecs specs = new WagonSpecs(
+                        rs.getInt("VehicleModelID"),
+                        rs.getInt("WagonTypeID"),
+                        rs.getDouble("volumeCapacity"),
+                        rs.getDouble("payload")
+                    );
+                    Wagon wagon = new Wagon(
+                        rs.getInt("ID"),
+                        rs.getInt("VehicleModelID"),
+                        rs.getInt("TrainOperatorID"),
+                        specs,
+                        rs.getDouble("tare")
+                    );
+                    wagon.setLoaded(isWagonLoaded(rs.getInt("ID")));
+                    wagons.add(wagon);
                 }
             }
         }
-        return false;
+        return wagons;
+    }
+
+    /**
+     * Check if a wagon is loaded (has freight assigned - either in Assigned_Freight or Unassigned_Freight)
+     * Uses PL/SQL function IS_WAGON_LOADED (USLP09).
+     */
+    private boolean isWagonLoaded(int wagonId) throws SQLException {
+        try (CallableStatement stmt = connection.prepareCall("{? = CALL IS_WAGON_LOADED(?)}")) {
+            stmt.registerOutParameter(1, java.sql.Types.INTEGER);
+            stmt.setInt(2, wagonId);
+            stmt.execute();
+            
+            int result = stmt.getInt(1);
+            return result > 0;
+        }
     }
 }
 
