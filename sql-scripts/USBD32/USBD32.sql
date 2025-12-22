@@ -319,18 +319,24 @@ INSERT INTO Locomotive (ID, VehicleModelID, TrainOperatorID, InitialFacilityID) 
 INSERT INTO Locomotive (ID, VehicleModelID, TrainOperatorID, InitialFacilityID) VALUES (4, 1903, 1, 50);
 INSERT INTO Locomotive (ID, VehicleModelID, TrainOperatorID, InitialFacilityID) VALUES (5, 5034, 1, 50);
 INSERT INTO Locomotive (ID, VehicleModelID, TrainOperatorID, InitialFacilityID) VALUES (6, 5036, 1, 50);
-INSERT INTO Locomotive (ID, VehicleModelID, TrainOperatorID, InitialFacilityID) VALUES (7, 335001, 2, 50);
-INSERT INTO Locomotive (ID, VehicleModelID, TrainOperatorID, InitialFacilityID) VALUES (8, 335003, 2, 50);
+INSERT INTO Locomotive (ID, VehicleModelID, TrainOperatorID, InitialFacilityID) VALUES (7, 335001, 2, 5);
+INSERT INTO Locomotive (ID, VehicleModelID, TrainOperatorID, InitialFacilityID) VALUES (8, 335003, 2, 5);
 
+INSERT INTO Assigned_Locomotive (LocomotiveID, PlannedTrainID, PlannedTrainStartDate)
+VALUES (1, 5421, TO_DATE('2025-10-03 09:45:00', 'YYYY-MM-DD HH24:MI:SS'));
+INSERT INTO Assigned_Locomotive (LocomotiveID, PlannedTrainID, PlannedTrainStartDate)
+VALUES (2, 5421, TO_DATE('2025-10-03 09:45:00', 'YYYY-MM-DD HH24:MI:SS'));
+INSERT INTO Assigned_Locomotive (LocomotiveID, PlannedTrainID, PlannedTrainStartDate)
+VALUES (2, 5435, TO_DATE('2025-10-03 18:00:00', 'YYYY-MM-DD HH24:MI:SS'));
+INSERT INTO Assigned_Locomotive (LocomotiveID, PlannedTrainID, PlannedTrainStartDate)
+VALUES (1, 5437, TO_DATE('2025-10-06 10:00:00', 'YYYY-MM-DD HH24:MI:SS'));
 
-INSERT INTO Planned_Train_Locomotive (PlannedTrainID, PlannedTrainStartDate, LocomotiveID)
-VALUES (5421, TO_DATE('2025-10-03 09:45:00', 'YYYY-MM-DD HH24:MI:SS'), 1);
-INSERT INTO Planned_Train_Locomotive (PlannedTrainID, PlannedTrainStartDate, LocomotiveID)
-VALUES (5421, TO_DATE('2025-10-03 09:45:00', 'YYYY-MM-DD HH24:MI:SS'), 2);
-INSERT INTO Planned_Train_Locomotive (PlannedTrainID, PlannedTrainStartDate, LocomotiveID)
-VALUES (5435, TO_DATE('2025-10-03 18:00:00', 'YYYY-MM-DD HH24:MI:SS'), 2);
-INSERT INTO Planned_Train_Locomotive (PlannedTrainID, PlannedTrainStartDate, LocomotiveID)
-VALUES (5437, TO_DATE('2025-10-06 10:00:00', 'YYYY-MM-DD HH24:MI:SS'), 1);
+INSERT INTO Parked_Locomotive (LocomotiveID, FacilityID) VALUES (3, 50);
+INSERT INTO Parked_Locomotive (LocomotiveID, FacilityID) VALUES (4, 50);
+INSERT INTO Parked_Locomotive (LocomotiveID, FacilityID) VALUES (5, 50);
+INSERT INTO Parked_Locomotive (LocomotiveID, FacilityID) VALUES (6, 50);
+INSERT INTO Parked_Locomotive (LocomotiveID, FacilityID) VALUES (7, 5);
+INSERT INTO Parked_Locomotive (LocomotiveID, FacilityID) VALUES (8, 5);
 
 INSERT INTO Wagon (ID, VehicleModelID, TrainOperatorID, InitialFacilityID) VALUES (3563077, 1104, 1, 50);
 INSERT INTO Wagon (ID, VehicleModelID, TrainOperatorID, InitialFacilityID) VALUES (3563078, 1104, 1, 50);
@@ -374,58 +380,82 @@ INSERT INTO Wagon (ID, VehicleModelID, TrainOperatorID, InitialFacilityID) VALUE
 INSERT INTO Wagon (ID, VehicleModelID, TrainOperatorID, InitialFacilityID) VALUES (3330009, 1212, 1, 50);
 INSERT INTO Wagon (ID, VehicleModelID, TrainOperatorID, InitialFacilityID) VALUES (3330010, 1212, 1, 50);
 
-INSERT INTO Planned_Train_Wagon (PlannedTrainID, PlannedTrainStartDate, WagonID)
-VALUES (5421, TO_DATE('2025-10-03 09:45:00', 'YYYY-MM-DD HH24:MI:SS'), 3330001);
-INSERT INTO Planned_Train_Wagon (PlannedTrainID, PlannedTrainStartDate, WagonID)
-VALUES (5421, TO_DATE('2025-10-03 09:45:00', 'YYYY-MM-DD HH24:MI:SS'), 3330002);
-INSERT INTO Planned_Train_Wagon (PlannedTrainID, PlannedTrainStartDate, WagonID)
-VALUES (5421, TO_DATE('2025-10-03 09:45:00', 'YYYY-MM-DD HH24:MI:SS'), 3330004);
-INSERT INTO Planned_Train_Wagon (PlannedTrainID, PlannedTrainStartDate, WagonID)
-VALUES (5421, TO_DATE('2025-10-03 09:45:00', 'YYYY-MM-DD HH24:MI:SS'), 3330005);
-INSERT INTO Planned_Train_Wagon (PlannedTrainID, PlannedTrainStartDate, WagonID)
-VALUES (5421, TO_DATE('2025-10-03 09:45:00', 'YYYY-MM-DD HH24:MI:SS'), 3330006);
-INSERT INTO Planned_Train_Wagon (PlannedTrainID, PlannedTrainStartDate, WagonID)
-VALUES (5421, TO_DATE('2025-10-03 09:45:00', 'YYYY-MM-DD HH24:MI:SS'), 3563089);
-INSERT INTO Planned_Train_Wagon (PlannedTrainID, PlannedTrainStartDate, WagonID)
-VALUES (5421, TO_DATE('2025-10-03 09:45:00', 'YYYY-MM-DD HH24:MI:SS'), 1811011);
-INSERT INTO Planned_Train_Wagon (PlannedTrainID, PlannedTrainStartDate, WagonID)
-VALUES (5421, TO_DATE('2025-10-03 09:45:00', 'YYYY-MM-DD HH24:MI:SS'), 1811012);
-INSERT INTO Planned_Train_Wagon (PlannedTrainID, PlannedTrainStartDate, WagonID)
-VALUES (5421, TO_DATE('2025-10-03 09:45:00', 'YYYY-MM-DD HH24:MI:SS'), 1811013);
-INSERT INTO Planned_Train_Wagon (PlannedTrainID, PlannedTrainStartDate, WagonID)
-VALUES (5421, TO_DATE('2025-10-03 09:45:00', 'YYYY-MM-DD HH24:MI:SS'), 3563077);
-INSERT INTO Planned_Train_Wagon (PlannedTrainID, PlannedTrainStartDate, WagonID)
-VALUES (5421, TO_DATE('2025-10-03 09:45:00', 'YYYY-MM-DD HH24:MI:SS'), 3563078);
-INSERT INTO Planned_Train_Wagon (PlannedTrainID, PlannedTrainStartDate, WagonID)
-VALUES (5421, TO_DATE('2025-10-03 09:45:00', 'YYYY-MM-DD HH24:MI:SS'), 3563079);
-INSERT INTO Planned_Train_Wagon (PlannedTrainID, PlannedTrainStartDate, WagonID)
-VALUES (5421, TO_DATE('2025-10-03 09:45:00', 'YYYY-MM-DD HH24:MI:SS'), 3563080);
-INSERT INTO Planned_Train_Wagon (PlannedTrainID, PlannedTrainStartDate, WagonID)
-VALUES (5435, TO_DATE('2025-10-03 18:00:00', 'YYYY-MM-DD HH24:MI:SS'), 3330003);
-INSERT INTO Planned_Train_Wagon (PlannedTrainID, PlannedTrainStartDate, WagonID)
-VALUES (5435, TO_DATE('2025-10-03 18:00:00', 'YYYY-MM-DD HH24:MI:SS'), 3330007);
-INSERT INTO Planned_Train_Wagon (PlannedTrainID, PlannedTrainStartDate, WagonID)
-VALUES (5437, TO_DATE('2025-10-06 10:00:00', 'YYYY-MM-DD HH24:MI:SS'), 3330001);
-INSERT INTO Planned_Train_Wagon (PlannedTrainID, PlannedTrainStartDate, WagonID)
-VALUES (5437, TO_DATE('2025-10-06 10:00:00', 'YYYY-MM-DD HH24:MI:SS'), 3330002);
-INSERT INTO Planned_Train_Wagon (PlannedTrainID, PlannedTrainStartDate, WagonID)
-VALUES (5437, TO_DATE('2025-10-06 10:00:00', 'YYYY-MM-DD HH24:MI:SS'), 3330004);
-INSERT INTO Planned_Train_Wagon (PlannedTrainID, PlannedTrainStartDate, WagonID)
-VALUES (5437, TO_DATE('2025-10-06 10:00:00', 'YYYY-MM-DD HH24:MI:SS'), 3330005);
-INSERT INTO Planned_Train_Wagon (PlannedTrainID, PlannedTrainStartDate, WagonID)
-VALUES (5437, TO_DATE('2025-10-06 10:00:00', 'YYYY-MM-DD HH24:MI:SS'), 3330006);
-INSERT INTO Planned_Train_Wagon (PlannedTrainID, PlannedTrainStartDate, WagonID)
-VALUES (5437, TO_DATE('2025-10-06 10:00:00', 'YYYY-MM-DD HH24:MI:SS'), 1811011);
-INSERT INTO Planned_Train_Wagon (PlannedTrainID, PlannedTrainStartDate, WagonID)
-VALUES (5437, TO_DATE('2025-10-06 10:00:00', 'YYYY-MM-DD HH24:MI:SS'), 1811012);
-INSERT INTO Planned_Train_Wagon (PlannedTrainID, PlannedTrainStartDate, WagonID)
-VALUES (5437, TO_DATE('2025-10-06 10:00:00', 'YYYY-MM-DD HH24:MI:SS'), 3563077);
-INSERT INTO Planned_Train_Wagon (PlannedTrainID, PlannedTrainStartDate, WagonID)
-VALUES (5437, TO_DATE('2025-10-06 10:00:00', 'YYYY-MM-DD HH24:MI:SS'), 3563078);
-INSERT INTO Planned_Train_Wagon (PlannedTrainID, PlannedTrainStartDate, WagonID)
-VALUES (5437, TO_DATE('2025-10-06 10:00:00', 'YYYY-MM-DD HH24:MI:SS'), 3563079);
-INSERT INTO Planned_Train_Wagon (PlannedTrainID, PlannedTrainStartDate, WagonID)
-VALUES (5437, TO_DATE('2025-10-06 10:00:00', 'YYYY-MM-DD HH24:MI:SS'), 3563080);
+INSERT INTO Assigned_Wagon (WagonID, PlannedTrainID, PlannedTrainStartDate)
+VALUES (3330001, 5421, TO_DATE('2025-10-03 09:45:00', 'YYYY-MM-DD HH24:MI:SS'));
+INSERT INTO Assigned_Wagon (WagonID, PlannedTrainID, PlannedTrainStartDate)
+VALUES (3330002, 5421, TO_DATE('2025-10-03 09:45:00', 'YYYY-MM-DD HH24:MI:SS'));
+INSERT INTO Assigned_Wagon (WagonID, PlannedTrainID, PlannedTrainStartDate)
+VALUES (3330004, 5421, TO_DATE('2025-10-03 09:45:00', 'YYYY-MM-DD HH24:MI:SS'));
+INSERT INTO Assigned_Wagon (WagonID, PlannedTrainID, PlannedTrainStartDate)
+VALUES (3330005, 5421, TO_DATE('2025-10-03 09:45:00', 'YYYY-MM-DD HH24:MI:SS'));
+INSERT INTO Assigned_Wagon (WagonID, PlannedTrainID, PlannedTrainStartDate)
+VALUES (3330006, 5421, TO_DATE('2025-10-03 09:45:00', 'YYYY-MM-DD HH24:MI:SS'));
+INSERT INTO Assigned_Wagon (WagonID, PlannedTrainID, PlannedTrainStartDate)
+VALUES (3563089, 5421, TO_DATE('2025-10-03 09:45:00', 'YYYY-MM-DD HH24:MI:SS'));
+INSERT INTO Assigned_Wagon (WagonID, PlannedTrainID, PlannedTrainStartDate)
+VALUES (1811011, 5421, TO_DATE('2025-10-03 09:45:00', 'YYYY-MM-DD HH24:MI:SS'));
+INSERT INTO Assigned_Wagon (WagonID, PlannedTrainID, PlannedTrainStartDate)
+VALUES (1811012, 5421, TO_DATE('2025-10-03 09:45:00', 'YYYY-MM-DD HH24:MI:SS'));
+INSERT INTO Assigned_Wagon (WagonID, PlannedTrainID, PlannedTrainStartDate)
+VALUES (1811013, 5421, TO_DATE('2025-10-03 09:45:00', 'YYYY-MM-DD HH24:MI:SS'));
+INSERT INTO Assigned_Wagon (WagonID, PlannedTrainID, PlannedTrainStartDate)
+VALUES (3563077, 5421, TO_DATE('2025-10-03 09:45:00', 'YYYY-MM-DD HH24:MI:SS'));
+INSERT INTO Assigned_Wagon (WagonID, PlannedTrainID, PlannedTrainStartDate)
+VALUES (3563078, 5421, TO_DATE('2025-10-03 09:45:00', 'YYYY-MM-DD HH24:MI:SS'));
+INSERT INTO Assigned_Wagon (WagonID, PlannedTrainID, PlannedTrainStartDate)
+VALUES (3563079, 5421, TO_DATE('2025-10-03 09:45:00', 'YYYY-MM-DD HH24:MI:SS'));
+INSERT INTO Assigned_Wagon (WagonID, PlannedTrainID, PlannedTrainStartDate)
+VALUES (3563080, 5421, TO_DATE('2025-10-03 09:45:00', 'YYYY-MM-DD HH24:MI:SS'));
+INSERT INTO Assigned_Wagon (WagonID, PlannedTrainID, PlannedTrainStartDate)
+VALUES (3330003, 5435, TO_DATE('2025-10-03 18:00:00', 'YYYY-MM-DD HH24:MI:SS'));
+INSERT INTO Assigned_Wagon (WagonID, PlannedTrainID, PlannedTrainStartDate)
+VALUES (3330007, 5435, TO_DATE('2025-10-03 18:00:00', 'YYYY-MM-DD HH24:MI:SS'));
+INSERT INTO Assigned_Wagon (WagonID, PlannedTrainID, PlannedTrainStartDate)
+VALUES (3330001, 5437, TO_DATE('2025-10-06 10:00:00', 'YYYY-MM-DD HH24:MI:SS'));
+INSERT INTO Assigned_Wagon (WagonID, PlannedTrainID, PlannedTrainStartDate)
+VALUES (3330002, 5437, TO_DATE('2025-10-06 10:00:00', 'YYYY-MM-DD HH24:MI:SS'));
+INSERT INTO Assigned_Wagon (WagonID, PlannedTrainID, PlannedTrainStartDate)
+VALUES (3330004, 5437, TO_DATE('2025-10-06 10:00:00', 'YYYY-MM-DD HH24:MI:SS'));
+INSERT INTO Assigned_Wagon (WagonID, PlannedTrainID, PlannedTrainStartDate)
+VALUES (3330005, 5437, TO_DATE('2025-10-06 10:00:00', 'YYYY-MM-DD HH24:MI:SS'));
+INSERT INTO Assigned_Wagon (WagonID, PlannedTrainID, PlannedTrainStartDate)
+VALUES (3330006, 5437, TO_DATE('2025-10-06 10:00:00', 'YYYY-MM-DD HH24:MI:SS'));
+INSERT INTO Assigned_Wagon (WagonID, PlannedTrainID, PlannedTrainStartDate)
+VALUES (1811011, 5437, TO_DATE('2025-10-06 10:00:00', 'YYYY-MM-DD HH24:MI:SS'));
+INSERT INTO Assigned_Wagon (WagonID, PlannedTrainID, PlannedTrainStartDate)
+VALUES (1811012, 5437, TO_DATE('2025-10-06 10:00:00', 'YYYY-MM-DD HH24:MI:SS'));
+INSERT INTO Assigned_Wagon (WagonID, PlannedTrainID, PlannedTrainStartDate)
+VALUES (3563077, 5437, TO_DATE('2025-10-06 10:00:00', 'YYYY-MM-DD HH24:MI:SS'));
+INSERT INTO Assigned_Wagon (WagonID, PlannedTrainID, PlannedTrainStartDate)
+VALUES (3563078, 5437, TO_DATE('2025-10-06 10:00:00', 'YYYY-MM-DD HH24:MI:SS'));
+INSERT INTO Assigned_Wagon (WagonID, PlannedTrainID, PlannedTrainStartDate)
+VALUES (3563079, 5437, TO_DATE('2025-10-06 10:00:00', 'YYYY-MM-DD HH24:MI:SS'));
+INSERT INTO Assigned_Wagon (WagonID, PlannedTrainID, PlannedTrainStartDate)
+VALUES (3563080, 5437, TO_DATE('2025-10-06 10:00:00', 'YYYY-MM-DD HH24:MI:SS'));
+
+INSERT INTO Parked_Wagon (WagonID, FacilityID) VALUES (3563081, 50);
+INSERT INTO Parked_Wagon (WagonID, FacilityID) VALUES (3563082, 50);
+INSERT INTO Parked_Wagon (WagonID, FacilityID) VALUES (3563083, 50);
+INSERT INTO Parked_Wagon (WagonID, FacilityID) VALUES (3563084, 50);
+INSERT INTO Parked_Wagon (WagonID, FacilityID) VALUES (3563085, 50);
+INSERT INTO Parked_Wagon (WagonID, FacilityID) VALUES (3563086, 50);
+INSERT INTO Parked_Wagon (WagonID, FacilityID) VALUES (3563087, 50);
+INSERT INTO Parked_Wagon (WagonID, FacilityID) VALUES (3563088, 50);
+INSERT INTO Parked_Wagon (WagonID, FacilityID) VALUES (0823045, 50);
+INSERT INTO Parked_Wagon (WagonID, FacilityID) VALUES (0823046, 50);
+INSERT INTO Parked_Wagon (WagonID, FacilityID) VALUES (0823047, 50);
+INSERT INTO Parked_Wagon (WagonID, FacilityID) VALUES (0823048, 50);
+INSERT INTO Parked_Wagon (WagonID, FacilityID) VALUES (0741001, 50);
+INSERT INTO Parked_Wagon (WagonID, FacilityID) VALUES (0741002, 50);
+INSERT INTO Parked_Wagon (WagonID, FacilityID) VALUES (0741003, 50);
+INSERT INTO Parked_Wagon (WagonID, FacilityID) VALUES (0741004, 50);
+INSERT INTO Parked_Wagon (WagonID, FacilityID) VALUES (0741005, 50);
+INSERT INTO Parked_Wagon (WagonID, FacilityID) VALUES (0741006, 50);
+INSERT INTO Parked_Wagon (WagonID, FacilityID) VALUES (1811010, 50);
+INSERT INTO Parked_Wagon (WagonID, FacilityID) VALUES (1811014, 50);
+INSERT INTO Parked_Wagon (WagonID, FacilityID) VALUES (3330008, 50);
+INSERT INTO Parked_Wagon (WagonID, FacilityID) VALUES (3330009, 50);
+INSERT INTO Parked_Wagon (WagonID, FacilityID) VALUES (3330010, 50);
 
 INSERT INTO Unassigned_Freight (FreightID, WagonID) VALUES (2007, 3563090);
 INSERT INTO Unassigned_Freight (FreightID, WagonID) VALUES (2007, 3563091);
@@ -548,3 +578,5 @@ INSERT INTO Building (ID, FacilityID, BuildingTypeID) VALUES (1012, 8, 3);
 INSERT INTO Building (ID, FacilityID, BuildingTypeID) VALUES (1013, 13, 3);
 INSERT INTO Building (ID, FacilityID, BuildingTypeID) VALUES (1014, 21, 3);
 INSERT INTO Building (ID, FacilityID, BuildingTypeID) VALUES (1015, 45, 3);
+
+commit;

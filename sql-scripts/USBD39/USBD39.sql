@@ -4,15 +4,13 @@
 -- As a Freight Manager, I want to associate a locomotive with a planned train.
 --
 -- Requirements:
--- 1. Associate a locomotive with a planned train by inserting into Planned_Train_Locomotive table.
+-- 1. Associate a locomotive with a planned train by inserting into Assigned_Locomotive table.
 -- 2. Validate that the planned train exists (identified by RouteID).
 -- 3. Validate that the locomotive exists.
 -- 4. Ensure the locomotive is not already associated with the same train.
 -- 5. Validate that the locomotive is not already assigned to another train that overlaps
 --    in time with the planned train (check for time conflicts).
 -- 6. Proper transaction handling (COMMIT/ROLLBACK handled by caller).
---
--- Note: This implementation is part of the Freight Management module.
 -- ============================================================================
 
 -- ============================================================================
@@ -79,9 +77,10 @@ BEGIN
         RAISE_APPLICATION_ERROR(-20004, 'Locomotive with ID ' || p_locomotive_id || ' does not exist.');
     END IF;
 
-    -- 5. Check if locomotive is already associated with this planned train trip
+    -- 5. Check if locomotive is already associated (in Assigned_Locomotive)
+    -- Since PK is LocomotiveID, a locomotive can only be in Assigned_Locomotive once
     SELECT COUNT(*) INTO v_already_associated
-    FROM Planned_Train_Locomotive
+    FROM Assigned_Locomotive
     WHERE LocomotiveID = p_locomotive_id
       AND PlannedTrainID = v_train_id
       AND PlannedTrainStartDate = v_start_date;
@@ -90,30 +89,31 @@ BEGIN
         RAISE_APPLICATION_ERROR(-20005, 'Locomotive ' || p_locomotive_id || ' is already associated with train ' || v_train_id || ' for the planned trip starting at ' || TO_CHAR(v_start_date, 'YYYY-MM-DD HH24:MI:SS') || '.');
     END IF;
 
-    -- 6. Check for time conflicts with other planned trains
-    -- Check if the locomotive is assigned to another planned train trip with overlapping time schedule
+    -- 6. Check if locomotive is already assigned to a different train (move-based: only one assignment at a time)
     BEGIN
-        SELECT pt2.TrainID, pt2.startDate
+        SELECT AL.PlannedTrainID, AL.PlannedTrainStartDate
         INTO v_conflicting_train_id, v_conflicting_start_date
-        FROM Planned_Train_Locomotive ptl
-        JOIN Planned_Train pt2 ON ptl.PlannedTrainID = pt2.TrainID AND ptl.PlannedTrainStartDate = pt2.startDate
-        WHERE ptl.LocomotiveID = p_locomotive_id
-          AND pt2.RouteID != p_route_id
-          AND pt2.startDate = v_start_date;  -- Same start date indicates potential conflict
+        FROM Assigned_Locomotive AL
+        JOIN Planned_Train PT ON AL.PlannedTrainID = PT.TrainID AND AL.PlannedTrainStartDate = PT.startDate
+        WHERE AL.LocomotiveID = p_locomotive_id
+          AND PT.RouteID != p_route_id;
         
         -- If we found a conflict, raise error
         RAISE_APPLICATION_ERROR(-20006, 
             'Locomotive ' || p_locomotive_id || ' is already assigned to train ' || v_conflicting_train_id || 
-            ' with a planned route starting at the same time (' || TO_CHAR(v_conflicting_start_date, 'YYYY-MM-DD HH24:MI:SS') || ').');
+            ' with a planned route starting at ' || TO_CHAR(v_conflicting_start_date, 'YYYY-MM-DD HH24:MI:SS') || '.');
     EXCEPTION
         WHEN NO_DATA_FOUND THEN
             -- No conflict found, continue
             NULL;
     END;
 
-    -- 7. Insert the association into Planned_Train_Locomotive
-    INSERT INTO Planned_Train_Locomotive (PlannedTrainID, PlannedTrainStartDate, LocomotiveID)
-    VALUES (v_train_id, v_start_date, p_locomotive_id);
+    -- 7. Move locomotive from Parked_Locomotive to Assigned_Locomotive (if it's parked)
+    DELETE FROM Parked_Locomotive WHERE LocomotiveID = p_locomotive_id;
+
+    -- 8. Insert the association into Assigned_Locomotive
+    INSERT INTO Assigned_Locomotive (LocomotiveID, PlannedTrainID, PlannedTrainStartDate)
+    VALUES (p_locomotive_id, v_train_id, v_start_date);
 
     RETURN v_train_id;
 END AssociateLocomotiveWithPlannedTrain;
@@ -137,10 +137,10 @@ BEGIN
     v_train_id := AssociateLocomotiveWithPlannedTrain(v_locomotive_id, v_route_id);
     
     SELECT COUNT(*) INTO v_verified_count
-    FROM Planned_Train_Locomotive ptl
-    JOIN Planned_Train pt ON ptl.PlannedTrainID = pt.TrainID AND ptl.PlannedTrainStartDate = pt.startDate
-    WHERE ptl.LocomotiveID = v_locomotive_id
-      AND pt.RouteID = v_route_id;
+    FROM Assigned_Locomotive AL
+    JOIN Planned_Train PT ON AL.PlannedTrainID = PT.TrainID AND AL.PlannedTrainStartDate = PT.startDate
+    WHERE AL.LocomotiveID = v_locomotive_id
+      AND PT.RouteID = v_route_id;
     
     IF v_verified_count = 1 THEN
         DBMS_OUTPUT.PUT_LINE('  Result: PASSED');
@@ -148,7 +148,7 @@ BEGIN
         DBMS_OUTPUT.PUT_LINE('  Result: FAILED - Association not found');
     END IF;
     
-    DELETE FROM Planned_Train_Locomotive 
+    DELETE FROM Assigned_Locomotive 
     WHERE LocomotiveID = v_locomotive_id 
       AND PlannedTrainID = v_train_id
       AND PlannedTrainStartDate = (SELECT startDate FROM Planned_Train WHERE RouteID = v_route_id);
@@ -318,15 +318,15 @@ DECLARE
 BEGIN
     DBMS_OUTPUT.PUT_LINE('Test 7: Transaction rollback');
     
-    SELECT COUNT(*) INTO v_count_before FROM Planned_Train_Locomotive;
+    SELECT COUNT(*) INTO v_count_before FROM Assigned_Locomotive;
     
     v_train_id := AssociateLocomotiveWithPlannedTrain(v_locomotive_id, v_route_id);
     
-    SELECT COUNT(*) INTO v_count_after FROM Planned_Train_Locomotive;
+    SELECT COUNT(*) INTO v_count_after FROM Assigned_Locomotive;
     
     ROLLBACK;
     
-    SELECT COUNT(*) INTO v_count_after_rollback FROM Planned_Train_Locomotive;
+    SELECT COUNT(*) INTO v_count_after_rollback FROM Assigned_Locomotive;
     
     IF v_count_after = v_count_before + 1 AND v_count_after_rollback = v_count_before THEN
         DBMS_OUTPUT.PUT_LINE('  Result: PASSED');

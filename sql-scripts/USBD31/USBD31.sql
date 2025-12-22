@@ -5,6 +5,20 @@ CREATE TABLE Assigned_Freight (
                                   PlannedTrainStartDate date NOT NULL,
                                   PRIMARY KEY (FreightID,
                                                WagonID));
+CREATE TABLE Assigned_Locomotive (
+                                     LocomotiveID          number NOT NULL,
+                                     PlannedTrainID        number(10) NOT NULL,
+                                     PlannedTrainStartDate date NOT NULL,
+                                     PRIMARY KEY (LocomotiveID,
+                                                  PlannedTrainID,
+                                                  PlannedTrainStartDate));
+CREATE TABLE Assigned_Wagon (
+                                WagonID               number NOT NULL,
+                                PlannedTrainID        number(10) NOT NULL,
+                                PlannedTrainStartDate date NOT NULL,
+                                PRIMARY KEY (WagonID,
+                                             PlannedTrainID,
+                                             PlannedTrainStartDate));
 CREATE TABLE Building (
                           ID             number(10) NOT NULL,
                           FacilityID     number(10) NOT NULL,
@@ -65,6 +79,14 @@ CREATE TABLE Owner (
                        ID   number(10) NOT NULL,
                        name varchar2(255) NOT NULL UNIQUE,
                        PRIMARY KEY (ID));
+CREATE TABLE Parked_Locomotive (
+                                   LocomotiveID number NOT NULL,
+                                   FacilityID   number(10) NOT NULL,
+                                   PRIMARY KEY (LocomotiveID));
+CREATE TABLE Parked_Wagon (
+                              WagonID    number NOT NULL,
+                              FacilityID number(10) NOT NULL,
+                              PRIMARY KEY (WagonID));
 CREATE TABLE Path (
                       RouteID    number(10) NOT NULL,
                       seqNumber  number(10) NOT NULL,
@@ -79,20 +101,6 @@ CREATE TABLE Planned_Train (
                                RouteID   number(10) NOT NULL,
                                PRIMARY KEY (TrainID,
                                             startDate));
-CREATE TABLE Planned_Train_Locomotive (
-                                          PlannedTrainID        number(10) NOT NULL,
-                                          PlannedTrainStartDate date NOT NULL,
-                                          LocomotiveID          number NOT NULL,
-                                          PRIMARY KEY (PlannedTrainID,
-                                                       PlannedTrainStartDate,
-                                                       LocomotiveID));
-CREATE TABLE Planned_Train_Wagon (
-                                     PlannedTrainID        number(10) NOT NULL,
-                                     PlannedTrainStartDate date NOT NULL,
-                                     WagonID               number NOT NULL,
-                                     PRIMARY KEY (PlannedTrainID,
-                                                  PlannedTrainStartDate,
-                                                  WagonID));
 CREATE TABLE RailLine (
                           ID              number(10) NOT NULL,
                           OwnerID         number(10) NOT NULL,
@@ -195,11 +203,18 @@ ALTER TABLE Planned_Train ADD CONSTRAINT FKPlanned_Tr574994 FOREIGN KEY (RouteID
 ALTER TABLE Planned_Train ADD CONSTRAINT FKPlanned_Tr449055 FOREIGN KEY (TrainID) REFERENCES Train (ID);
 ALTER TABLE TrainEvent ADD CONSTRAINT FKTrainEvent928524 FOREIGN KEY (TrainID) REFERENCES Train (ID);
 ALTER TABLE Path ADD CONSTRAINT FKPath33598 FOREIGN KEY (RouteID) REFERENCES Route (ID);
-ALTER TABLE Planned_Train_Wagon ADD CONSTRAINT FKPlanned_Tr469966 FOREIGN KEY (PlannedTrainID, PlannedTrainStartDate) REFERENCES Planned_Train (TrainID, startDate);
-ALTER TABLE Planned_Train_Wagon ADD CONSTRAINT FKPlanned_Tr561780 FOREIGN KEY (WagonID) REFERENCES Wagon (ID);
-ALTER TABLE Planned_Train_Locomotive ADD CONSTRAINT FKPlanned_Tr507863 FOREIGN KEY (PlannedTrainID, PlannedTrainStartDate) REFERENCES Planned_Train (TrainID, startDate);
-ALTER TABLE Planned_Train_Locomotive ADD CONSTRAINT FKPlanned_Tr827227 FOREIGN KEY (LocomotiveID) REFERENCES Locomotive (ID);
+ALTER TABLE Assigned_Wagon ADD CONSTRAINT FKAssigned_W309163 FOREIGN KEY (PlannedTrainID, PlannedTrainStartDate) REFERENCES Planned_Train (TrainID, startDate);
+ALTER TABLE Assigned_Wagon ADD CONSTRAINT FKAssigned_W722583 FOREIGN KEY (WagonID) REFERENCES Wagon (ID);
+ALTER TABLE Assigned_Locomotive ADD CONSTRAINT FKAssigned_L923855 FOREIGN KEY (PlannedTrainID, PlannedTrainStartDate) REFERENCES Planned_Train (TrainID, startDate);
+ALTER TABLE Assigned_Locomotive ADD CONSTRAINT FKAssigned_L243220 FOREIGN KEY (LocomotiveID) REFERENCES Locomotive (ID);
 ALTER TABLE Assigned_Freight ADD CONSTRAINT FKAssigned_F489761 FOREIGN KEY (FreightID) REFERENCES Freight (ID);
-ALTER TABLE Assigned_Freight ADD CONSTRAINT FKAssigned_F87698 FOREIGN KEY (PlannedTrainID, PlannedTrainStartDate, WagonID) REFERENCES Planned_Train_Wagon (PlannedTrainID, PlannedTrainStartDate, WagonID);
 ALTER TABLE Unassigned_Freight ADD CONSTRAINT FKUnassigned306485 FOREIGN KEY (FreightID) REFERENCES Freight (ID);
 ALTER TABLE Unassigned_Freight ADD CONSTRAINT FKUnassigned47062 FOREIGN KEY (WagonID) REFERENCES Wagon (ID);
+ALTER TABLE Parked_Locomotive ADD CONSTRAINT FKParked_Loc10655 FOREIGN KEY (LocomotiveID) REFERENCES Locomotive (ID);
+ALTER TABLE Parked_Locomotive ADD CONSTRAINT FKParked_Loc90984 FOREIGN KEY (FacilityID) REFERENCES Facility (ID);
+ALTER TABLE Parked_Wagon ADD CONSTRAINT FKParked_Wag16120 FOREIGN KEY (WagonID) REFERENCES Wagon (ID);
+ALTER TABLE Parked_Wagon ADD CONSTRAINT FKParked_Wag405376 FOREIGN KEY (FacilityID) REFERENCES Facility (ID);
+ALTER TABLE Assigned_Freight ADD CONSTRAINT FKAssigned_F801408 FOREIGN KEY (PlannedTrainID, PlannedTrainStartDate) REFERENCES Planned_Train (TrainID, startDate);
+ALTER TABLE Assigned_Freight ADD CONSTRAINT FKAssigned_F230338 FOREIGN KEY (WagonID) REFERENCES Wagon (ID);
+
+commit;

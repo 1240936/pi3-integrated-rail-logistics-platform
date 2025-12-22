@@ -128,7 +128,7 @@ END;
 
 -- Function: Assign freight to route
 -- Moves freight from Unassigned_Freight to Assigned_Freight
--- Also ensures wagons are in Planned_Train_Wagon
+-- Also ensures wagons are in Assigned_Wagon (moves from Parked_Wagon if needed)
 -- Returns 1 on success, raises exception on failure
 CREATE OR REPLACE FUNCTION ASSIGN_FREIGHT_TO_ROUTE(
     p_freight_id IN NUMBER,
@@ -161,18 +161,19 @@ BEGIN
     FOR wagon_rec IN c_unassigned_wagons LOOP
         v_wagon_id := wagon_rec.WagonID;
         
-        -- Check if wagon is already in Planned_Train_Wagon
+        -- Check if wagon is already in Assigned_Wagon for this planned train
         SELECT COUNT(*)
         INTO v_wagon_exists
-        FROM Planned_Train_Wagon
+        FROM Assigned_Wagon
         WHERE PlannedTrainID = v_planned_train_id
           AND PlannedTrainStartDate = v_planned_train_start_date
           AND WagonID = v_wagon_id;
         
-        -- If not, add it
+        -- If not, move it from Parked_Wagon to Assigned_Wagon
         IF v_wagon_exists = 0 THEN
-            INSERT INTO Planned_Train_Wagon (PlannedTrainID, PlannedTrainStartDate, WagonID)
-            VALUES (v_planned_train_id, v_planned_train_start_date, v_wagon_id);
+            DELETE FROM Parked_Wagon WHERE WagonID = v_wagon_id;
+            INSERT INTO Assigned_Wagon (WagonID, PlannedTrainID, PlannedTrainStartDate)
+            VALUES (v_wagon_id, v_planned_train_id, v_planned_train_start_date);
         END IF;
         
         -- Delete from Unassigned_Freight
@@ -359,7 +360,7 @@ END;
 /
 
 -- Function: Delete a route and all related records
--- Deletes route, planned trains, path points, planned train wagons/locomotives, and moves freight back to unassigned
+-- Deletes route, planned trains, path points, moves wagons/locomotives back to parked, and moves freight back to unassigned
 -- Returns 1 on success, 0 if route not found
 CREATE OR REPLACE FUNCTION DELETE_ROUTE(
     p_route_id IN NUMBER
@@ -370,13 +371,26 @@ AS
     v_start_date DATE;
     v_freight_id NUMBER;
     v_wagon_id NUMBER;
+    v_locomotive_id NUMBER;
+    v_end_facility_id NUMBER;
     CURSOR c_planned_trains IS
-        SELECT TrainID, startDate
-        FROM Planned_Train
-        WHERE RouteID = p_route_id;
+        SELECT pt.TrainID, pt.startDate, r.EndFacilityID
+        FROM Planned_Train pt
+        JOIN Route r ON pt.RouteID = r.ID
+        WHERE pt.RouteID = p_route_id;
     CURSOR c_assigned_freight(p_train_id NUMBER, p_start_date DATE) IS
         SELECT FreightID, WagonID
         FROM Assigned_Freight
+        WHERE PlannedTrainID = p_train_id
+          AND PlannedTrainStartDate = p_start_date;
+    CURSOR c_assigned_wagons(p_train_id NUMBER, p_start_date DATE) IS
+        SELECT WagonID
+        FROM Assigned_Wagon
+        WHERE PlannedTrainID = p_train_id
+          AND PlannedTrainStartDate = p_start_date;
+    CURSOR c_assigned_locomotives(p_train_id NUMBER, p_start_date DATE) IS
+        SELECT LocomotiveID
+        FROM Assigned_Locomotive
         WHERE PlannedTrainID = p_train_id
           AND PlannedTrainStartDate = p_start_date;
 BEGIN
@@ -384,6 +398,7 @@ BEGIN
     FOR planned_train_rec IN c_planned_trains LOOP
         v_train_id := planned_train_rec.TrainID;
         v_start_date := planned_train_rec.startDate;
+        v_end_facility_id := planned_train_rec.EndFacilityID;
         
         -- Move Assigned_Freight back to Unassigned_Freight
         FOR freight_rec IN c_assigned_freight(v_train_id, v_start_date) LOOP
@@ -405,15 +420,19 @@ BEGIN
         WHERE PlannedTrainID = v_train_id
           AND PlannedTrainStartDate = v_start_date;
         
-        -- Delete Planned_Train_Wagon
-        DELETE FROM Planned_Train_Wagon
-        WHERE PlannedTrainID = v_train_id
-          AND PlannedTrainStartDate = v_start_date;
+        -- Move wagons from Assigned_Wagon to Parked_Wagon (at route end facility)
+        FOR wagon_rec IN c_assigned_wagons(v_train_id, v_start_date) LOOP
+            v_wagon_id := wagon_rec.WagonID;
+            DELETE FROM Assigned_Wagon WHERE WagonID = v_wagon_id;
+            INSERT INTO Parked_Wagon (WagonID, FacilityID) VALUES (v_wagon_id, v_end_facility_id);
+        END LOOP;
         
-        -- Delete Planned_Train_Locomotive
-        DELETE FROM Planned_Train_Locomotive
-        WHERE PlannedTrainID = v_train_id
-          AND PlannedTrainStartDate = v_start_date;
+        -- Move locomotives from Assigned_Locomotive to Parked_Locomotive (at route end facility)
+        FOR loco_rec IN c_assigned_locomotives(v_train_id, v_start_date) LOOP
+            v_locomotive_id := loco_rec.LocomotiveID;
+            DELETE FROM Assigned_Locomotive WHERE LocomotiveID = v_locomotive_id;
+            INSERT INTO Parked_Locomotive (LocomotiveID, FacilityID) VALUES (v_locomotive_id, v_end_facility_id);
+        END LOOP;
     END LOOP;
     
     -- Delete Path points

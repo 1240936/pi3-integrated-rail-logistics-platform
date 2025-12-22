@@ -11,8 +11,8 @@
 -- - For in-transit: RouteID and EndFacilityID (final destination of the route)
 -- - For parked: InitialFacilityID (where the locomotive is parked)
 -- Results are ordered: in-transit first, then parked by distance from route start (descending)
--- A locomotive is "in transit" if it exists in Planned_Train_Locomotive table.
--- A locomotive is "parked" if it does not exist in Planned_Train_Locomotive table.
+-- A locomotive is "in transit" if it exists in Assigned_Locomotive table.
+-- A locomotive is "parked" if it exists in Parked_Locomotive table.
 CREATE OR REPLACE FUNCTION GET_LOCOMOTIVES_FOR_ASSEMBLY(
     p_route_id IN NUMBER
 )
@@ -43,20 +43,20 @@ BEGIN
                 r.EndFacilityID AS DestinationFacilityID
             FROM Locomotive l
                      INNER JOIN LocomotiveSpecs ls ON l.VehicleModelID = ls.VehicleModelID
-                     INNER JOIN Planned_Train_Locomotive ptl ON l.ID = ptl.LocomotiveID
-                     INNER JOIN Planned_Train pt ON ptl.PlannedTrainID = pt.TrainID
-                AND ptl.PlannedTrainStartDate = pt.startDate
+                     INNER JOIN Assigned_Locomotive AL ON l.ID = AL.LocomotiveID
+                     INNER JOIN Planned_Train pt ON AL.PlannedTrainID = pt.TrainID
+                AND AL.PlannedTrainStartDate = pt.startDate
                      INNER JOIN Route r ON pt.RouteID = r.ID
             WHERE pt.RouteID != p_route_id  -- Exclude locomotives already assigned to this route
 
             UNION ALL
 
-            -- Parked locomotives (not in any planned train)
+            -- Parked locomotives (in Parked_Locomotive table)
             SELECT
                 l.ID,
                 l.VehicleModelID,
                 l.TrainOperatorID,
-                l.InitialFacilityID,
+                pl.FacilityID AS InitialFacilityID,  -- Use parking facility from Parked_Locomotive
                 ls.make,
                 ls.power,
                 ls.acceleration,
@@ -66,18 +66,12 @@ BEGIN
                 NULL AS DestinationFacilityID
             FROM Locomotive l
                      INNER JOIN LocomotiveSpecs ls ON l.VehicleModelID = ls.VehicleModelID
-            WHERE l.ID NOT IN (
-                SELECT DISTINCT ptl.LocomotiveID
-                FROM Planned_Train_Locomotive ptl
-                         INNER JOIN Planned_Train pt ON ptl.PlannedTrainID = pt.TrainID
-                    AND ptl.PlannedTrainStartDate = pt.startDate
-                WHERE pt.startDate > SYSDATE - 7  -- Consider trains from last 7 days as "active"
-            )
+                     INNER JOIN Parked_Locomotive pl ON l.ID = pl.LocomotiveID
         ) locos
         ORDER BY
             CASE WHEN locos.RouteID IS NOT NULL THEN 1 ELSE 2 END,  -- In-transit first
             CASE WHEN locos.RouteID IS NULL THEN
-                     -- For parked locomotives, calculate distance from start facility
+                     -- For parked locomotives, calculate distance from start facility (using parking facility)
                      (SELECT CASE
                                  WHEN EXISTS (
                                      SELECT 1 FROM RailLine rl
@@ -117,10 +111,8 @@ END;
 -- - For in-transit: RouteID and EndFacilityID (final destination of the route)
 -- - For parked: InitialFacilityID (where the wagon is parked - this is the delivery station where freight was unloaded)
 -- Results are ordered: in-transit first, then parked by distance from route start (descending)
--- A wagon is "in transit" if it exists in Planned_Train_Wagon table.
--- A wagon is "parked" if it does not exist in Planned_Train_Wagon table.
--- Note: When freight is delivered, wagons move from Assigned_Freight to Unassigned_Freight,
--- but they remain in Planned_Train_Wagon until the train completes its journey.
+-- A wagon is "in transit" if it exists in Assigned_Wagon table.
+-- A wagon is "parked" if it exists in Parked_Wagon table.
 CREATE OR REPLACE FUNCTION GET_WAGONS_FOR_ASSEMBLY(
     p_route_id IN NUMBER
 )
@@ -151,20 +143,20 @@ BEGIN
             FROM Wagon w
                      INNER JOIN WagonSpecs ws ON w.VehicleModelID = ws.VehicleModelID
                      INNER JOIN VehicleModel vm ON w.VehicleModelID = vm.ID
-                     INNER JOIN Planned_Train_Wagon ptw ON w.ID = ptw.WagonID
-                     INNER JOIN Planned_Train pt ON ptw.PlannedTrainID = pt.TrainID
-                AND ptw.PlannedTrainStartDate = pt.startDate
+                     INNER JOIN Assigned_Wagon AW ON w.ID = AW.WagonID
+                     INNER JOIN Planned_Train pt ON AW.PlannedTrainID = pt.TrainID
+                AND AW.PlannedTrainStartDate = pt.startDate
                      INNER JOIN Route r ON pt.RouteID = r.ID
             WHERE pt.RouteID != p_route_id  -- Exclude wagons already assigned to this route
 
             UNION ALL
 
-            -- Parked wagons (not in any planned train)
+            -- Parked wagons (in Parked_Wagon table)
             SELECT
                 w.ID,
                 w.VehicleModelID,
                 w.TrainOperatorID,
-                w.InitialFacilityID,
+                pw.FacilityID AS InitialFacilityID,  -- Use parking facility from Parked_Wagon
                 ws.WagonTypeID,
                 ws.volumeCapacity,
                 ws.payload,
@@ -174,13 +166,7 @@ BEGIN
             FROM Wagon w
                      INNER JOIN WagonSpecs ws ON w.VehicleModelID = ws.VehicleModelID
                      INNER JOIN VehicleModel vm ON w.VehicleModelID = vm.ID
-            WHERE w.ID NOT IN (
-                SELECT DISTINCT ptw.WagonID
-                FROM Planned_Train_Wagon ptw
-                         INNER JOIN Planned_Train pt ON ptw.PlannedTrainID = pt.TrainID
-                    AND ptw.PlannedTrainStartDate = pt.startDate
-                WHERE pt.startDate > SYSDATE - 7  -- Consider trains from last 7 days as "active"
-            )
+                     INNER JOIN Parked_Wagon pw ON w.ID = pw.WagonID
         ) wagons
         ORDER BY
             CASE WHEN wagons.RouteID IS NOT NULL THEN 1 ELSE 2 END,  -- In-transit first
@@ -314,9 +300,9 @@ BEGIN
             ls.numberOfWheels
         FROM Locomotive l
                  INNER JOIN LocomotiveSpecs ls ON l.VehicleModelID = ls.VehicleModelID
-                 INNER JOIN Planned_Train_Locomotive ptl ON l.ID = ptl.LocomotiveID
-                 INNER JOIN Planned_Train pt ON ptl.PlannedTrainID = pt.TrainID
-            AND ptl.PlannedTrainStartDate = pt.startDate
+                 INNER JOIN Assigned_Locomotive AL ON l.ID = AL.LocomotiveID
+                 INNER JOIN Planned_Train pt ON AL.PlannedTrainID = pt.TrainID
+            AND AL.PlannedTrainStartDate = pt.startDate
         WHERE pt.RouteID = p_route_id;
     RETURN v_cursor;
 END;
@@ -344,9 +330,9 @@ BEGIN
             ls.numberOfWheels
         FROM Locomotive l
                  INNER JOIN LocomotiveSpecs ls ON l.VehicleModelID = ls.VehicleModelID
-                 INNER JOIN Planned_Train_Locomotive ptl ON l.ID = ptl.LocomotiveID
-        WHERE ptl.PlannedTrainID = p_train_id
-          AND ptl.PlannedTrainStartDate = p_start_date;
+                 INNER JOIN Assigned_Locomotive AL ON l.ID = AL.LocomotiveID
+        WHERE AL.PlannedTrainID = p_train_id
+          AND AL.PlannedTrainStartDate = p_start_date;
     RETURN v_cursor;
 END;
 /
@@ -372,9 +358,9 @@ BEGIN
         FROM Wagon w
                  INNER JOIN WagonSpecs ws ON w.VehicleModelID = ws.VehicleModelID
                  INNER JOIN VehicleModel vm ON w.VehicleModelID = vm.ID
-                 INNER JOIN Planned_Train_Wagon ptw ON w.ID = ptw.WagonID
-                 INNER JOIN Planned_Train pt ON ptw.PlannedTrainID = pt.TrainID
-            AND ptw.PlannedTrainStartDate = pt.startDate
+                 INNER JOIN Assigned_Wagon AW ON w.ID = AW.WagonID
+                 INNER JOIN Planned_Train pt ON AW.PlannedTrainID = pt.TrainID
+            AND AW.PlannedTrainStartDate = pt.startDate
         WHERE pt.RouteID = p_route_id;
     RETURN v_cursor;
 END;
@@ -402,9 +388,9 @@ BEGIN
         FROM Wagon w
                  INNER JOIN WagonSpecs ws ON w.VehicleModelID = ws.VehicleModelID
                  INNER JOIN VehicleModel vm ON w.VehicleModelID = vm.ID
-                 INNER JOIN Planned_Train_Wagon ptw ON w.ID = ptw.WagonID
-        WHERE ptw.PlannedTrainID = p_train_id
-          AND ptw.PlannedTrainStartDate = p_start_date;
+                 INNER JOIN Assigned_Wagon AW ON w.ID = AW.WagonID
+        WHERE AW.PlannedTrainID = p_train_id
+          AND AW.PlannedTrainStartDate = p_start_date;
     RETURN v_cursor;
 END;
 /

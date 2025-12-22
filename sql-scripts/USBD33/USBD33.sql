@@ -1,5 +1,5 @@
 CREATE OR REPLACE TRIGGER TRG_VALIDATE_TRAIN_LENGTH_WAGON
-BEFORE INSERT OR UPDATE ON Planned_Train_Wagon
+BEFORE INSERT OR UPDATE ON Assigned_Wagon
 FOR EACH ROW
 DECLARE
     v_train_max_length NUMBER;
@@ -24,10 +24,10 @@ BEGIN
         -- Get existing wagons for this planned trip (new row not in table yet)
         SELECT CASE WHEN SUM(VM.length) IS NULL THEN 0 ELSE SUM(VM.length) END
         INTO v_total_wagons_length
-        FROM Planned_Train_Wagon PTW
-        JOIN Wagon W ON PTW.WagonID = W.ID
+        FROM Assigned_Wagon AW
+        JOIN Wagon W ON AW.WagonID = W.ID
         JOIN VehicleModel VM ON W.VehicleModelID = VM.ID
-        WHERE PTW.PlannedTrainID = :NEW.PlannedTrainID AND PTW.PlannedTrainStartDate = :NEW.PlannedTrainStartDate;
+        WHERE AW.PlannedTrainID = :NEW.PlannedTrainID AND AW.PlannedTrainStartDate = :NEW.PlannedTrainStartDate;
         
         -- Add the new wagon's length
         SELECT v_total_wagons_length + VM.length
@@ -39,19 +39,19 @@ BEGIN
         -- UPDATE: get all wagons for this planned trip (including current row)
         SELECT CASE WHEN SUM(VM.length) IS NULL THEN 0 ELSE SUM(VM.length) END
         INTO v_total_wagons_length
-        FROM Planned_Train_Wagon PTW
-        JOIN Wagon W ON PTW.WagonID = W.ID
+        FROM Assigned_Wagon AW
+        JOIN Wagon W ON AW.WagonID = W.ID
         JOIN VehicleModel VM ON W.VehicleModelID = VM.ID
-        WHERE PTW.PlannedTrainID = :NEW.PlannedTrainID AND PTW.PlannedTrainStartDate = :NEW.PlannedTrainStartDate;
+        WHERE AW.PlannedTrainID = :NEW.PlannedTrainID AND AW.PlannedTrainStartDate = :NEW.PlannedTrainStartDate;
     END IF;
     
     -- Calculate total length of locomotives assigned to this planned trip (TrainID + startDate)
     SELECT CASE WHEN SUM(VM.length) IS NULL THEN 0 ELSE SUM(VM.length) END
     INTO v_total_locomotives_length
-    FROM Planned_Train_Locomotive PTL
-    JOIN Locomotive L ON PTL.LocomotiveID = L.ID
+    FROM Assigned_Locomotive AL
+    JOIN Locomotive L ON AL.LocomotiveID = L.ID
     JOIN VehicleModel VM ON L.VehicleModelID = VM.ID
-    WHERE PTL.PlannedTrainID = :NEW.PlannedTrainID AND PTL.PlannedTrainStartDate = :NEW.PlannedTrainStartDate;
+    WHERE AL.PlannedTrainID = :NEW.PlannedTrainID AND AL.PlannedTrainStartDate = :NEW.PlannedTrainStartDate;
     
     -- Total length = all wagons + all locomotives for this planned trip (both in meters)
     v_current_total_length := v_total_wagons_length + v_total_locomotives_length;
@@ -68,7 +68,7 @@ END;
 /
 
 CREATE OR REPLACE TRIGGER TRG_VALIDATE_TRAIN_LENGTH_LOCOMOTIVE
-BEFORE INSERT OR UPDATE ON Planned_Train_Locomotive
+BEFORE INSERT OR UPDATE ON Assigned_Locomotive
 FOR EACH ROW
 DECLARE
     v_train_max_length NUMBER;
@@ -92,10 +92,10 @@ BEGIN
         -- Get existing locomotives for this planned trip (new row not in table yet)
         SELECT CASE WHEN SUM(VM.length) IS NULL THEN 0 ELSE SUM(VM.length) END
         INTO v_total_locomotives_length
-        FROM Planned_Train_Locomotive PTL
-        JOIN Locomotive L ON PTL.LocomotiveID = L.ID
+        FROM Assigned_Locomotive AL
+        JOIN Locomotive L ON AL.LocomotiveID = L.ID
         JOIN VehicleModel VM ON L.VehicleModelID = VM.ID
-        WHERE PTL.PlannedTrainID = :NEW.PlannedTrainID AND PTL.PlannedTrainStartDate = :NEW.PlannedTrainStartDate;
+        WHERE AL.PlannedTrainID = :NEW.PlannedTrainID AND AL.PlannedTrainStartDate = :NEW.PlannedTrainStartDate;
         
         -- Add the new locomotive's length
         SELECT v_total_locomotives_length + VM.length
@@ -107,19 +107,19 @@ BEGIN
         -- UPDATE: get all locomotives for this planned trip (including current row)
         SELECT CASE WHEN SUM(VM.length) IS NULL THEN 0 ELSE SUM(VM.length) END
         INTO v_total_locomotives_length
-        FROM Planned_Train_Locomotive PTL
-        JOIN Locomotive L ON PTL.LocomotiveID = L.ID
+        FROM Assigned_Locomotive AL
+        JOIN Locomotive L ON AL.LocomotiveID = L.ID
         JOIN VehicleModel VM ON L.VehicleModelID = VM.ID
-        WHERE PTL.PlannedTrainID = :NEW.PlannedTrainID AND PTL.PlannedTrainStartDate = :NEW.PlannedTrainStartDate;
+        WHERE AL.PlannedTrainID = :NEW.PlannedTrainID AND AL.PlannedTrainStartDate = :NEW.PlannedTrainStartDate;
     END IF;
     
     -- Calculate total length of wagons assigned to this planned trip (TrainID + startDate)
     SELECT CASE WHEN SUM(VM.length) IS NULL THEN 0 ELSE SUM(VM.length) END
     INTO v_total_wagons_length
-    FROM Planned_Train_Wagon PTW
-    JOIN Wagon W ON PTW.WagonID = W.ID
+    FROM Assigned_Wagon AW
+    JOIN Wagon W ON AW.WagonID = W.ID
     JOIN VehicleModel VM ON W.VehicleModelID = VM.ID
-    WHERE PTW.PlannedTrainID = :NEW.PlannedTrainID AND PTW.PlannedTrainStartDate = :NEW.PlannedTrainStartDate;
+    WHERE AW.PlannedTrainID = :NEW.PlannedTrainID AND AW.PlannedTrainStartDate = :NEW.PlannedTrainStartDate;
     
     -- Total length = all locomotives + all wagons for this planned trip (both in meters)
     v_current_total_length := v_total_locomotives_length + v_total_wagons_length;
@@ -155,17 +155,17 @@ BEGIN
     
     SELECT CASE WHEN SUM(VM.length) IS NULL THEN 0 ELSE SUM(VM.length) END
     INTO v_total_wagon_length
-    FROM Planned_Train_Wagon PTW
-    JOIN Wagon W ON PTW.WagonID = W.ID
+    FROM Assigned_Wagon AW
+    JOIN Wagon W ON AW.WagonID = W.ID
     JOIN VehicleModel VM ON W.VehicleModelID = VM.ID
-    WHERE PTW.PlannedTrainID = v_train_id AND PTW.PlannedTrainStartDate = v_start_date;
+    WHERE AW.PlannedTrainID = v_train_id AND AW.PlannedTrainStartDate = v_start_date;
     
     SELECT CASE WHEN SUM(VM.length) IS NULL THEN 0 ELSE SUM(VM.length) END
     INTO v_total_locomotive_length
-    FROM Planned_Train_Locomotive PTL
-    JOIN Locomotive L ON PTL.LocomotiveID = L.ID
+    FROM Assigned_Locomotive AL
+    JOIN Locomotive L ON AL.LocomotiveID = L.ID
     JOIN VehicleModel VM ON L.VehicleModelID = VM.ID
-    WHERE PTL.PlannedTrainID = v_train_id AND PTL.PlannedTrainStartDate = v_start_date;
+    WHERE AL.PlannedTrainID = v_train_id AND AL.PlannedTrainStartDate = v_start_date;
     
     v_total_length := v_total_wagon_length + v_total_locomotive_length;
     
@@ -179,8 +179,8 @@ BEGIN
     JOIN VehicleModel VM ON W.VehicleModelID = VM.ID
     WHERE W.ID = 3563082;
     
-    INSERT INTO Planned_Train_Wagon (PlannedTrainID, PlannedTrainStartDate, WagonID) 
-    VALUES (v_train_id, v_start_date, 3563082);
+    INSERT INTO Assigned_Wagon (WagonID, PlannedTrainID, PlannedTrainStartDate) 
+    VALUES (3563082, v_train_id, v_start_date);
     DBMS_OUTPUT.PUT_LINE('Insert succeeded');
     ROLLBACK;
 EXCEPTION
@@ -214,17 +214,17 @@ BEGIN
     
     SELECT CASE WHEN SUM(VM.length) IS NULL THEN 0 ELSE SUM(VM.length) END
     INTO v_total_wagon_length
-    FROM Planned_Train_Wagon PTW
-    JOIN Wagon W ON PTW.WagonID = W.ID
+    FROM Assigned_Wagon AW
+    JOIN Wagon W ON AW.WagonID = W.ID
     JOIN VehicleModel VM ON W.VehicleModelID = VM.ID
-    WHERE PTW.PlannedTrainID = v_train_id AND PTW.PlannedTrainStartDate = v_start_date;
+    WHERE AW.PlannedTrainID = v_train_id AND AW.PlannedTrainStartDate = v_start_date;
     
     SELECT CASE WHEN SUM(VM.length) IS NULL THEN 0 ELSE SUM(VM.length) END
     INTO v_total_locomotive_length
-    FROM Planned_Train_Locomotive PTL
-    JOIN Locomotive L ON PTL.LocomotiveID = L.ID
+    FROM Assigned_Locomotive AL
+    JOIN Locomotive L ON AL.LocomotiveID = L.ID
     JOIN VehicleModel VM ON L.VehicleModelID = VM.ID
-    WHERE PTL.PlannedTrainID = v_train_id AND PTL.PlannedTrainStartDate = v_start_date;
+    WHERE AL.PlannedTrainID = v_train_id AND AL.PlannedTrainStartDate = v_start_date;
     
     v_total_length := v_total_wagon_length + v_total_locomotive_length;
     
@@ -235,12 +235,12 @@ BEGIN
     -- Continue with test logic
     SELECT L.ID INTO v_loco_id
     FROM Locomotive L
-    WHERE L.ID NOT IN (SELECT LocomotiveID FROM Planned_Train_Locomotive 
+    WHERE L.ID NOT IN (SELECT LocomotiveID FROM Assigned_Locomotive 
                        WHERE PlannedTrainID = v_train_id AND PlannedTrainStartDate = v_start_date)
       AND ROWNUM = 1;
     
-    INSERT INTO Planned_Train_Locomotive (PlannedTrainID, PlannedTrainStartDate, LocomotiveID) 
-    VALUES (v_train_id, v_start_date, v_loco_id);
+    INSERT INTO Assigned_Locomotive (LocomotiveID, PlannedTrainID, PlannedTrainStartDate) 
+    VALUES (v_loco_id, v_train_id, v_start_date);
     
     DBMS_OUTPUT.PUT_LINE('ERROR: Insert should have failed but it succeeded!');
     ROLLBACK;
@@ -276,17 +276,17 @@ BEGIN
     
     SELECT CASE WHEN SUM(VM.length) IS NULL THEN 0 ELSE SUM(VM.length) END
     INTO v_total_wagon_length
-    FROM Planned_Train_Wagon PTW
-    JOIN Wagon W2 ON PTW.WagonID = W2.ID
+    FROM Assigned_Wagon AW
+    JOIN Wagon W2 ON AW.WagonID = W2.ID
     JOIN VehicleModel VM ON W2.VehicleModelID = VM.ID
-    WHERE PTW.PlannedTrainID = v_train_id AND PTW.PlannedTrainStartDate = v_start_date;
+    WHERE AW.PlannedTrainID = v_train_id AND AW.PlannedTrainStartDate = v_start_date;
     
     SELECT CASE WHEN SUM(VM.length) IS NULL THEN 0 ELSE SUM(VM.length) END
     INTO v_total_locomotive_length
-    FROM Planned_Train_Locomotive PTL
-    JOIN Locomotive L ON PTL.LocomotiveID = L.ID
+    FROM Assigned_Locomotive AL
+    JOIN Locomotive L ON AL.LocomotiveID = L.ID
     JOIN VehicleModel VM ON L.VehicleModelID = VM.ID
-    WHERE PTL.PlannedTrainID = v_train_id AND PTL.PlannedTrainStartDate = v_start_date;
+    WHERE AL.PlannedTrainID = v_train_id AND AL.PlannedTrainStartDate = v_start_date;
     
     v_total_length := v_total_wagon_length + v_total_locomotive_length;
     
@@ -298,15 +298,15 @@ BEGIN
     SELECT W.ID
     INTO v_wagon_id
     FROM Wagon W
-    WHERE W.ID NOT IN (SELECT WagonID FROM Planned_Train_Wagon 
+    WHERE W.ID NOT IN (SELECT WagonID FROM Assigned_Wagon 
                        WHERE PlannedTrainID = v_train_id AND PlannedTrainStartDate = v_start_date)
       AND ROWNUM = 1;
     
     v_current_length := v_total_length;
     
     IF v_current_length <= v_max_length THEN
-        INSERT INTO Planned_Train_Wagon (PlannedTrainID, PlannedTrainStartDate, WagonID) 
-        VALUES (v_train_id, v_start_date, v_wagon_id);
+        INSERT INTO Assigned_Wagon (WagonID, PlannedTrainID, PlannedTrainStartDate) 
+        VALUES (v_wagon_id, v_train_id, v_start_date);
         DBMS_OUTPUT.PUT_LINE('Insert succeeded');
         ROLLBACK;
     END IF;
