@@ -203,7 +203,7 @@ BEGIN
 EXCEPTION
     WHEN NO_DATA_FOUND THEN
         RAISE_APPLICATION_ERROR(-20003, 'Route ' || p_route_id || 
-            ' does not have a Planned_Train entry. Cannot assign freight.');
+            ' does not have a Planned_Train  entry. Cannot assign freight.');
 END;
 /
 
@@ -421,17 +421,47 @@ BEGIN
           AND PlannedTrainStartDate = v_start_date;
         
         -- Move wagons from Assigned_Wagon to Parked_Wagon (at route end facility)
+        -- Note: Only delete the specific assignment (by all PK columns) since wagons can be assigned to multiple trains
         FOR wagon_rec IN c_assigned_wagons(v_train_id, v_start_date) LOOP
             v_wagon_id := wagon_rec.WagonID;
-            DELETE FROM Assigned_Wagon WHERE WagonID = v_wagon_id;
-            INSERT INTO Parked_Wagon (WagonID, FacilityID) VALUES (v_wagon_id, v_end_facility_id);
+            -- Delete specific assignment for this train/startDate combination
+            DELETE FROM Assigned_Wagon 
+            WHERE WagonID = v_wagon_id 
+              AND PlannedTrainID = v_train_id 
+              AND PlannedTrainStartDate = v_start_date;
+            -- Only insert into Parked_Wagon if wagon is not already parked (check if exists)
+            BEGIN
+                INSERT INTO Parked_Wagon (WagonID, FacilityID) 
+                VALUES (v_wagon_id, v_end_facility_id);
+            EXCEPTION
+                WHEN DUP_VAL_ON_INDEX THEN
+                    -- Wagon already parked, update facility location
+                    UPDATE Parked_Wagon 
+                    SET FacilityID = v_end_facility_id 
+                    WHERE WagonID = v_wagon_id;
+            END;
         END LOOP;
         
         -- Move locomotives from Assigned_Locomotive to Parked_Locomotive (at route end facility)
+        -- Note: Only delete the specific assignment (by all PK columns) since locomotives can be assigned to multiple trains
         FOR loco_rec IN c_assigned_locomotives(v_train_id, v_start_date) LOOP
             v_locomotive_id := loco_rec.LocomotiveID;
-            DELETE FROM Assigned_Locomotive WHERE LocomotiveID = v_locomotive_id;
-            INSERT INTO Parked_Locomotive (LocomotiveID, FacilityID) VALUES (v_locomotive_id, v_end_facility_id);
+            -- Delete specific assignment for this train/startDate combination
+            DELETE FROM Assigned_Locomotive 
+            WHERE LocomotiveID = v_locomotive_id 
+              AND PlannedTrainID = v_train_id 
+              AND PlannedTrainStartDate = v_start_date;
+            -- Only insert into Parked_Locomotive if locomotive is not already parked (check if exists)
+            BEGIN
+                INSERT INTO Parked_Locomotive (LocomotiveID, FacilityID) 
+                VALUES (v_locomotive_id, v_end_facility_id);
+            EXCEPTION
+                WHEN DUP_VAL_ON_INDEX THEN
+                    -- Locomotive already parked, update facility location
+                    UPDATE Parked_Locomotive 
+                    SET FacilityID = v_end_facility_id 
+                    WHERE LocomotiveID = v_locomotive_id;
+            END;
         END LOOP;
     END LOOP;
     
