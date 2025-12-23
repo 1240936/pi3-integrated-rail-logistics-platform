@@ -1,17 +1,15 @@
 package main.repositories;
 
 import main.domain.Locomotive;
+import main.domain.LocomotiveForAssembly;
 import main.domain.LocomotiveSpecs;
 
 import java.sql.CallableStatement;
 import java.sql.Connection;
-import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import oracle.jdbc.OracleTypes;
 
@@ -120,6 +118,66 @@ public class LocomotiveRepository {
                         rs.getInt("VehicleModelID"),
                         rs.getInt("TrainOperatorID"),
                         specs
+                    ));
+                }
+            }
+        }
+        return locomotives;
+    }
+
+    /**
+     * Get locomotives available for assembly for a specific route.
+     * Returns locomotives with their status (in-transit or parked) and location information.
+     * Uses PL/SQL function GET_LOCOMOTIVES_FOR_ASSEMBLY (USLP09).
+     * 
+     * @param routeId the route ID for which to get available locomotives
+     * @return list of LocomotiveForAssembly objects, ordered by status (in-transit first) and distance
+     * @throws SQLException if there is a database error
+     */
+    public List<LocomotiveForAssembly> getForAssembly(int routeId) throws SQLException {
+        List<LocomotiveForAssembly> locomotives = new ArrayList<>();
+        
+        try (CallableStatement stmt = connection.prepareCall("{? = CALL GET_LOCOMOTIVES_FOR_ASSEMBLY(?)}")) {
+            stmt.registerOutParameter(1, OracleTypes.CURSOR);
+            stmt.setInt(2, routeId);
+            stmt.execute();
+            
+            try (ResultSet rs = (ResultSet) stmt.getObject(1)) {
+                while (rs.next()) {
+                    LocomotiveSpecs specs = new LocomotiveSpecs(
+                        rs.getInt("VehicleModelID"),
+                        rs.getString("make"),
+                        rs.getDouble("power"),
+                        rs.getDouble("acceleration"),
+                        rs.getDouble("maxSpeed"),
+                        rs.getInt("numberOfWheels")
+                    );
+                    
+                    Locomotive locomotive = new Locomotive(
+                        rs.getInt("ID"),
+                        rs.getInt("VehicleModelID"),
+                        rs.getInt("TrainOperatorID"),
+                        specs
+                    );
+                    
+                    // Check if in-transit or parked
+                    Integer routeIdValue = rs.getObject("RouteID") != null ? rs.getInt("RouteID") : null;
+                    boolean inTransit = routeIdValue != null;
+                    
+                    Integer destinationFacilityId = rs.getObject("DestinationFacilityID") != null ? rs.getInt("DestinationFacilityID") : null;
+                    String destinationFacilityName = rs.getString("DestinationFacilityName");
+                    
+                    Integer parkedFacilityId = rs.getInt("InitialFacilityID");
+                    String parkedFacilityName = rs.getString("ParkedFacilityName");
+                    
+                    locomotives.add(new LocomotiveForAssembly(
+                        locomotive,
+                        inTransit,
+                        routeIdValue,
+                        destinationFacilityId,
+                        destinationFacilityName,
+                        parkedFacilityId,
+                        parkedFacilityName
                     ));
                 }
             }

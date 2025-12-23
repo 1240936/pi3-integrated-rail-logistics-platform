@@ -219,3 +219,185 @@ BEGIN
 END;
 /
 
+-- ============================================================================
+-- TRAIN SCHEDULING FUNCTIONS (for dispatch and scheduling operations)
+-- ============================================================================
+
+-- Function: Get trains available for dispatch
+-- Returns trains that have locomotives and wagons assigned but no route scheduled yet
+CREATE OR REPLACE FUNCTION GET_TRAINS_AVAILABLE_FOR_DISPATCH
+RETURN SYS_REFCURSOR
+AS
+    v_cursor SYS_REFCURSOR;
+BEGIN
+    OPEN v_cursor FOR
+        SELECT DISTINCT
+            T.ID AS TrainID,
+            T.TrainOperatorID,
+            COUNT(DISTINCT AL.LocomotiveID) AS LocomotiveCount,
+            COUNT(DISTINCT AW.WagonID) AS WagonCount
+        FROM Train T
+        INNER JOIN Assigned_Locomotive AL ON T.ID = AL.PlannedTrainID
+        INNER JOIN Assigned_Wagon AW ON T.ID = AW.PlannedTrainID
+        WHERE NOT EXISTS (
+            SELECT 1 
+            FROM Planned_Train PT 
+            WHERE PT.TrainID = T.ID
+        )
+        GROUP BY T.ID, T.TrainOperatorID
+        HAVING COUNT(DISTINCT AL.LocomotiveID) > 0 
+           AND COUNT(DISTINCT AW.WagonID) > 0
+        ORDER BY T.ID;
+    RETURN v_cursor;
+END;
+/
+
+-- Function: Get passage times (train events) for a route
+-- Returns all train events (estimated passage times) for a given route
+CREATE OR REPLACE FUNCTION GET_PASSAGE_TIMES_BY_ROUTE_ID(
+    p_route_id IN NUMBER
+)
+RETURN SYS_REFCURSOR
+AS
+    v_cursor SYS_REFCURSOR;
+BEGIN
+    OPEN v_cursor FOR
+        SELECT 
+            TE.ID,
+            TE.RouteID,
+            TE.TrainID,
+            TE.FacilityID,
+            TE.eventTime
+        FROM TrainEvent TE
+        WHERE TE.RouteID = p_route_id
+        ORDER BY TE.eventTime;
+    RETURN v_cursor;
+END;
+/
+
+-- Function: Get all routes with their passage times
+-- Returns all routes with their first and last passage times
+CREATE OR REPLACE FUNCTION GET_ALL_ROUTES_WITH_SCHEDULE
+RETURN SYS_REFCURSOR
+AS
+    v_cursor SYS_REFCURSOR;
+BEGIN
+    OPEN v_cursor FOR
+        SELECT 
+            R.ID AS RouteID,
+            R.StartFacilityID,
+            R.EndFacilityID,
+            PT.TrainID,
+            PT.startDate,
+            MIN(TE.eventTime) AS FirstPassageTime,
+            MAX(TE.eventTime) AS LastPassageTime,
+            COUNT(TE.ID) AS EventCount
+        FROM Route R
+        LEFT JOIN Planned_Train PT ON R.ID = PT.RouteID
+        LEFT JOIN TrainEvent TE ON R.ID = TE.RouteID
+        GROUP BY R.ID, R.StartFacilityID, R.EndFacilityID, PT.TrainID, PT.startDate
+        ORDER BY PT.startDate NULLS LAST, R.ID;
+    RETURN v_cursor;
+END;
+/
+
+-- Function: Calculate shortest path between two facilities
+-- Returns a cursor with facility IDs in order (for automatic path calculation)
+-- Uses a recursive CTE to find the shortest path
+CREATE OR REPLACE FUNCTION CALCULATE_SHORTEST_PATH(
+    p_start_facility_id IN NUMBER,
+    p_end_facility_id IN NUMBER
+)
+RETURN SYS_REFCURSOR
+AS
+    v_cursor SYS_REFCURSOR;
+BEGIN
+    OPEN v_cursor FOR
+        WITH PathSearch AS (
+            -- Base case: start facility
+            SELECT 
+                p_start_facility_id AS FacilityID,
+                0 AS PathLength,
+                CAST(p_start_facility_id AS VARCHAR2(4000)) AS PathString
+            FROM DUAL
+            UNION ALL
+            -- Recursive case: find next facilities
+            SELECT 
+                CASE 
+                    WHEN RL.StartFacilityID = ps.FacilityID THEN RL.EndFacilityID
+                    ELSE RL.StartFacilityID
+                END AS FacilityID,
+                ps.PathLength + 1 AS PathLength,
+                ps.PathString || ',' || 
+                CASE 
+                    WHEN RL.StartFacilityID = ps.FacilityID THEN TO_CHAR(RL.EndFacilityID)
+                    ELSE TO_CHAR(RL.StartFacilityID)
+                END AS PathString
+            FROM PathSearch ps
+            INNER JOIN RailLine RL ON (
+                RL.StartFacilityID = ps.FacilityID 
+                OR RL.EndFacilityID = ps.FacilityID
+            )
+            WHERE ps.PathLength < 20  -- Prevent infinite loops (max 20 hops)
+              AND ps.FacilityID != p_end_facility_id
+              AND INSTR(ps.PathString, 
+                  CASE 
+                      WHEN RL.StartFacilityID = ps.FacilityID THEN TO_CHAR(RL.EndFacilityID)
+                      ELSE TO_CHAR(RL.StartFacilityID)
+                  END) = 0  -- Avoid cycles
+        )
+        SELECT 
+            TO_NUMBER(REGEXP_SUBSTR(PathString, '[^,]+', 1, LEVEL)) AS FacilityID,
+            LEVEL AS SequenceNumber
+        FROM (
+            SELECT PathString
+            FROM PathSearch
+            WHERE FacilityID = p_end_facility_id
+              AND PathLength = (SELECT MIN(PathLength) FROM PathSearch WHERE FacilityID = p_end_facility_id)
+            AND ROWNUM = 1
+        )
+        CONNECT BY REGEXP_SUBSTR(PathString, '[^,]+', 1, LEVEL) IS NOT NULL
+        ORDER BY LEVEL;
+    RETURN v_cursor;
+EXCEPTION
+    WHEN OTHERS THEN
+        -- Return empty cursor if path not found
+        OPEN v_cursor FOR
+            SELECT NULL AS FacilityID, NULL AS SequenceNumber FROM DUAL WHERE 1=0;
+        RETURN v_cursor;
+END;
+/
+
+-- Function: Get crossings for a specific route
+-- Returns crossing operations involving the specified route
+CREATE OR REPLACE FUNCTION GET_CROSSINGS_BY_ROUTE_ID(
+    p_route_id IN NUMBER
+)
+RETURN SYS_REFCURSOR
+AS
+    v_cursor SYS_REFCURSOR;
+BEGIN
+    -- This function returns crossings detected for a route
+    -- Note: Actual crossing detection logic is complex and done in Java
+    -- This function returns a placeholder structure
+    OPEN v_cursor FOR
+        SELECT 
+            R1.ID AS Route1ID,
+            R2.ID AS Route2ID,
+            PT1.TrainID AS Train1ID,
+            PT2.TrainID AS Train2ID,
+            NULL AS CrossingFacilityID,
+            NULL AS SidingID,
+            NULL AS CrossingTime
+        FROM Route R1
+        CROSS JOIN Route R2
+        INNER JOIN Planned_Train PT1 ON R1.ID = PT1.RouteID
+        INNER JOIN Planned_Train PT2 ON R2.ID = PT2.RouteID
+        WHERE R1.ID = p_route_id
+          AND R1.ID < R2.ID  -- Avoid duplicates
+          AND PT1.TrainID != PT2.TrainID
+        AND ROWNUM = 0;  -- Return empty for now - actual logic in Java
+    RETURN v_cursor;
+END;
+/
+

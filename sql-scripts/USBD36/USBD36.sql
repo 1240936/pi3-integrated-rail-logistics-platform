@@ -73,12 +73,13 @@ BEGIN
 
     ---------------------------------------------------------------------------
     -- 4. Validate that the Building Type exists and get its ID
+    -- Case and space insensitive comparison
     ---------------------------------------------------------------------------
     BEGIN
         SELECT ID
         INTO v_building_type_id
         FROM BuildingType
-        WHERE type = p_building_type;
+        WHERE UPPER(TRIM(type)) = UPPER(TRIM(p_building_type));
     EXCEPTION
         WHEN NO_DATA_FOUND THEN
             RAISE_APPLICATION_ERROR(
@@ -95,10 +96,11 @@ BEGIN
 
     ---------------------------------------------------------------------------
     -- 5. Insert the new Building
+    -- Generate next Building ID
     ---------------------------------------------------------------------------
-    SELECT Building_seq.NEXTVAL
+    SELECT CASE WHEN MAX(ID) IS NULL THEN 1 ELSE MAX(ID) + 1 END
     INTO v_new_building_id
-    FROM dual;
+    FROM Building;
 
     INSERT INTO Building (ID, FacilityID, BuildingTypeID)
     VALUES (
@@ -112,6 +114,14 @@ BEGIN
     ---------------------------------------------------------------------------
     RETURN v_new_building_id;
 
+EXCEPTION
+    WHEN OTHERS THEN
+        -- Re-raise application errors
+        IF SQLCODE BETWEEN -20999 AND -20000 THEN
+            RAISE;
+        ELSE
+            RAISE_APPLICATION_ERROR(-20999, 'Unexpected error in AddBuildingToFacility: ' || SQLERRM);
+        END IF;
 END AddBuildingToFacility;
 /
 -- ============================================================================
@@ -166,11 +176,12 @@ END;
 
 DECLARE
     v_error_code NUMBER;
+    v_result NUMBER;
 BEGIN
     DBMS_OUTPUT.PUT_LINE('Test 2: NULL facility ID');
 
     BEGIN
-        AddBuildingToFacility(NULL, 'WAREHOUSE');
+        v_result := AddBuildingToFacility(NULL, 'WAREHOUSE');
         DBMS_OUTPUT.PUT_LINE('  Result: FAILED - Exception expected');
     EXCEPTION
         WHEN OTHERS THEN
@@ -194,6 +205,7 @@ END;
 DECLARE
     v_facility_id NUMBER;
     v_error_code NUMBER;
+    v_result NUMBER;
 BEGIN
     DBMS_OUTPUT.PUT_LINE('Test 3: NULL building type');
 
@@ -203,7 +215,7 @@ BEGIN
     WHERE ROWNUM = 1;
 
     BEGIN
-        AddBuildingToFacility(v_facility_id, NULL);
+        v_result := AddBuildingToFacility(v_facility_id, NULL);
         DBMS_OUTPUT.PUT_LINE('  Result: FAILED - Exception expected');
     EXCEPTION
         WHEN OTHERS THEN
@@ -228,11 +240,12 @@ END;
 
 DECLARE
     v_error_code NUMBER;
+    v_result NUMBER;
 BEGIN
     DBMS_OUTPUT.PUT_LINE('Test 4: Non-existent facility');
 
     BEGIN
-        AddBuildingToFacility(999999, 'WAREHOUSE');
+        v_result := AddBuildingToFacility(999999, 'WAREHOUSE');
         DBMS_OUTPUT.PUT_LINE('  Result: FAILED - Exception expected');
     EXCEPTION
         WHEN OTHERS THEN
@@ -256,6 +269,7 @@ END;
 DECLARE
     v_facility_id NUMBER;
     v_error_code NUMBER;
+    v_result NUMBER;
 BEGIN
     DBMS_OUTPUT.PUT_LINE('Test 5: Non-existent building type');
 
@@ -265,7 +279,7 @@ BEGIN
     WHERE ROWNUM = 1;
 
     BEGIN
-        AddBuildingToFacility(v_facility_id, 'INVALID_TYPE');
+        v_result := AddBuildingToFacility(v_facility_id, 'INVALID_TYPE');
         DBMS_OUTPUT.PUT_LINE('  Result: FAILED - Exception expected');
     EXCEPTION
         WHEN OTHERS THEN

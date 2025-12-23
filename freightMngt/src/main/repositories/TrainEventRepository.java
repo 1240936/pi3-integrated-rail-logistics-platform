@@ -1,18 +1,11 @@
 package main.repositories;
 
-import main.domain.Facility;
-import main.domain.TrainEvent;
-
 import java.sql.CallableStatement;
 import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.sql.Types;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * Repository for TrainEvent entities

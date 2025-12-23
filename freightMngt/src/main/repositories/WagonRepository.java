@@ -1,17 +1,15 @@
 package main.repositories;
 
 import main.domain.Wagon;
+import main.domain.WagonForAssembly;
 import main.domain.WagonSpecs;
 
 import java.sql.CallableStatement;
 import java.sql.Connection;
-import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 import oracle.jdbc.OracleTypes;
 
@@ -144,6 +142,68 @@ public class WagonRepository {
             int result = stmt.getInt(1);
             return result > 0;
         }
+    }
+
+    /**
+     * Get wagons available for assembly for a specific route.
+     * Returns wagons with their status (in-transit or parked) and location information.
+     * Uses PL/SQL function GET_WAGONS_FOR_ASSEMBLY (USLP09).
+     * 
+     * @param routeId the route ID for which to get available wagons
+     * @return list of WagonForAssembly objects, ordered by status (in-transit first) and distance
+     * @throws SQLException if there is a database error
+     */
+    public List<WagonForAssembly> getForAssembly(int routeId) throws SQLException {
+        List<WagonForAssembly> wagons = new ArrayList<>();
+        
+        try (CallableStatement stmt = connection.prepareCall("{? = CALL GET_WAGONS_FOR_ASSEMBLY(?)}")) {
+            stmt.registerOutParameter(1, OracleTypes.CURSOR);
+            stmt.setInt(2, routeId);
+            stmt.execute();
+            
+            try (ResultSet rs = (ResultSet) stmt.getObject(1)) {
+                while (rs.next()) {
+                    WagonSpecs specs = new WagonSpecs(
+                        rs.getInt("VehicleModelID"),
+                        rs.getInt("WagonTypeID"),
+                        rs.getDouble("volumeCapacity"),
+                        rs.getDouble("payload")
+                    );
+                    
+                    Wagon wagon = new Wagon(
+                        rs.getInt("ID"),
+                        rs.getInt("VehicleModelID"),
+                        rs.getInt("TrainOperatorID"),
+                        specs,
+                        rs.getDouble("tare")
+                    );
+                    
+                    // Check if wagon is loaded
+                    wagon.setLoaded(isWagonLoaded(rs.getInt("ID")));
+                    
+                    // Check if in-transit or parked
+                    Integer routeIdValue = rs.getObject("RouteID") != null ? rs.getInt("RouteID") : null;
+                    boolean inTransit = routeIdValue != null;
+                    
+                    Integer destinationFacilityId = rs.getObject("DestinationFacilityID") != null ? rs.getInt("DestinationFacilityID") : null;
+                    String destinationFacilityName = rs.getString("DestinationFacilityName");
+                    
+                    Integer parkedFacilityId = rs.getInt("InitialFacilityID");
+                    String parkedFacilityName = rs.getString("ParkedFacilityName");
+                    
+                    wagons.add(new WagonForAssembly(
+                        wagon,
+                        inTransit,
+                        routeIdValue,
+                        destinationFacilityId,
+                        destinationFacilityName,
+                        parkedFacilityId,
+                        parkedFacilityName
+                    ));
+                }
+            }
+        }
+        return wagons;
     }
 }
 

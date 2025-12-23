@@ -5,7 +5,6 @@ import main.domain.Freight;
 
 import java.sql.CallableStatement;
 import java.sql.Connection;
-import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
@@ -30,12 +29,12 @@ public class FreightRepository {
 
     /**
      * Get all freight for a specific route.
-     * Based on USBD31: Freight is linked to a route through Assigned_Freight -> Planned_Train_Wagon -> Planned_Train -> Route
+     * Based on USBD31: Freight is linked to a route through Assigned_Freight -> Planned_Train -> Route
      * 
      * IMPORTANT: Filters by both RouteID and startDate to ensure we're looking at the correct journey.
      * A train can be planned for multiple routes with different start dates, so we must match both.
      * 
-     * The join path is: Freight -> Assigned_Freight -> Planned_Train_Wagon -> Planned_Train -> Route
+     * The join path is: Freight -> Assigned_Freight -> Planned_Train -> Route
      * 
      * This method uses PL/SQL function GET_FREIGHT_BY_ROUTE to access the database.
      * 
@@ -293,9 +292,11 @@ public class FreightRepository {
     /**
      * Assign freight to a route.
      * Moves freight wagons from Unassigned_Freight to Assigned_Freight.
+     * Also moves wagons from Parked_Wagon to Assigned_Wagon for the planned train.
      * 
-     * Note: In USBD31, freight is linked to routes indirectly:
-     * Freight -> Assigned_Freight -> Planned_Train_Wagon -> Planned_Train -> Route
+     * Note: In USBD31 (move-based approach), freight is linked to routes indirectly:
+     * Freight -> Assigned_Freight -> Planned_Train -> Route
+     * Wagons are managed through Assigned_Wagon/Parked_Wagon tables (schedule-based assignments)
      * 
      * This method uses PL/SQL function ASSIGN_FREIGHT_TO_ROUTE to access the database.
      * 

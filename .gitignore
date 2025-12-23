@@ -1,0 +1,30 @@
+# IntelliJ IDEA
+.idea/
+*.iml
+
+# Build directories
+out/
+target/
+bin/
+build/
+dist/
+
+# Backup files
+*.bak
+*.bak_*
+*.bak2
+*.lck
+
+# IDE workspace files
+workspace.xml
+dataSources.local.xml
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Maven
+.mvn/
+mvnw
+mvnw.cmd
+

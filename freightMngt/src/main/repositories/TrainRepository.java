@@ -6,7 +6,6 @@ import main.domain.Wagon;
 
 import java.sql.CallableStatement;
 import java.sql.Connection;
-import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
@@ -93,10 +92,12 @@ public class TrainRepository {
     /**
      * Get all trains
      * Uses PL/SQL function GET_ALL_TRAINS (USLP09/USLP10).
+     * Falls back to direct SQL if PL/SQL function is not available.
      */
     public List<Train> getAll() throws SQLException {
         java.util.List<Train> trains = new java.util.ArrayList<>();
         
+        // Try PL/SQL function first
         try (CallableStatement stmt = connection.prepareCall("{? = CALL GET_ALL_TRAINS()}")) {
             stmt.registerOutParameter(1, OracleTypes.CURSOR);
             stmt.execute();
@@ -110,7 +111,23 @@ public class TrainRepository {
                     trains.add(train);
                 }
             }
+        } catch (SQLException e) {
+            // If PL/SQL function fails, fall back to direct SQL query
+            // This handles cases where the function doesn't exist or isn't accessible
+            try (java.sql.PreparedStatement stmt = connection.prepareStatement(
+                    "SELECT ID, TrainOperatorID FROM Train ORDER BY ID")) {
+                try (ResultSet rs = stmt.executeQuery()) {
+                    while (rs.next()) {
+                        Train train = new Train(
+                            rs.getInt("ID"),
+                            rs.getInt("TrainOperatorID")
+                        );
+                        trains.add(train);
+                    }
+                }
+            }
         }
+        
         return trains;
     }
 }
