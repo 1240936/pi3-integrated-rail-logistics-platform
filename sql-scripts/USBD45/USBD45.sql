@@ -15,30 +15,6 @@
 -- ============================================================================
 -- Stored Function: AddNewLine
 -- ============================================================================
--- Creates a new RailLine and its first mandatory LineSegment.
---
--- Parameters:
---   p_owner_id          - Owner ID (required)
---   p_start_facility_id - Start Facility ID (required)
---   p_end_facility_id   - End Facility ID (required)
---   p_gauge_id          - Gauge ID (required)
---   p_is_electrified    - Electrified flag (required)
---
--- Returns:
---   The ID of the newly created RailLine
---
--- Exceptions:
---   -20050: Owner ID cannot be NULL
---   -20051: Start Facility ID cannot be NULL
---   -20052: End Facility ID cannot be NULL
---   -20053: Gauge ID cannot be NULL
---   -20054: Start and End Facility cannot be the same
---   -20055: Owner does not exist
---   -20056: Start Facility does not exist
---   -20057: End Facility does not exist
---   -20058: Gauge does not exist
--- ============================================================================
-
 CREATE OR REPLACE FUNCTION AddNewLine(
     p_owner_id          IN NUMBER,
     p_start_facility_id IN NUMBER,
@@ -143,6 +119,166 @@ BEGIN
     -- 5. Return new RailLine ID
     ---------------------------------------------------------------------------
     RETURN v_new_line_id;
-
 END AddNewLine;
+/
+
+-- ============================================================================
+-- TESTS FOR USBD45
+-- ============================================================================
+
+-- ============================================================================
+-- Test 1: Happy path
+-- ============================================================================
+DECLARE
+    v_owner_id NUMBER;
+    v_start_facility_id NUMBER;
+    v_end_facility_id NUMBER;
+    v_gauge_id NUMBER;
+
+    v_line_id NUMBER;
+    v_line_count NUMBER;
+    v_segment_count NUMBER;
+BEGIN
+    DBMS_OUTPUT.PUT_LINE('Test 1: Happy path');
+
+    SELECT ID INTO v_owner_id FROM Owner WHERE ROWNUM = 1;
+    SELECT ID INTO v_start_facility_id FROM Facility WHERE ROWNUM = 1;
+    SELECT ID INTO v_end_facility_id FROM Facility WHERE ID <> v_start_facility_id AND ROWNUM = 1;
+    SELECT ID INTO v_gauge_id FROM Gauge WHERE ROWNUM = 1;
+
+    v_line_id := AddNewLine(v_owner_id, v_start_facility_id, v_end_facility_id, v_gauge_id, 1);
+
+    SELECT COUNT(*) INTO v_line_count FROM RailLine WHERE ID = v_line_id;
+    SELECT COUNT(*) INTO v_segment_count FROM LineSegment WHERE RailLineID = v_line_id;
+
+    IF v_line_count = 1 AND v_segment_count = 1 THEN
+        DBMS_OUTPUT.PUT_LINE('  Result: PASSED');
+    ELSE
+        DBMS_OUTPUT.PUT_LINE('  Result: FAILED');
+    END IF;
+
+    ROLLBACK;
+END;
+/
+
+-- ============================================================================
+-- Test 2: NULL owner ID
+-- ============================================================================
+DECLARE
+    v_result NUMBER;
+BEGIN
+    DBMS_OUTPUT.PUT_LINE('Test 2: NULL owner ID');
+
+    BEGIN
+        v_result := AddNewLine(NULL, 1, 2, 1, 1);
+        DBMS_OUTPUT.PUT_LINE('  Result: FAILED - Exception expected');
+    EXCEPTION
+        WHEN OTHERS THEN
+            IF SQLCODE = -20050 THEN
+                DBMS_OUTPUT.PUT_LINE('  Result: PASSED');
+            ELSE
+                DBMS_OUTPUT.PUT_LINE('  Result: FAILED');
+            END IF;
+    END;
+
+    ROLLBACK;
+END;
+/
+
+-- ============================================================================
+-- Test 3: Same start and end facility
+-- ============================================================================
+DECLARE
+    v_owner_id NUMBER;
+    v_facility_id NUMBER;
+    v_gauge_id NUMBER;
+BEGIN
+    DBMS_OUTPUT.PUT_LINE('Test 3: Same start and end facility');
+
+    SELECT ID INTO v_owner_id FROM Owner WHERE ROWNUM = 1;
+    SELECT ID INTO v_facility_id FROM Facility WHERE ROWNUM = 1;
+    SELECT ID INTO v_gauge_id FROM Gauge WHERE ROWNUM = 1;
+
+    BEGIN
+        AddNewLine(v_owner_id, v_facility_id, v_facility_id, v_gauge_id, 1);
+        DBMS_OUTPUT.PUT_LINE('  Result: FAILED - Exception expected');
+    EXCEPTION
+        WHEN OTHERS THEN
+            IF SQLCODE = -20054 THEN
+                DBMS_OUTPUT.PUT_LINE('  Result: PASSED');
+            ELSE
+                DBMS_OUTPUT.PUT_LINE('  Result: FAILED');
+            END IF;
+    END;
+
+    ROLLBACK;
+END;
+/
+
+-- ============================================================================
+-- Test 4: Non-existent owner
+-- ============================================================================
+DECLARE
+    v_start_facility_id NUMBER;
+    v_end_facility_id NUMBER;
+    v_gauge_id NUMBER;
+BEGIN
+    DBMS_OUTPUT.PUT_LINE('Test 4: Non-existent owner');
+
+    SELECT ID INTO v_start_facility_id FROM Facility WHERE ROWNUM = 1;
+    SELECT ID INTO v_end_facility_id FROM Facility WHERE ID <> v_start_facility_id AND ROWNUM = 1;
+    SELECT ID INTO v_gauge_id FROM Gauge WHERE ROWNUM = 1;
+
+    BEGIN
+        AddNewLine(999999, v_start_facility_id, v_end_facility_id, v_gauge_id, 1);
+        DBMS_OUTPUT.PUT_LINE('  Result: FAILED - Exception expected');
+    EXCEPTION
+        WHEN OTHERS THEN
+            IF SQLCODE = -20055 THEN
+                DBMS_OUTPUT.PUT_LINE('  Result: PASSED');
+            ELSE
+                DBMS_OUTPUT.PUT_LINE('  Result: FAILED');
+            END IF;
+    END;
+
+    ROLLBACK;
+END;
+/
+
+-- ============================================================================
+-- Test 5: Transaction rollback
+-- ============================================================================
+DECLARE
+    v_owner_id NUMBER;
+    v_start_facility_id NUMBER;
+    v_end_facility_id NUMBER;
+    v_gauge_id NUMBER;
+
+    v_before NUMBER;
+    v_after NUMBER;
+    v_after_rollback NUMBER;
+BEGIN
+    DBMS_OUTPUT.PUT_LINE('Test 5: Transaction rollback');
+
+    SELECT COUNT(*) INTO v_before FROM RailLine;
+
+    SELECT ID INTO v_owner_id FROM Owner WHERE ROWNUM = 1;
+    SELECT ID INTO v_start_facility_id FROM Facility WHERE ROWNUM = 1;
+    SELECT ID INTO v_end_facility_id FROM Facility WHERE ID <> v_start_facility_id AND ROWNUM = 1;
+    SELECT ID INTO v_gauge_id FROM Gauge WHERE ROWNUM = 1;
+
+    AddNewLine(v_owner_id, v_start_facility_id, v_end_facility_id, v_gauge_id, 0);
+
+    SELECT COUNT(*) INTO v_after FROM RailLine;
+
+    ROLLBACK;
+
+    SELECT COUNT(*) INTO v_after_rollback FROM RailLine;
+
+    IF v_after = v_before + 1 AND v_after_rollback = v_before THEN
+        DBMS_OUTPUT.PUT_LINE('  Result: PASSED');
+    ELSE
+        DBMS_OUTPUT.PUT_LINE('  Result: FAILED');
+    END IF;
+END;
 /
