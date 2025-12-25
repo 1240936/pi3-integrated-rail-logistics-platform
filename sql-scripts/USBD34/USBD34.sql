@@ -443,6 +443,7 @@ END;
 DECLARE
     v_result NUMBER;
     v_freight_id NUMBER;
+    v_route_id NUMBER;
     v_train_id NUMBER;
     v_wagon_count NUMBER;
 BEGIN
@@ -644,7 +645,7 @@ BEGIN
     
 EXCEPTION
     WHEN OTHERS THEN
-        IF SQLCODE = -20025 OR SQLCODE = -20001 THEN
+        IF SQLCODE = -20025 THEN
             DBMS_OUTPUT.PUT_LINE('SUCCESS: Correctly prevented train length constraint violation.');
             DBMS_OUTPUT.PUT_LINE('Error message: ' || SQLERRM);
         ELSE
