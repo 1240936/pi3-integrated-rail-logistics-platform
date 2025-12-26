@@ -2,7 +2,6 @@ package main;
 
 import main.ui.FreightManagerUI;
 import main.ui.TrafficManagerUI;
-import main.ui.TrainSchedulerUI;
 
 import java.util.Scanner;
 
@@ -36,11 +35,6 @@ public class Main {
                     System.out.println("\n=== TRAFFIC MANAGER MODE - TRAIN ASSEMBLY ===");
                     TrafficManagerUI trafficUI = new TrafficManagerUI();
                     trafficUI.start();
-                    break;
-                case "3":
-                    System.out.println("\n=== TRAFFIC MANAGER MODE - TRAIN SCHEDULER ===");
-                    TrainSchedulerUI schedulerUI = new TrainSchedulerUI();
-                    schedulerUI.start();
                     break;
                 case "0":
                     running = false;

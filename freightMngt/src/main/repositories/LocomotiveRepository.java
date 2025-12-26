@@ -126,20 +126,22 @@ public class LocomotiveRepository {
     }
 
     /**
-     * Get locomotives available for assembly for a specific route.
+     * Get locomotives available for assembly for a specific route at a specific date/time.
      * Returns locomotives with their status (in-transit or parked) and location information.
      * Uses PL/SQL function GET_LOCOMOTIVES_FOR_ASSEMBLY (USLP09).
      * 
      * @param routeId the route ID for which to get available locomotives
+     * @param requestedStartDate the requested start date/time for the planned train
      * @return list of LocomotiveForAssembly objects, ordered by status (in-transit first) and distance
      * @throws SQLException if there is a database error
      */
-    public List<LocomotiveForAssembly> getForAssembly(int routeId) throws SQLException {
+    public List<LocomotiveForAssembly> getForAssembly(int routeId, java.sql.Timestamp requestedStartDate) throws SQLException {
         List<LocomotiveForAssembly> locomotives = new ArrayList<>();
         
-        try (CallableStatement stmt = connection.prepareCall("{? = CALL GET_LOCOMOTIVES_FOR_ASSEMBLY(?)}")) {
+        try (CallableStatement stmt = connection.prepareCall("{? = CALL GET_LOCOMOTIVES_FOR_ASSEMBLY(?, ?)}")) {
             stmt.registerOutParameter(1, OracleTypes.CURSOR);
             stmt.setInt(2, routeId);
+            stmt.setTimestamp(3, requestedStartDate);
             stmt.execute();
             
             try (ResultSet rs = (ResultSet) stmt.getObject(1)) {
@@ -170,6 +172,9 @@ public class LocomotiveRepository {
                     Integer parkedFacilityId = rs.getInt("InitialFacilityID");
                     String parkedFacilityName = rs.getString("ParkedFacilityName");
                     
+                    // Get distance (may be null for in-transit locomotives)
+                    Double distanceFromStartKm = rs.getObject("DistanceFromStartKm") != null ? rs.getDouble("DistanceFromStartKm") : null;
+                    
                     locomotives.add(new LocomotiveForAssembly(
                         locomotive,
                         inTransit,
@@ -177,7 +182,8 @@ public class LocomotiveRepository {
                         destinationFacilityId,
                         destinationFacilityName,
                         parkedFacilityId,
-                        parkedFacilityName
+                        parkedFacilityName,
+                        distanceFromStartKm
                     ));
                 }
             }

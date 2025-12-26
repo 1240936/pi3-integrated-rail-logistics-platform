@@ -263,14 +263,13 @@ INSERT INTO Train (ID, TrainOperatorID, maxLength) VALUES (5437, 2, 250);
 
 INSERT INTO Route (ID, StartFacilityID, EndFacilityID) VALUES (1, 50, 11);
 INSERT INTO Route (ID, StartFacilityID, EndFacilityID) VALUES (2, 11, 50);
-INSERT INTO Route (ID, StartFacilityID, EndFacilityID) VALUES (3, 11, 50);
 
 INSERT INTO Planned_Train (TrainID, startDate, RouteID)
 VALUES (5421, TO_DATE('2025-10-03 09:45:00', 'YYYY-MM-DD HH24:MI:SS'), 1);
 INSERT INTO Planned_Train (TrainID, startDate, RouteID)
 VALUES (5435, TO_DATE('2025-10-03 18:00:00', 'YYYY-MM-DD HH24:MI:SS'), 2);
 INSERT INTO Planned_Train (TrainID, startDate, RouteID)
-VALUES (5437, TO_DATE('2025-10-06 10:00:00', 'YYYY-MM-DD HH24:MI:SS'), 3);
+VALUES (5437, TO_DATE('2025-10-06 10:00:00', 'YYYY-MM-DD HH24:MI:SS'), 2);
 
 INSERT INTO Path (RouteID, FacilityID, seqNumber) VALUES (1, 48, 2);
 INSERT INTO Path (RouteID, FacilityID, seqNumber) VALUES (1, 45, 3);
@@ -292,16 +291,6 @@ INSERT INTO Path (RouteID, FacilityID, seqNumber) VALUES (2, 13, 8);
 INSERT INTO Path (RouteID, FacilityID, seqNumber) VALUES (2, 43, 9);
 INSERT INTO Path (RouteID, FacilityID, seqNumber) VALUES (2, 45, 10);
 INSERT INTO Path (RouteID, FacilityID, seqNumber) VALUES (2, 48, 11);
-INSERT INTO Path (RouteID, FacilityID, seqNumber) VALUES (3, 16, 2);
-INSERT INTO Path (RouteID, FacilityID, seqNumber) VALUES (3, 21, 3);
-INSERT INTO Path (RouteID, FacilityID, seqNumber) VALUES (3, 17, 4);
-INSERT INTO Path (RouteID, FacilityID, seqNumber) VALUES (3, 12, 5);
-INSERT INTO Path (RouteID, FacilityID, seqNumber) VALUES (3, 8, 6);
-INSERT INTO Path (RouteID, FacilityID, seqNumber) VALUES (3, 20, 7);
-INSERT INTO Path (RouteID, FacilityID, seqNumber) VALUES (3, 13, 8);
-INSERT INTO Path (RouteID, FacilityID, seqNumber) VALUES (3, 43, 9);
-INSERT INTO Path (RouteID, FacilityID, seqNumber) VALUES (3, 45, 10);
-INSERT INTO Path (RouteID, FacilityID, seqNumber) VALUES (3, 48, 11);
 
 INSERT INTO Freight (ID, OriginFacilityID, DestinationFacilityID) VALUES (2001, 50, 12);
 INSERT INTO Freight (ID, OriginFacilityID, DestinationFacilityID) VALUES (2002, 13, 11);

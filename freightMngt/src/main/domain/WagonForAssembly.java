@@ -12,6 +12,7 @@ public class WagonForAssembly {
     private final String destinationFacilityName;  // null if parked
     private final Integer parkedFacilityId;  // null if in-transit
     private final String parkedFacilityName;  // null if in-transit
+    private final Double distanceFromStartKm;  // Distance in km from route start facility (null if in-transit or cannot calculate)
 
     /**
      * Constructs a WagonForAssembly object.
@@ -23,10 +24,11 @@ public class WagonForAssembly {
      * @param destinationFacilityName the destination facility name if in-transit, null if parked
      * @param parkedFacilityId the facility ID where parked, null if in-transit
      * @param parkedFacilityName the facility name where parked, null if in-transit
+     * @param distanceFromStartKm distance in km from route start facility, null if in-transit or cannot calculate
      */
     public WagonForAssembly(Wagon wagon, boolean inTransit,
                            Integer routeId, Integer destinationFacilityId, String destinationFacilityName,
-                           Integer parkedFacilityId, String parkedFacilityName) {
+                           Integer parkedFacilityId, String parkedFacilityName, Double distanceFromStartKm) {
         this.wagon = wagon;
         this.inTransit = inTransit;
         this.routeId = routeId;
@@ -34,6 +36,7 @@ public class WagonForAssembly {
         this.destinationFacilityName = destinationFacilityName;
         this.parkedFacilityId = parkedFacilityId;
         this.parkedFacilityName = parkedFacilityName;
+        this.distanceFromStartKm = distanceFromStartKm;
     }
 
     public Wagon getWagon() {
@@ -66,6 +69,10 @@ public class WagonForAssembly {
 
     public String getParkedFacilityName() {
         return parkedFacilityName;
+    }
+
+    public Double getDistanceFromStartKm() {
+        return distanceFromStartKm;
     }
 
     /**
