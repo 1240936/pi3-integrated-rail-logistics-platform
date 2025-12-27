@@ -254,6 +254,7 @@ END;
 
 -- Function: Get passage times (train events) for a route
 -- Returns all train events (estimated passage times) for a given route
+-- Note: TrainEvent doesn't have RouteID, so we use Planned_Train to link Route to TrainID
 CREATE OR REPLACE FUNCTION GET_PASSAGE_TIMES_BY_ROUTE_ID(
     p_route_id IN NUMBER
 )
@@ -264,12 +265,13 @@ BEGIN
     OPEN v_cursor FOR
         SELECT 
             TE.ID,
-            TE.RouteID,
+            p_route_id AS RouteID,
             TE.TrainID,
             TE.FacilityID,
             TE.eventTime
         FROM TrainEvent TE
-        WHERE TE.RouteID = p_route_id
+        INNER JOIN Planned_Train PT ON TE.TrainID = PT.TrainID
+        WHERE PT.RouteID = p_route_id
         ORDER BY TE.eventTime;
     RETURN v_cursor;
 END;
@@ -277,6 +279,7 @@ END;
 
 -- Function: Get all routes with their passage times
 -- Returns all routes with their first and last passage times
+-- Note: TrainEvent doesn't have RouteID, so we use Planned_Train to link Route to TrainID
 CREATE OR REPLACE FUNCTION GET_ALL_ROUTES_WITH_SCHEDULE
 RETURN SYS_REFCURSOR
 AS
@@ -294,7 +297,7 @@ BEGIN
             COUNT(TE.ID) AS EventCount
         FROM Route R
         LEFT JOIN Planned_Train PT ON R.ID = PT.RouteID
-        LEFT JOIN TrainEvent TE ON R.ID = TE.RouteID
+        LEFT JOIN TrainEvent TE ON PT.TrainID = TE.TrainID
         GROUP BY R.ID, R.StartFacilityID, R.EndFacilityID, PT.TrainID, PT.startDate
         ORDER BY PT.startDate NULLS LAST, R.ID;
     RETURN v_cursor;
@@ -304,6 +307,7 @@ END;
 -- Function: Calculate shortest path between two facilities
 -- Returns a cursor with facility IDs in order (for automatic path calculation)
 -- Uses a recursive CTE to find the shortest path
+-- Note: Path parsing uses SUBSTR/INSTR instead of regex
 CREATE OR REPLACE FUNCTION CALCULATE_SHORTEST_PATH(
     p_start_facility_id IN NUMBER,
     p_end_facility_id IN NUMBER
@@ -345,19 +349,37 @@ BEGIN
                       WHEN RL.StartFacilityID = ps.FacilityID THEN TO_CHAR(RL.EndFacilityID)
                       ELSE TO_CHAR(RL.StartFacilityID)
                   END) = 0  -- Avoid cycles
-        )
-        SELECT 
-            TO_NUMBER(REGEXP_SUBSTR(PathString, '[^,]+', 1, LEVEL)) AS FacilityID,
-            LEVEL AS SequenceNumber
-        FROM (
+        ),
+        ShortestPath AS (
             SELECT PathString
             FROM PathSearch
             WHERE FacilityID = p_end_facility_id
               AND PathLength = (SELECT MIN(PathLength) FROM PathSearch WHERE FacilityID = p_end_facility_id)
             AND ROWNUM = 1
         )
-        CONNECT BY REGEXP_SUBSTR(PathString, '[^,]+', 1, LEVEL) IS NOT NULL
-        ORDER BY LEVEL;
+        SELECT 
+            TO_NUMBER(
+                CASE 
+                    WHEN LEVEL = 1 THEN 
+                        SUBSTR(PathString, 1, 
+                            CASE 
+                                WHEN INSTR(PathString, ',') = 0 THEN LENGTH(PathString)
+                                ELSE INSTR(PathString, ',') - 1
+                            END)
+                    WHEN INSTR(PathString, ',', 1, LEVEL) = 0 THEN
+                        SUBSTR(PathString, INSTR(PathString, ',', 1, LEVEL - 1) + 1)
+                    ELSE
+                        SUBSTR(PathString, 
+                            INSTR(PathString, ',', 1, LEVEL - 1) + 1,
+                            INSTR(PathString, ',', 1, LEVEL) - INSTR(PathString, ',', 1, LEVEL - 1) - 1)
+                END
+            ) AS FacilityID,
+            LEVEL AS SequenceNumber
+        FROM ShortestPath
+        WHERE PathString IS NOT NULL
+        CONNECT BY LEVEL <= (LENGTH(PathString) - LENGTH(REPLACE(PathString, ',', '')) + 1)
+          AND PRIOR PathString = PathString
+          AND PRIOR SYS_GUID() IS NOT NULL;
     RETURN v_cursor;
 EXCEPTION
     WHEN OTHERS THEN
@@ -398,6 +420,45 @@ BEGIN
           AND PT1.TrainID != PT2.TrainID
         AND ROWNUM = 0;  -- Return empty for now - actual logic in Java
     RETURN v_cursor;
+END;
+/
+
+-- Function: Create a train event
+-- Returns 1 on success
+-- This function generates an ID before inserting to avoid NULL ID errors
+CREATE OR REPLACE FUNCTION CREATE_TRAIN_EVENT(
+    p_route_id IN NUMBER,
+    p_train_id IN NUMBER,
+    p_facility_id IN NUMBER,
+    p_event_time IN DATE
+)
+RETURN NUMBER
+AS
+    v_event_type VARCHAR2(255);
+    v_event_id NUMBER;
+BEGIN
+    v_event_type := 'ROUTE_' || p_route_id;
+    
+    -- Get next TrainEvent ID
+    SELECT CASE WHEN MAX(ID) IS NULL THEN 1 ELSE MAX(ID) + 1 END
+    INTO v_event_id
+    FROM TrainEvent;
+    
+    INSERT INTO TrainEvent (ID, TrainID, FacilityID, eventTime, eventType)
+    VALUES (v_event_id, p_train_id, p_facility_id, p_event_time, v_event_type);
+    
+    RETURN 1;
+EXCEPTION
+    WHEN DUP_VAL_ON_INDEX THEN
+        -- If ID collision, get a new one and retry
+        SELECT CASE WHEN MAX(ID) IS NULL THEN 1 ELSE MAX(ID) + 1 END
+        INTO v_event_id
+        FROM TrainEvent;
+        
+        INSERT INTO TrainEvent (ID, TrainID, FacilityID, eventTime, eventType)
+        VALUES (v_event_id, p_train_id, p_facility_id, p_event_time, v_event_type);
+        
+        RETURN 1;
 END;
 /
 
