@@ -37,10 +37,12 @@ AS
     v_wagon_count NUMBER := 0;
     v_wagon_id NUMBER;
     v_already_assigned NUMBER;
+
 CURSOR c_unassigned_wagons IS
 SELECT WagonID
 FROM Unassigned_Freight
 WHERE FreightID = p_freight_id;
+
 BEGIN
     -- Validate input parameters
     IF p_freight_id IS NULL THEN
