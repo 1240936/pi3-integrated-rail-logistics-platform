@@ -20,7 +20,11 @@ CREATE OR REPLACE FUNCTION AddNewLine(
     p_start_facility_id IN NUMBER,
     p_end_facility_id   IN NUMBER,
     p_gauge_id          IN NUMBER,
-    p_is_electrified    IN NUMBER
+    p_is_electrified    IN NUMBER,
+    p_segment_max_weight IN NUMBER,
+    p_segment_length     IN NUMBER,
+    p_segment_num_tracks IN NUMBER,
+    p_segment_speed_limit IN NUMBER
 ) RETURN NUMBER
 IS
     v_owner_exists    NUMBER;
@@ -52,6 +56,22 @@ BEGIN
 
     IF p_start_facility_id = p_end_facility_id THEN
         RAISE_APPLICATION_ERROR(-20054, 'Start and End Facility cannot be the same');
+    END IF;
+
+    IF p_segment_max_weight IS NULL THEN
+        RAISE_APPLICATION_ERROR(-20059, 'Segment max weight cannot be NULL');
+    END IF;
+
+    IF p_segment_length IS NULL THEN
+        RAISE_APPLICATION_ERROR(-20060, 'Segment length cannot be NULL');
+    END IF;
+
+    IF p_segment_num_tracks IS NULL THEN
+        RAISE_APPLICATION_ERROR(-20061, 'Segment number of tracks cannot be NULL');
+    END IF;
+
+    IF p_segment_speed_limit IS NULL THEN
+        RAISE_APPLICATION_ERROR(-20062, 'Segment speed limit cannot be NULL');
     END IF;
 
     ---------------------------------------------------------------------------
@@ -112,8 +132,8 @@ BEGIN
     INTO v_new_segment_id
     FROM LineSegment;
 
-    INSERT INTO LineSegment (ID, RailLineID, orderNum)
-    VALUES (v_new_segment_id, v_new_line_id, 1);
+    INSERT INTO LineSegment (ID, RailLineID, maxWeight, length, numberOfTracks, speedLimit, orderNum)
+    VALUES (v_new_segment_id, v_new_line_id, p_segment_max_weight, p_segment_length, p_segment_num_tracks, p_segment_speed_limit, 1);
 
     ---------------------------------------------------------------------------
     -- 5. Return new RailLine ID
@@ -146,7 +166,7 @@ BEGIN
     SELECT ID INTO v_end_facility_id FROM Facility WHERE ID <> v_start_facility_id AND ROWNUM = 1;
     SELECT ID INTO v_gauge_id FROM Gauge WHERE ROWNUM = 1;
 
-    v_line_id := AddNewLine(v_owner_id, v_start_facility_id, v_end_facility_id, v_gauge_id, 1);
+    v_line_id := AddNewLine(v_owner_id, v_start_facility_id, v_end_facility_id, v_gauge_id, 1, 8000, 10000, 2, 110);
 
     SELECT COUNT(*) INTO v_line_count FROM RailLine WHERE ID = v_line_id;
     SELECT COUNT(*) INTO v_segment_count FROM LineSegment WHERE RailLineID = v_line_id;
@@ -170,14 +190,14 @@ BEGIN
     DBMS_OUTPUT.PUT_LINE('Test 2: NULL owner ID');
 
     BEGIN
-        v_result := AddNewLine(NULL, 1, 2, 1, 1);
+        v_result := AddNewLine(NULL, 1, 2, 1, 1, 8000, 10000, 2, 110);
         DBMS_OUTPUT.PUT_LINE('  Result: FAILED - Exception expected');
     EXCEPTION
         WHEN OTHERS THEN
             IF SQLCODE = -20050 THEN
                 DBMS_OUTPUT.PUT_LINE('  Result: PASSED');
             ELSE
-                DBMS_OUTPUT.PUT_LINE('  Result: FAILED');
+                DBMS_OUTPUT.PUT_LINE('  Result: FAILED - Expected -20050, got ' || SQLCODE);
             END IF;
     END;
 
@@ -189,6 +209,7 @@ END;
 -- Test 3: Same start and end facility
 -- ============================================================================
 DECLARE
+    v_result NUMBER;
     v_owner_id NUMBER;
     v_facility_id NUMBER;
     v_gauge_id NUMBER;
@@ -200,14 +221,14 @@ BEGIN
     SELECT ID INTO v_gauge_id FROM Gauge WHERE ROWNUM = 1;
 
     BEGIN
-        AddNewLine(v_owner_id, v_facility_id, v_facility_id, v_gauge_id, 1);
+        v_result := AddNewLine(v_owner_id, v_facility_id, v_facility_id, v_gauge_id, 1, 8000, 10000, 2, 110);
         DBMS_OUTPUT.PUT_LINE('  Result: FAILED - Exception expected');
     EXCEPTION
         WHEN OTHERS THEN
             IF SQLCODE = -20054 THEN
                 DBMS_OUTPUT.PUT_LINE('  Result: PASSED');
             ELSE
-                DBMS_OUTPUT.PUT_LINE('  Result: FAILED');
+                DBMS_OUTPUT.PUT_LINE('  Result: FAILED - Expected -20054, got ' || SQLCODE);
             END IF;
     END;
 
@@ -219,6 +240,7 @@ END;
 -- Test 4: Non-existent owner
 -- ============================================================================
 DECLARE
+    v_result NUMBER;
     v_start_facility_id NUMBER;
     v_end_facility_id NUMBER;
     v_gauge_id NUMBER;
@@ -230,14 +252,14 @@ BEGIN
     SELECT ID INTO v_gauge_id FROM Gauge WHERE ROWNUM = 1;
 
     BEGIN
-        AddNewLine(999999, v_start_facility_id, v_end_facility_id, v_gauge_id, 1);
+        v_result := AddNewLine(999999, v_start_facility_id, v_end_facility_id, v_gauge_id, 1, 8000, 10000, 2, 110);
         DBMS_OUTPUT.PUT_LINE('  Result: FAILED - Exception expected');
     EXCEPTION
         WHEN OTHERS THEN
             IF SQLCODE = -20055 THEN
                 DBMS_OUTPUT.PUT_LINE('  Result: PASSED');
             ELSE
-                DBMS_OUTPUT.PUT_LINE('  Result: FAILED');
+                DBMS_OUTPUT.PUT_LINE('  Result: FAILED - Expected -20055, got ' || SQLCODE);
             END IF;
     END;
 
@@ -249,6 +271,7 @@ END;
 -- Test 5: Transaction rollback
 -- ============================================================================
 DECLARE
+    v_result NUMBER;
     v_owner_id NUMBER;
     v_start_facility_id NUMBER;
     v_end_facility_id NUMBER;
@@ -267,7 +290,7 @@ BEGIN
     SELECT ID INTO v_end_facility_id FROM Facility WHERE ID <> v_start_facility_id AND ROWNUM = 1;
     SELECT ID INTO v_gauge_id FROM Gauge WHERE ROWNUM = 1;
 
-    AddNewLine(v_owner_id, v_start_facility_id, v_end_facility_id, v_gauge_id, 0);
+    v_result := AddNewLine(v_owner_id, v_start_facility_id, v_end_facility_id, v_gauge_id, 0, 8000, 10000, 2, 110);
 
     SELECT COUNT(*) INTO v_after FROM RailLine;
 
