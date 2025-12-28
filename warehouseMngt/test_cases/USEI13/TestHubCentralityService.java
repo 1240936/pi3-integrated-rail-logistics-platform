@@ -29,7 +29,7 @@ public class TestHubCentralityService {
     private String getStationsCsvPath() {
         String[] pathsToTry = {
             "../../stations.csv",  // From test_cases/USEI13/ to warehouseMngt/
-            "../stations.csv",     // From test_cases/ to warehouseMngt/
+                "testFiles/stations.csv",     // From test_cases/ to warehouseMngt/
             "warehouseMngt/stations.csv",  // From project root
             "../warehouseMngt/stations.csv" // Alternative from test_cases/
         };
@@ -52,7 +52,7 @@ public class TestHubCentralityService {
     private String getLinesCsvPath() {
         String[] pathsToTry = {
             "../../lines.csv",  // From test_cases/USEI13/ to warehouseMngt/
-            "../lines.csv",     // From test_cases/ to warehouseMngt/
+                "testFiles/lines.csv",     // From test_cases/ to warehouseMngt/
             "warehouseMngt/lines.csv",  // From project root
             "../warehouseMngt/lines.csv" // Alternative from test_cases/
         };

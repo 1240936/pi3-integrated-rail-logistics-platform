@@ -1,6 +1,5 @@
 package USEI14;
 
-import main.controller.MaxFlowService;
 import org.junit.Test;
 
 import java.io.File;
@@ -23,7 +22,7 @@ public class TestMaxFlowService {
     private String getStationsCsvPath() {
         String[] pathsToTry = {
             "../../stations.csv",  // From test_cases/USEI14/ to warehouseMngt/
-            "../stations.csv",     // From test_cases/ to warehouseMngt/
+                "testFiles/stations.csv",     // From test_cases/ to warehouseMngt/
             "warehouseMngt/stations.csv",  // From project root
             "../warehouseMngt/stations.csv" // Alternative from test_cases/
         };
@@ -46,7 +45,7 @@ public class TestMaxFlowService {
     private String getLinesCsvPath() {
         String[] pathsToTry = {
             "../../lines.csv",  // From test_cases/USEI14/ to warehouseMngt/
-            "../lines.csv",     // From test_cases/ to warehouseMngt/
+                "testFiles/lines.csv",     // From test_cases/ to warehouseMngt/
             "warehouseMngt/lines.csv",  // From project root
             "../warehouseMngt/lines.csv" // Alternative from test_cases/
         };

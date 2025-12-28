@@ -1,13 +1,9 @@
 package USEI11;
 
-import main.controller.RailwayUpgradeService;
-import main.domain.TopologicalSortResult;
 import org.junit.Test;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.List;
-import java.util.Set;
 
 import static org.junit.Assert.*;
 
@@ -26,7 +22,7 @@ public class TestRailwayUpgradeService {
     private String getStationsCsvPath() {
         String[] pathsToTry = {
             "../../stations.csv",  // From test_cases/USEI11/ to warehouseMngt/
-            "../stations.csv",     // From test_cases/ to warehouseMngt/
+                "testFiles/stations.csv",     // From test_cases/ to warehouseMngt/
             "warehouseMngt/stations.csv",  // From project root
             "../warehouseMngt/stations.csv" // Alternative from test_cases/
         };
@@ -49,7 +45,7 @@ public class TestRailwayUpgradeService {
     private String getLinesCsvPath() {
         String[] pathsToTry = {
             "../../lines.csv",  // From test_cases/USEI11/ to warehouseMngt/
-            "../lines.csv",     // From test_cases/ to warehouseMngt/
+                "testFiles/lines.csv",     // From test_cases/ to warehouseMngt/
             "warehouseMngt/lines.csv",  // From project root
             "../warehouseMngt/lines.csv" // Alternative from test_cases/
         };

@@ -1,8 +1,5 @@
 package USEI12;
 
-import main.controller.MinimalBackboneService;
-import main.controller.StationService;
-import main.domain.MinimalBackboneResult;
 import org.junit.Test;
 
 import java.io.File;
@@ -27,7 +24,7 @@ public class TestMinimalBackboneService {
     private String getStationsCsvPath() {
         String[] pathsToTry = {
             "../../stations.csv",  // From test_cases/USEI12/ to warehouseMngt/
-            "../stations.csv",     // From test_cases/ to warehouseMngt/
+                "testFiles/stations.csv",     // From test_cases/ to warehouseMngt/
             "warehouseMngt/stations.csv",  // From project root
             "../warehouseMngt/stations.csv" // Alternative from test_cases/
         };
@@ -50,7 +47,7 @@ public class TestMinimalBackboneService {
     private String getLinesCsvPath() {
         String[] pathsToTry = {
             "../../lines.csv",  // From test_cases/USEI12/ to warehouseMngt/
-            "../lines.csv",     // From test_cases/ to warehouseMngt/
+                "testFiles/lines.csv",     // From test_cases/ to warehouseMngt/
             "warehouseMngt/lines.csv",  // From project root
             "../warehouseMngt/lines.csv" // Alternative from test_cases/
         };

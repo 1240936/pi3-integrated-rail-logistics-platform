@@ -1,12 +1,9 @@
 package USEI15;
 
-import main.controller.RiskAwarePathService;
-import main.domain.ShortestPathResult;
 import org.junit.Test;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.List;
 
 import static org.junit.Assert.*;
 
@@ -25,7 +22,7 @@ public class TestRiskAwarePathService {
     private String getStationsCsvPath() {
         String[] pathsToTry = {
             "../../stations.csv",  // From test_cases/USEI15/ to warehouseMngt/
-            "../stations.csv",     // From test_cases/ to warehouseMngt/
+                "testFiles/stations.csv",     // From test_cases/ to warehouseMngt/
             "warehouseMngt/stations.csv",  // From project root
             "../warehouseMngt/stations.csv" // Alternative from test_cases/
         };
@@ -48,7 +45,7 @@ public class TestRiskAwarePathService {
     private String getLinesCsvPath() {
         String[] pathsToTry = {
             "../../lines.csv",  // From test_cases/USEI15/ to warehouseMngt/
-            "../lines.csv",     // From test_cases/ to warehouseMngt/
+                "testFiles/lines.csv",     // From test_cases/ to warehouseMngt/
             "warehouseMngt/lines.csv",  // From project root
             "../warehouseMngt/lines.csv" // Alternative from test_cases/
         };
