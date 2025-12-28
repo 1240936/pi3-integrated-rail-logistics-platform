@@ -49,8 +49,8 @@ public class WagonRepository {
                         specs,
                         rs.getDouble("tare")
                     );
-                    // Check if wagon is loaded (has freight assigned) - uses PL/SQL function
-                    wagon.setLoaded(isWagonLoaded(rs.getInt("ID")));
+                    // For getAll(), wagons have no train context, so they cannot be considered loaded
+                    wagon.setLoaded(false);
                     wagons.add(wagon);
                 }
             }
@@ -85,7 +85,9 @@ public class WagonRepository {
                         specs,
                         rs.getDouble("tare")
                     );
-                    wagon.setLoaded(isWagonLoaded(rs.getInt("ID")));
+                    // For getByRouteId(), we don't have specific train/startDate context,
+                    // so we cannot determine if wagon is loaded for a specific train
+                    wagon.setLoaded(false);
                     wagons.add(wagon);
                 }
             }
@@ -121,7 +123,7 @@ public class WagonRepository {
                         specs,
                         rs.getDouble("tare")
                     );
-                    wagon.setLoaded(isWagonLoaded(rs.getInt("ID")));
+                    wagon.setLoaded(isWagonLoaded(rs.getInt("ID"), trainId, startDate));
                     wagons.add(wagon);
                 }
             }
@@ -130,13 +132,17 @@ public class WagonRepository {
     }
 
     /**
-     * Check if a wagon is loaded (has freight assigned - either in Assigned_Freight or Unassigned_Freight)
+     * Check if a wagon is loaded (has freight assigned where freight origin matches route start)
      * Uses PL/SQL function IS_WAGON_LOADED (USLP09).
+     * A wagon is loaded if it has freight assigned to the train where the freight's origin facility
+     * matches the route's start facility.
      */
-    private boolean isWagonLoaded(int wagonId) throws SQLException {
-        try (CallableStatement stmt = connection.prepareCall("{? = CALL IS_WAGON_LOADED(?)}")) {
+    private boolean isWagonLoaded(int wagonId, int trainId, java.sql.Timestamp startDate) throws SQLException {
+        try (CallableStatement stmt = connection.prepareCall("{? = CALL IS_WAGON_LOADED(?, ?, ?)}")) {
             stmt.registerOutParameter(1, java.sql.Types.INTEGER);
             stmt.setInt(2, wagonId);
+            stmt.setInt(3, trainId);
+            stmt.setTimestamp(4, startDate);
             stmt.execute();
             
             int result = stmt.getInt(1);
@@ -180,8 +186,9 @@ public class WagonRepository {
                         rs.getDouble("tare")
                     );
                     
-                    // Check if wagon is loaded
-                    wagon.setLoaded(isWagonLoaded(rs.getInt("ID")));
+                    // For getForAssembly(), wagons are available for assembly, not yet assigned to a train,
+                    // so they cannot be considered loaded for a specific train
+                    wagon.setLoaded(false);
                     
                     // Check if in-transit or parked
                     Integer routeIdValue = rs.getObject("RouteID") != null ? rs.getInt("RouteID") : null;

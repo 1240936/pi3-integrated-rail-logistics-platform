@@ -291,6 +291,7 @@ BEGIN
             make,
             power,
             acceleration,
+            operationalSpeed,
             maxSpeed,
             numberOfWheels,
             RouteID,
@@ -308,53 +309,55 @@ BEGIN
             FROM (
                 -- In-transit locomotives at the requested time (assigned to a planned train at the requested time)
                 -- Show ALL in-transit locomotives, even if assigned to the same route (they're just not selectable)
-                SELECT
-                    l.ID,
-                    l.VehicleModelID,
-                    l.TrainOperatorID,
-                    l.InitialFacilityID,
-                    ls.make,
-                    ls.power,
-                    ls.acceleration,
-                    ls.maxSpeed,
-                    ls.numberOfWheels,
-                    pt.RouteID AS RouteID,
+        SELECT
+            l.ID,
+            l.VehicleModelID,
+            l.TrainOperatorID,
+            l.InitialFacilityID,
+            ls.make,
+            ls.power,
+            ls.acceleration,
+                    ls.operationalSpeed,
+            ls.maxSpeed,
+            ls.numberOfWheels,
+            pt.RouteID AS RouteID,
                     r.EndFacilityID AS DestinationFacilityID,
                     destFacility.name AS DestinationFacilityName,
                     NULL AS ParkedFacilityName,
                     NULL AS DistanceFromStartKm,
                     1 AS IsInTransitAtRequestedTime
-                FROM Locomotive l
-                         INNER JOIN LocomotiveSpecs ls ON l.VehicleModelID = ls.VehicleModelID
+        FROM Locomotive l
+                 INNER JOIN LocomotiveSpecs ls ON l.VehicleModelID = ls.VehicleModelID
                          INNER JOIN Assigned_Locomotive AL ON l.ID = AL.LocomotiveID
                          INNER JOIN Planned_Train pt ON AL.PlannedTrainID = pt.TrainID
                     AND AL.PlannedTrainStartDate = pt.startDate
-                         INNER JOIN Route r ON pt.RouteID = r.ID
+                 INNER JOIN Route r ON pt.RouteID = r.ID
                          INNER JOIN Facility destFacility ON r.EndFacilityID = destFacility.ID
                 WHERE pt.startDate <= p_requested_start_date  -- Show as in-transit if assigned to train starting on or before requested time
                   AND pt.startDate + 1/24 >= p_requested_start_date  -- Locomotives/wagons become available 1 hour after train start
 
-                UNION ALL
+        UNION ALL
 
                 -- Parked locomotives (in Parked_Locomotive table) - available for selection
-                SELECT
-                    l.ID,
-                    l.VehicleModelID,
-                    l.TrainOperatorID,
+        SELECT
+            l.ID,
+            l.VehicleModelID,
+            l.TrainOperatorID,
                     pl.FacilityID AS InitialFacilityID,  -- Use parking facility from Parked_Locomotive
-                    ls.make,
-                    ls.power,
-                    ls.acceleration,
-                    ls.maxSpeed,
-                    ls.numberOfWheels,
-                    NULL AS RouteID,
+            ls.make,
+            ls.power,
+            ls.acceleration,
+                    ls.operationalSpeed,
+            ls.maxSpeed,
+            ls.numberOfWheels,
+            NULL AS RouteID,
                     NULL AS DestinationFacilityID,
                     NULL AS DestinationFacilityName,
                     parkedFacility.name AS ParkedFacilityName,
                     CALCULATE_DISTANCE_BETWEEN_FACILITIES(v_start_facility_id, pl.FacilityID, p_route_id) AS DistanceFromStartKm,
                     0 AS IsInTransitAtRequestedTime
-                FROM Locomotive l
-                         INNER JOIN LocomotiveSpecs ls ON l.VehicleModelID = ls.VehicleModelID
+        FROM Locomotive l
+                 INNER JOIN LocomotiveSpecs ls ON l.VehicleModelID = ls.VehicleModelID
                          INNER JOIN Parked_Locomotive pl ON l.ID = pl.LocomotiveID
                          INNER JOIN Facility parkedFacility ON pl.FacilityID = parkedFacility.ID
                 WHERE NOT EXISTS (
@@ -380,6 +383,7 @@ BEGIN
                     ls.make,
                     ls.power,
                     ls.acceleration,
+                    ls.operationalSpeed,
                     ls.maxSpeed,
                     ls.numberOfWheels,
                     NULL AS RouteID,
@@ -434,18 +438,19 @@ EXCEPTION
                 l.VehicleModelID,
                 l.TrainOperatorID,
                 l.InitialFacilityID,
-                ls.make,
-                ls.power,
-                ls.acceleration,
-                ls.maxSpeed,
-                ls.numberOfWheels,
-                NULL AS RouteID,
-                NULL AS DestinationFacilityID,
-                NULL AS DestinationFacilityName,
-                NULL AS ParkedFacilityName,
-                NULL AS DistanceFromStartKm
-            FROM Locomotive l
-                     INNER JOIN LocomotiveSpecs ls ON l.VehicleModelID = ls.VehicleModelID
+            ls.make,
+            ls.power,
+            ls.acceleration,
+            ls.operationalSpeed,
+            ls.maxSpeed,
+            ls.numberOfWheels,
+            NULL AS RouteID,
+            NULL AS DestinationFacilityID,
+            NULL AS DestinationFacilityName,
+            NULL AS ParkedFacilityName,
+            NULL AS DistanceFromStartKm
+        FROM Locomotive l
+                 INNER JOIN LocomotiveSpecs ls ON l.VehicleModelID = ls.VehicleModelID
             WHERE 1 = 0;  -- Return empty result
         RETURN v_cursor;
 END;
@@ -529,53 +534,53 @@ BEGIN
                 ) AS rn
             FROM (
                 -- In-transit wagons at the requested time (assigned to a planned train that overlaps with requested time)
-                SELECT
-                    w.ID,
-                    w.VehicleModelID,
-                    w.TrainOperatorID,
-                    w.InitialFacilityID,
-                    ws.WagonTypeID,
-                    ws.volumeCapacity,
-                    ws.payload,
-                    vm.tare,
-                    pt.RouteID AS RouteID,
+        SELECT
+            w.ID,
+            w.VehicleModelID,
+            w.TrainOperatorID,
+            w.InitialFacilityID,
+            ws.WagonTypeID,
+            ws.volumeCapacity,
+            ws.payload,
+            vm.tare,
+            pt.RouteID AS RouteID,
                     r.EndFacilityID AS DestinationFacilityID,
                     destFacility.name AS DestinationFacilityName,
                     NULL AS ParkedFacilityName,
                     NULL AS DistanceFromStartKm,
                     1 AS IsInTransitAtRequestedTime
-                FROM Wagon w
-                         INNER JOIN WagonSpecs ws ON w.VehicleModelID = ws.VehicleModelID
-                         INNER JOIN VehicleModel vm ON w.VehicleModelID = vm.ID
+        FROM Wagon w
+                 INNER JOIN WagonSpecs ws ON w.VehicleModelID = ws.VehicleModelID
+                 INNER JOIN VehicleModel vm ON w.VehicleModelID = vm.ID
                          INNER JOIN Assigned_Wagon AW ON w.ID = AW.WagonID
                          INNER JOIN Planned_Train pt ON AW.PlannedTrainID = pt.TrainID
                     AND AW.PlannedTrainStartDate = pt.startDate
-                         INNER JOIN Route r ON pt.RouteID = r.ID
+                 INNER JOIN Route r ON pt.RouteID = r.ID
                          INNER JOIN Facility destFacility ON r.EndFacilityID = destFacility.ID
                 WHERE pt.startDate <= p_requested_start_date  -- Show as in-transit if assigned to train starting on or before requested time
                   AND pt.startDate + 1/24 >= p_requested_start_date  -- Locomotives/wagons become available 1 hour after train start
 
-                UNION ALL
+        UNION ALL
 
                 -- Parked wagons (in Parked_Wagon table) - available for selection
-                SELECT
-                    w.ID,
-                    w.VehicleModelID,
-                    w.TrainOperatorID,
+        SELECT
+            w.ID,
+            w.VehicleModelID,
+            w.TrainOperatorID,
                     pw.FacilityID AS InitialFacilityID,  -- Use parking facility from Parked_Wagon
-                    ws.WagonTypeID,
-                    ws.volumeCapacity,
-                    ws.payload,
-                    vm.tare,
-                    NULL AS RouteID,
+            ws.WagonTypeID,
+            ws.volumeCapacity,
+            ws.payload,
+            vm.tare,
+            NULL AS RouteID,
                     NULL AS DestinationFacilityID,
                     NULL AS DestinationFacilityName,
                     parkedFacility.name AS ParkedFacilityName,
                     CALCULATE_DISTANCE_BETWEEN_FACILITIES(v_start_facility_id, pw.FacilityID, p_route_id) AS DistanceFromStartKm,
                     0 AS IsInTransitAtRequestedTime
-                FROM Wagon w
-                         INNER JOIN WagonSpecs ws ON w.VehicleModelID = ws.VehicleModelID
-                         INNER JOIN VehicleModel vm ON w.VehicleModelID = vm.ID
+        FROM Wagon w
+                 INNER JOIN WagonSpecs ws ON w.VehicleModelID = ws.VehicleModelID
+                 INNER JOIN VehicleModel vm ON w.VehicleModelID = vm.ID
                          INNER JOIN Parked_Wagon pw ON w.ID = pw.WagonID
                          INNER JOIN Facility parkedFacility ON pw.FacilityID = parkedFacility.ID
                 WHERE NOT EXISTS (
@@ -592,24 +597,24 @@ BEGIN
                 
                 -- Wagons not in Parked_Wagon but also not assigned at requested time
                 -- These are available but need to use InitialFacilityID from Wagon table
-                SELECT
-                    w.ID,
-                    w.VehicleModelID,
-                    w.TrainOperatorID,
+            SELECT
+                w.ID,
+                w.VehicleModelID,
+                w.TrainOperatorID,
                     w.InitialFacilityID,  -- Use initial facility from Wagon table
-                    ws.WagonTypeID,
-                    ws.volumeCapacity,
-                    ws.payload,
-                    vm.tare,
-                    NULL AS RouteID,
+                ws.WagonTypeID,
+                ws.volumeCapacity,
+                ws.payload,
+                vm.tare,
+                NULL AS RouteID,
                     NULL AS DestinationFacilityID,
                     NULL AS DestinationFacilityName,
                     parkedFacility2.name AS ParkedFacilityName,
                     CALCULATE_DISTANCE_BETWEEN_FACILITIES(v_start_facility_id, w.InitialFacilityID, p_route_id) AS DistanceFromStartKm,
                     0 AS IsInTransitAtRequestedTime
-                FROM Wagon w
-                         INNER JOIN WagonSpecs ws ON w.VehicleModelID = ws.VehicleModelID
-                         INNER JOIN VehicleModel vm ON w.VehicleModelID = vm.ID
+            FROM Wagon w
+                     INNER JOIN WagonSpecs ws ON w.VehicleModelID = ws.VehicleModelID
+                     INNER JOIN VehicleModel vm ON w.VehicleModelID = vm.ID
                          INNER JOIN Facility parkedFacility2 ON w.InitialFacilityID = parkedFacility2.ID
                          LEFT JOIN Parked_Wagon pw2 ON w.ID = pw2.WagonID
                 WHERE pw2.WagonID IS NULL  -- Not in Parked_Wagon
@@ -648,43 +653,53 @@ BEGIN
 EXCEPTION
     WHEN NO_DATA_FOUND THEN
         -- If route not found, return empty cursor
-        OPEN v_cursor FOR
-            SELECT
-                w.ID,
-                w.VehicleModelID,
-                w.TrainOperatorID,
-                w.InitialFacilityID,
-                ws.WagonTypeID,
-                ws.volumeCapacity,
-                ws.payload,
+    OPEN v_cursor FOR
+        SELECT
+            w.ID,
+            w.VehicleModelID,
+            w.TrainOperatorID,
+            w.InitialFacilityID,
+            ws.WagonTypeID,
+            ws.volumeCapacity,
+            ws.payload,
                 vm.tare,
                 NULL AS RouteID,
                 NULL AS DestinationFacilityID,
                 NULL AS DestinationFacilityName,
                 NULL AS ParkedFacilityName,
                 NULL AS DistanceFromStartKm
-            FROM Wagon w
-                     INNER JOIN WagonSpecs ws ON w.VehicleModelID = ws.VehicleModelID
-                     INNER JOIN VehicleModel vm ON w.VehicleModelID = vm.ID
+        FROM Wagon w
+                 INNER JOIN WagonSpecs ws ON w.VehicleModelID = ws.VehicleModelID
+                 INNER JOIN VehicleModel vm ON w.VehicleModelID = vm.ID
             WHERE 1 = 0;  -- Return empty result
-        RETURN v_cursor;
+    RETURN v_cursor;
 END;
 /
 
--- Function: Check if wagon is loaded (has freight assigned)
+-- Function: Check if wagon is loaded (has freight assigned where freight origin matches route start)
+-- A wagon is loaded if it has freight assigned to the train where the freight's origin facility
+-- matches the route's start facility
 CREATE OR REPLACE FUNCTION IS_WAGON_LOADED(
-    p_wagon_id IN NUMBER
+    p_wagon_id IN NUMBER,
+    p_train_id IN NUMBER,
+    p_start_date IN DATE
 )
     RETURN NUMBER
 AS
     v_count NUMBER;
 BEGIN
+    -- Check if wagon has freight assigned to this train where freight origin matches route start
+    -- We need to find the route for this planned train and check if the freight origin matches the route start
     SELECT COUNT(*) INTO v_count
-    FROM (
-             SELECT 1 FROM Assigned_Freight WHERE WagonID = p_wagon_id
-             UNION ALL
-             SELECT 1 FROM Unassigned_Freight WHERE WagonID = p_wagon_id
-         );
+    FROM Assigned_Freight AF
+    INNER JOIN Freight F ON AF.FreightID = F.ID
+    INNER JOIN Planned_Train PT ON AF.PlannedTrainID = PT.TrainID 
+                                  AND AF.PlannedTrainStartDate = PT.startDate
+    INNER JOIN Route R ON PT.RouteID = R.ID
+    WHERE AF.WagonID = p_wagon_id
+      AND AF.PlannedTrainID = p_train_id
+      AND AF.PlannedTrainStartDate = p_start_date
+      AND F.OriginFacilityID = R.StartFacilityID;
 
     RETURN CASE WHEN v_count > 0 THEN 1 ELSE 0 END;
 END;
@@ -707,6 +722,7 @@ BEGIN
             ls.make,
             ls.power,
             ls.acceleration,
+            ls.operationalSpeed,
             ls.maxSpeed,
             ls.numberOfWheels
         FROM Locomotive l
@@ -737,6 +753,7 @@ BEGIN
             ls.make,
             ls.power,
             ls.acceleration,
+            ls.operationalSpeed,
             ls.maxSpeed,
             ls.numberOfWheels
         FROM Locomotive l
@@ -871,6 +888,7 @@ BEGIN
             ls.make,
             ls.power,
             ls.acceleration,
+            ls.operationalSpeed,
             ls.maxSpeed,
             ls.numberOfWheels
         FROM Locomotive l
@@ -1001,7 +1019,7 @@ END;
 /
 
 -- Function: Delete a planned train for a route
--- Moves all assigned locomotives and wagons back to parked status at route end facility
+-- Moves all assigned locomotives and wagons back to parked status at route start facility
 -- Returns 1 if successful, 0 if planned train not found
 CREATE OR REPLACE FUNCTION DELETE_PLANNED_TRAIN(
     p_route_id IN NUMBER,
@@ -1010,12 +1028,12 @@ CREATE OR REPLACE FUNCTION DELETE_PLANNED_TRAIN(
 RETURN NUMBER
 IS
     v_train_id NUMBER;
-    v_route_end_facility_id NUMBER;
+    v_route_start_facility_id NUMBER;
 BEGIN
-    -- Get the train ID and route end facility
+    -- Get the train ID and route start facility
     BEGIN
-        SELECT pt.TrainID, r.EndFacilityID
-        INTO v_train_id, v_route_end_facility_id
+        SELECT pt.TrainID, r.StartFacilityID
+        INTO v_train_id, v_route_start_facility_id
         FROM Planned_Train pt
         INNER JOIN Route r ON pt.RouteID = r.ID
         WHERE pt.RouteID = p_route_id
@@ -1025,7 +1043,7 @@ BEGIN
             RETURN 0;  -- Planned train not found
     END;
     
-    -- Move assigned locomotives back to parked at route end facility
+    -- Move assigned locomotives back to parked at route start facility
     FOR loco_rec IN (
         SELECT AL.LocomotiveID
         FROM Assigned_Locomotive AL
@@ -1038,20 +1056,20 @@ BEGIN
           AND PlannedTrainID = v_train_id
           AND PlannedTrainStartDate = p_start_date;
         
-        -- Insert or update Parked_Locomotive at route end facility
+        -- Insert or update Parked_Locomotive at route start facility
         BEGIN
             INSERT INTO Parked_Locomotive (LocomotiveID, FacilityID)
-            VALUES (loco_rec.LocomotiveID, v_route_end_facility_id);
+            VALUES (loco_rec.LocomotiveID, v_route_start_facility_id);
         EXCEPTION
             WHEN DUP_VAL_ON_INDEX THEN
                 -- Already parked, update facility
                 UPDATE Parked_Locomotive
-                SET FacilityID = v_route_end_facility_id
+                SET FacilityID = v_route_start_facility_id
                 WHERE LocomotiveID = loco_rec.LocomotiveID;
         END;
     END LOOP;
     
-    -- Move assigned wagons back to parked at route end facility
+    -- Move assigned wagons back to parked at route start facility
     FOR wagon_rec IN (
         SELECT AW.WagonID
         FROM Assigned_Wagon AW
@@ -1064,15 +1082,15 @@ BEGIN
           AND PlannedTrainID = v_train_id
           AND PlannedTrainStartDate = p_start_date;
         
-        -- Insert or update Parked_Wagon at route end facility
+        -- Insert or update Parked_Wagon at route start facility
         BEGIN
             INSERT INTO Parked_Wagon (WagonID, FacilityID)
-            VALUES (wagon_rec.WagonID, v_route_end_facility_id);
+            VALUES (wagon_rec.WagonID, v_route_start_facility_id);
         EXCEPTION
             WHEN DUP_VAL_ON_INDEX THEN
                 -- Already parked, update facility
                 UPDATE Parked_Wagon
-                SET FacilityID = v_route_end_facility_id
+                SET FacilityID = v_route_start_facility_id
                 WHERE WagonID = wagon_rec.WagonID;
         END;
     END LOOP;
@@ -1144,7 +1162,63 @@ BEGIN
         RAISE_APPLICATION_ERROR(-20005, 'Wagon ' || p_wagon_id || ' is already associated with train ' || v_train_id || ' for the planned trip starting at ' || TO_CHAR(v_start_date, 'YYYY-MM-DD HH24:MI:SS') || '.');
     END IF;
 
-    -- 6. Check if wagon is already assigned to a train with overlapping time
+    -- 6. Check train length constraint: ensure adding this wagon doesn't exceed train maxLength
+    DECLARE
+        v_train_max_length NUMBER;
+        v_current_total_length NUMBER;
+        v_wagon_length NUMBER;
+        v_projected_total_length NUMBER;
+        v_wagons_length NUMBER := 0;
+        v_locomotives_length NUMBER := 0;
+    BEGIN
+        -- Get train's maximum length
+        SELECT maxLength INTO v_train_max_length
+        FROM Train
+        WHERE ID = v_train_id;
+        
+        -- Calculate total length of wagons already assigned
+        SELECT NVL(SUM(VM.length), 0)
+        INTO v_wagons_length
+        FROM Assigned_Wagon AW
+        JOIN Wagon W ON AW.WagonID = W.ID
+        JOIN VehicleModel VM ON W.VehicleModelID = VM.ID
+        WHERE AW.PlannedTrainID = v_train_id
+          AND AW.PlannedTrainStartDate = v_start_date;
+        
+        -- Calculate total length of locomotives already assigned
+        SELECT NVL(SUM(VM.length), 0)
+        INTO v_locomotives_length
+        FROM Assigned_Locomotive AL
+        JOIN Locomotive L ON AL.LocomotiveID = L.ID
+        JOIN VehicleModel VM ON L.VehicleModelID = VM.ID
+        WHERE AL.PlannedTrainID = v_train_id
+          AND AL.PlannedTrainStartDate = v_start_date;
+        
+        -- Total length = wagons + locomotives
+        v_current_total_length := v_wagons_length + v_locomotives_length;
+        
+        -- Get the length of the wagon being added
+        SELECT VM.length INTO v_wagon_length
+        FROM Wagon W
+        JOIN VehicleModel VM ON W.VehicleModelID = VM.ID
+        WHERE W.ID = p_wagon_id;
+        
+        -- Calculate projected total length
+        v_projected_total_length := v_current_total_length + v_wagon_length;
+        
+        -- Check if adding this wagon would exceed the train's maximum length
+        IF v_projected_total_length > v_train_max_length THEN
+            RAISE_APPLICATION_ERROR(-20007, 
+                'Cannot add wagon to train: Adding wagon ' || p_wagon_id || 
+                ' would exceed train ' || v_train_id || ' maximum length. ' ||
+                'Current length: ' || v_current_total_length || 'm, ' ||
+                'Wagon length: ' || v_wagon_length || 'm, ' ||
+                'Projected total: ' || v_projected_total_length || 'm, ' ||
+                'Maximum allowed: ' || v_train_max_length || 'm.');
+        END IF;
+    END;
+
+    -- 7. Check if wagon is already assigned to a train with overlapping time
     -- A wagon is in-transit for 1 hour after train start, so check for time overlap
     -- The composite key allows multiple assignments, so we only need to check for time conflicts
     BEGIN
@@ -1169,11 +1243,11 @@ BEGIN
             NULL;
     END;
 
-    -- 7. CRITICAL: Remove wagon from Parked_Wagon BEFORE assigning it
+    -- 8. CRITICAL: Remove wagon from Parked_Wagon BEFORE assigning it
     -- This prevents wagons from appearing both parked and in transit
     DELETE FROM Parked_Wagon WHERE WagonID = p_wagon_id;
 
-    -- 8. Insert the association into Assigned_Wagon
+    -- 9. Insert the association into Assigned_Wagon
     INSERT INTO Assigned_Wagon (WagonID, PlannedTrainID, PlannedTrainStartDate)
     VALUES (p_wagon_id, v_train_id, v_start_date);
 
@@ -1239,7 +1313,63 @@ BEGIN
         RAISE_APPLICATION_ERROR(-20005, 'Locomotive ' || p_locomotive_id || ' is already associated with train ' || v_train_id || ' for the planned trip starting at ' || TO_CHAR(v_start_date, 'YYYY-MM-DD HH24:MI:SS') || '.');
     END IF;
 
-    -- 6. Check if locomotive is already assigned to a train with overlapping time
+    -- 6. Check train length constraint: ensure adding this locomotive doesn't exceed train maxLength
+    DECLARE
+        v_train_max_length NUMBER;
+        v_current_total_length NUMBER;
+        v_locomotive_length NUMBER;
+        v_projected_total_length NUMBER;
+        v_wagons_length NUMBER := 0;
+        v_locomotives_length NUMBER := 0;
+    BEGIN
+        -- Get train's maximum length
+        SELECT maxLength INTO v_train_max_length
+        FROM Train
+        WHERE ID = v_train_id;
+        
+        -- Calculate total length of wagons already assigned
+        SELECT NVL(SUM(VM.length), 0)
+        INTO v_wagons_length
+        FROM Assigned_Wagon AW
+        JOIN Wagon W ON AW.WagonID = W.ID
+        JOIN VehicleModel VM ON W.VehicleModelID = VM.ID
+        WHERE AW.PlannedTrainID = v_train_id
+          AND AW.PlannedTrainStartDate = v_start_date;
+        
+        -- Calculate total length of locomotives already assigned
+        SELECT NVL(SUM(VM.length), 0)
+        INTO v_locomotives_length
+        FROM Assigned_Locomotive AL
+        JOIN Locomotive L ON AL.LocomotiveID = L.ID
+        JOIN VehicleModel VM ON L.VehicleModelID = VM.ID
+        WHERE AL.PlannedTrainID = v_train_id
+          AND AL.PlannedTrainStartDate = v_start_date;
+        
+        -- Total length = wagons + locomotives
+        v_current_total_length := v_wagons_length + v_locomotives_length;
+        
+        -- Get the length of the locomotive being added
+        SELECT VM.length INTO v_locomotive_length
+        FROM Locomotive L
+        JOIN VehicleModel VM ON L.VehicleModelID = VM.ID
+        WHERE L.ID = p_locomotive_id;
+        
+        -- Calculate projected total length
+        v_projected_total_length := v_current_total_length + v_locomotive_length;
+        
+        -- Check if adding this locomotive would exceed the train's maximum length
+        IF v_projected_total_length > v_train_max_length THEN
+            RAISE_APPLICATION_ERROR(-20007, 
+                'Cannot add locomotive to train: Adding locomotive ' || p_locomotive_id || 
+                ' would exceed train ' || v_train_id || ' maximum length. ' ||
+                'Current length: ' || v_current_total_length || 'm, ' ||
+                'Locomotive length: ' || v_locomotive_length || 'm, ' ||
+                'Projected total: ' || v_projected_total_length || 'm, ' ||
+                'Maximum allowed: ' || v_train_max_length || 'm.');
+        END IF;
+    END;
+
+    -- 7. Check if locomotive is already assigned to a train with overlapping time
     -- A locomotive is in-transit for 1 hour after train start, so check for time overlap
     -- The composite key allows multiple assignments, so we only need to check for time conflicts
     BEGIN
@@ -1264,10 +1394,10 @@ BEGIN
             NULL;
     END;
 
-    -- 7. CRITICAL: Remove locomotive from Parked_Locomotive BEFORE assigning it
+    -- 8. CRITICAL: Remove locomotive from Parked_Locomotive BEFORE assigning it
     DELETE FROM Parked_Locomotive WHERE LocomotiveID = p_locomotive_id;
 
-    -- 8. Insert the association into Assigned_Locomotive
+    -- 9. Insert the association into Assigned_Locomotive
     INSERT INTO Assigned_Locomotive (LocomotiveID, PlannedTrainID, PlannedTrainStartDate)
     VALUES (p_locomotive_id, v_train_id, v_start_date);
 

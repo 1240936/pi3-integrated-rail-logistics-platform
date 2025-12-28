@@ -161,13 +161,7 @@ public class FreightManagerUI {
                         showTrainSchedulingMenu();
                         break;
                     case "4":
-                        showTrainDispatchMenu();
-                        break;
-                    case "5":
                         showViewMenu();
-                        break;
-                    case "6":
-                        showManagementMenu();
                         break;
                     case "0":
                         running = false;
@@ -210,26 +204,25 @@ public class FreightManagerUI {
 
     private void showMainMenu() {
         System.out.println("\n=== MAIN MENU ===");
-        System.out.println("1. Route Planning (USLP08)");
-        System.out.println("2. Train Assembly (USLP09)");
-        System.out.println("3. Train Scheduling (USLP10)");
-        System.out.println("4. Train Dispatch (with Freight)");
-        System.out.println("5. View Information");
-        System.out.println("6. Management Operations");
+        System.out.println("1. Route Planning");
+        System.out.println("2. Train Assembly");
+        System.out.println("3. Train Scheduling");
+        System.out.println("4. View Information");
         System.out.println("0. Exit");
     }
 
     // ============================================================================
-    // ROUTE PLANNING MENU (USLP08)
+    // ROUTE PLANNING MENU
     // ============================================================================
 
     private void showRoutePlanningMenu() {
         boolean back = false;
         while (!back) {
-            System.out.println("\n=== ROUTE PLANNING (USLP08) ===");
+            System.out.println("\n=== ROUTE PLANNING ===");
             System.out.println("1. View pending freights");
             System.out.println("2. Create route plan");
             System.out.println("3. View route plan with cargo operations");
+            System.out.println("4. Delete route");
             System.out.println("0. Back to main menu");
             System.out.print("\nEnter your choice: ");
             
@@ -243,6 +236,9 @@ public class FreightManagerUI {
                     break;
                 case "3":
                     viewRoutePlan();
+                    break;
+                case "4":
+                    deleteRoute();
                     break;
                 case "0":
                     back = true;
@@ -459,11 +455,8 @@ public class FreightManagerUI {
     private void viewRoutePlan() {
         System.out.println("\n=== VIEW ROUTE PLAN WITH CARGO OPERATIONS ===");
         try {
-            List<Train> trains = dispatchController.getAllTrains();
-            List<Route> allRoutes = new ArrayList<>();
-            for (Train train : trains) {
-                allRoutes.addAll(dispatchController.getRoutesByTrainId(train.getId()));
-            }
+            // Get unique routes (not grouped by train)
+            List<Route> allRoutes = routeRepository.getAll();
             
             if (allRoutes.isEmpty()) {
                 System.out.println("No routes available.");
@@ -472,12 +465,10 @@ public class FreightManagerUI {
             
             System.out.println("\nAvailable routes:");
             for (Route route : allRoutes) {
-                System.out.printf("  Route ID: %d - Train %d: %s -> %s (Departure: %s)\n",
+                String path = buildRoutePath(route);
+                System.out.printf("  Route ID: %d: %s\n",
                     route.getId(),
-                    route.getTrainId(),
-                    route.getStartFacility().getName(),
-                    route.getEndFacility().getName(),
-                    route.getStartDate().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+                    path);
             }
             
             Integer routeId = getRouteIdFromUser();
@@ -490,7 +481,56 @@ public class FreightManagerUI {
                 return;
             }
             
-            String routePlanText = routePlannerService.presentRoutePlan(routeId);
+            // Get all planned trains for this route
+            List<TrainAssemblyController.PlannedTrainInfo> plannedTrains = assemblyController.getAllPlannedTrains();
+            List<TrainAssemblyController.PlannedTrainInfo> trainsForRoute = new ArrayList<>();
+            for (TrainAssemblyController.PlannedTrainInfo train : plannedTrains) {
+                if (train.getRouteId() == routeId) {
+                    trainsForRoute.add(train);
+                }
+            }
+            
+            LocalDateTime selectedStartDate = null;
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+            if (trainsForRoute.isEmpty()) {
+                // No planned trains, use route's startDate if available
+                Route route = routeRepository.getById(routeId);
+                if (route != null && route.getStartDate() != null) {
+                    selectedStartDate = route.getStartDate();
+                } else {
+                    System.out.println("No planned trains found for this route and route has no start date.");
+                    return;
+                }
+            } else if (trainsForRoute.size() == 1) {
+                // Only one planned train, use it
+                selectedStartDate = trainsForRoute.get(0).getStartDate();
+                System.out.println("\nUsing planned train with start date: " + selectedStartDate.format(formatter));
+            } else {
+                // Multiple planned trains, let user select
+                System.out.println("\nMultiple planned trains found for Route ID: " + routeId);
+                DateTimeFormatter tableFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+                for (int i = 0; i < trainsForRoute.size(); i++) {
+                    TrainAssemblyController.PlannedTrainInfo train = trainsForRoute.get(i);
+                    System.out.printf("  %d. Train %d - Start: %s\n",
+                        (i + 1), train.getTrainId(), train.getStartDate().format(tableFormatter));
+                }
+                System.out.print("\nSelect train travel (1-" + trainsForRoute.size() + "): ");
+                String input = scanner.nextLine().trim();
+                try {
+                    int selection = Integer.parseInt(input);
+                    if (selection < 1 || selection > trainsForRoute.size()) {
+                        System.out.println("✗ Invalid selection.");
+                        return;
+                    }
+                    selectedStartDate = trainsForRoute.get(selection - 1).getStartDate();
+                } catch (NumberFormatException e) {
+                    System.out.println("✗ Invalid input. Please enter a number.");
+                    return;
+                }
+            }
+            
+            // Generate and display route plan
+            String routePlanText = routePlannerService.presentRoutePlan(routeId, selectedStartDate);
             System.out.println("\n" + routePlanText);
         } catch (Exception e) {
             throw new RuntimeException("Error viewing route plan: " + e.getMessage(), e);
@@ -498,17 +538,18 @@ public class FreightManagerUI {
     }
 
     // ============================================================================
-    // TRAIN ASSEMBLY MENU (USLP09)
+    // TRAIN ASSEMBLY MENU
     // ============================================================================
 
-    private void showTrainAssemblyMenu() {
+    private void showTrainAssemblyMenu() throws SQLException {
         boolean back = false;
         while (!back) {
-            System.out.println("\n=== TRAIN ASSEMBLY (USLP09) ===");
+            System.out.println("\n=== TRAIN ASSEMBLY ===");
             System.out.println("1. Assemble and assign train to route");
             System.out.println("2. View assembled train for route");
             System.out.println("3. View available locomotives for route");
             System.out.println("4. View available wagons for route");
+            System.out.println("5. Delete planned train");
             System.out.println("0. Back to main menu");
             System.out.print("\nEnter your choice: ");
             
@@ -526,6 +567,9 @@ public class FreightManagerUI {
                 case "4":
                     viewAvailableWagons();
                     break;
+                case "5":
+                    deletePlannedTrain();
+                    break;
                 case "0":
                     back = true;
                     break;
@@ -535,96 +579,233 @@ public class FreightManagerUI {
         }
     }
 
-    private void assembleTrain() {
+    private void assembleTrain() throws SQLException {
         System.out.println("\n=== ASSEMBLE TRAIN TO ROUTE ===");
+        
+        // Display available routes
+        displayAvailableRoutes();
+        
+        System.out.print("\nEnter Route ID: ");
+        String routeIdInput = scanner.nextLine().trim();
+        int routeId;
         try {
-            displayAvailableRoutes();
-            
-            Integer routeId = getRouteIdFromUser();
-            if (routeId == null) {
-                return;
-            }
-            
-            if (!validateRouteId(routeId)) {
-                System.out.println("✗ Route ID " + routeId + " does not exist.");
-                return;
-            }
-            
-            Route route = routeRepository.getById(routeId);
-            if (route == null) {
-                System.out.println("✗ Route ID " + routeId + " does not exist.");
-                return;
-            }
-            
-            if (route.getStartDate() == null) {
-                System.out.println("✗ Route does not have a scheduled start date.");
-                return;
-            }
-            
-            LocalDateTime startDate = route.getStartDate();
-            
-            // Show available locomotives
-            System.out.println("\n--- Available Locomotives ---");
-            List<LocomotiveForAssembly> locomotives = assemblyController.getAvailableLocomotives(routeId, startDate);
-            if (locomotives.isEmpty()) {
-                System.out.println("No locomotives available for this route.");
-            } else {
-                displayLocomotives(locomotives);
-            }
-            
-            // Show available wagons
-            System.out.println("\n--- Available Wagons ---");
-            List<WagonForAssembly> wagons = assemblyController.getAvailableWagons(routeId, startDate);
-            if (wagons.isEmpty()) {
-                System.out.println("No wagons available for this route.");
-            } else {
-                displayWagons(wagons);
-            }
-            
-            // Assign locomotives
-            System.out.println("\n--- Assign Locomotives ---");
-            System.out.print("Enter locomotive IDs (comma-separated, or 'skip' to skip): ");
-            String locoInput = scanner.nextLine().trim();
-            if (!locoInput.equalsIgnoreCase("skip") && !locoInput.isEmpty()) {
-                String[] locoIds = locoInput.split(",");
-                for (String locoIdStr : locoIds) {
-                    try {
-                        int locoId = Integer.parseInt(locoIdStr.trim());
-                        assemblyController.assignLocomotiveToRoute(locoId, routeId, startDate);
-                        System.out.println("✓ Locomotive " + locoId + " assigned successfully.");
-                    } catch (Exception e) {
-                        System.out.println("✗ Error assigning locomotive " + locoIdStr + ": " + e.getMessage());
-                    }
-                }
-            }
-            
-            // Assign wagons
-            System.out.println("\n--- Assign Wagons ---");
-            System.out.print("Enter wagon IDs (comma-separated, or 'skip' to skip): ");
-            String wagonInput = scanner.nextLine().trim();
-            if (!wagonInput.equalsIgnoreCase("skip") && !wagonInput.isEmpty()) {
-                String[] wagonIds = wagonInput.split(",");
-                for (String wagonIdStr : wagonIds) {
-                    try {
-                        int wagonId = Integer.parseInt(wagonIdStr.trim());
-                        assemblyController.assignWagonToRoute(wagonId, routeId, startDate);
-                        System.out.println("✓ Wagon " + wagonId + " assigned successfully.");
-                    } catch (Exception e) {
-                        System.out.println("✗ Error assigning wagon " + wagonIdStr + ": " + e.getMessage());
-                    }
-                }
-            }
-            
-            connection.commit();
-            System.out.println("\n✓ Train assembly completed successfully!");
-        } catch (Exception e) {
-            throw new RuntimeException("Error assembling train: " + e.getMessage(), e);
+            routeId = Integer.parseInt(routeIdInput);
+        } catch (NumberFormatException e) {
+            System.out.println("Invalid Route ID. Please enter a number.");
+            return;
         }
+
+        // Validate route exists
+        Route route = routeRepository.getById(routeId);
+        if (route == null) {
+            System.out.println("Route with ID " + routeId + " does not exist.");
+            return;
+        }
+
+        // Ask for start date/time for the planned train
+        System.out.print("\nEnter start date/time for the planned train (yyyy-MM-dd HH:mm:ss): ");
+        String dateTimeStr = scanner.nextLine().trim();
+        LocalDateTime requestedStartDate;
+        try {
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+            requestedStartDate = LocalDateTime.parse(dateTimeStr, formatter);
+        } catch (DateTimeParseException e) {
+            System.out.println("Invalid date/time format. Please use format: yyyy-MM-dd HH:mm:ss (e.g., 2025-10-03 09:45:00)");
+            return;
+        }
+
+        // Check if date/time conflicts with existing planned train for this route
+        // Keep asking until a non-conflicting date/time is provided
+        while (assemblyController.checkDateConflict(routeId, requestedStartDate)) {
+            System.out.println("\n✗ Error: A planned train already exists for route " + routeId + 
+                " at the selected date/time (" + dateTimeStr + ").");
+            System.out.print("Please enter a different date/time (yyyy-MM-dd HH:mm:ss): ");
+            dateTimeStr = scanner.nextLine().trim();
+            try {
+                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+                requestedStartDate = LocalDateTime.parse(dateTimeStr, formatter);
+            } catch (DateTimeParseException e) {
+                System.out.println("Invalid date/time format. Please use format: yyyy-MM-dd HH:mm:ss (e.g., 2025-10-03 09:45:00)");
+                return;
+            }
+        }
+
+        // Ensure Planned_Train exists for this route and date/time
+        try {
+            int trainId = assemblyController.ensurePlannedTrain(routeId, requestedStartDate);
+            System.out.println("✓ Planned train (ID: " + trainId + ") ready for route " + routeId + 
+                " at " + dateTimeStr);
+        } catch (IllegalArgumentException e) {
+            System.out.println("\n✗ Error: " + e.getMessage());
+            return;
+        }
+
+        // Get available locomotives filtered by requested date/time
+        List<LocomotiveForAssembly> locomotives = assemblyController.getAvailableLocomotives(routeId, requestedStartDate);
+
+        // Assign locomotives one by one
+        List<Integer> assignedLocomotiveIds = new ArrayList<>();
+        if (!locomotives.isEmpty()) {
+            System.out.println("\n--- Assign Locomotives (for " + dateTimeStr + ") ---");
+            // Show table once at the beginning
+            displayLocomotives(locomotives);
+            System.out.println("\nEnter locomotive IDs one by one (press Enter with empty input to finish):");
+            
+            while (true) {
+                System.out.print("Enter locomotive ID (or press Enter to finish): ");
+                String input = scanner.nextLine().trim();
+                
+                if (input.isEmpty()) {
+                    break;
+                }
+                
+                try {
+                    int locoId = Integer.parseInt(input);
+                    
+                    // Validate locomotive is available and not in-transit
+                    LocomotiveForAssembly selected = locomotives.stream()
+                        .filter(l -> l.getLocomotive().getId() == locoId)
+                        .findFirst()
+                        .orElse(null);
+                    
+                    if (selected == null) {
+                        System.out.println("✗ Locomotive " + locoId + " is not in the available list.");
+                        continue;
+                    }
+                    
+                    if (selected.isInTransit()) {
+                        System.out.println("✗ Locomotive " + locoId + " is IN-TRANSIT at the requested time and cannot be assigned.");
+                        System.out.println("   Location: " + selected.getLocationDescription());
+                        continue;
+                    }
+                    
+                    if (assignedLocomotiveIds.contains(locoId)) {
+                        System.out.println("✗ Locomotive " + locoId + " has already been assigned.");
+                        continue;
+                    }
+                    
+                    // Validate that locomotive is parked at the route's start facility
+                    if (selected.getParkedFacilityId() != null && 
+                        !selected.getParkedFacilityId().equals(route.getStartFacility().getId())) {
+                        System.out.println("✗ Warning: Locomotive " + locoId + " is parked at " + 
+                            selected.getParkedFacilityName() + ", but the route starts at " + 
+                            route.getStartFacility().getName() + ".");
+                        System.out.println("   It is not possible to select this locomotive. Please choose a different one.");
+                        continue;
+                    }
+                    
+                    // Assign locomotive
+                    try {
+                        assemblyController.assignLocomotiveToRoute(locoId, routeId, requestedStartDate);
+                        assignedLocomotiveIds.add(locoId);
+                        System.out.println("✓ Locomotive " + locoId + " assigned successfully.");
+                    } catch (IllegalArgumentException e) {
+                        System.out.println("✗ Error: " + e.getMessage());
+                    }
+                } catch (NumberFormatException e) {
+                    System.out.println("✗ Invalid input. Please enter a locomotive ID number or press Enter to finish.");
+                }
+            }
+        }
+
+        // Get available wagons filtered by requested date/time
+        List<WagonForAssembly> wagons = assemblyController.getAvailableWagons(routeId, requestedStartDate);
+
+        // Assign wagons one by one
+        List<Integer> assignedWagonIds = new ArrayList<>();
+        if (!wagons.isEmpty()) {
+            System.out.println("\n--- Assign Wagons (for " + dateTimeStr + ") ---");
+            // Show table once at the beginning
+            displayWagons(wagons);
+            System.out.println("\nEnter wagon IDs one by one (press Enter with empty input to finish):");
+            
+            while (true) {
+                System.out.print("Enter wagon ID (or press Enter to finish): ");
+                String input = scanner.nextLine().trim();
+                
+                if (input.isEmpty()) {
+                    break;
+                }
+                
+                try {
+                    int wagonId = Integer.parseInt(input);
+                    
+                    // Validate wagon is available and not in-transit
+                    WagonForAssembly selected = wagons.stream()
+                        .filter(w -> w.getWagon().getId() == wagonId)
+                        .findFirst()
+                        .orElse(null);
+                    
+                    if (selected == null) {
+                        System.out.println("✗ Wagon " + wagonId + " is not in the available list.");
+                        continue;
+                    }
+                    
+                    if (selected.isInTransit()) {
+                        System.out.println("✗ Wagon " + wagonId + " is IN-TRANSIT at the requested time and cannot be assigned.");
+                        System.out.println("   Location: " + selected.getLocationDescription());
+                        continue;
+                    }
+                    
+                    if (assignedWagonIds.contains(wagonId)) {
+                        System.out.println("✗ Wagon " + wagonId + " has already been assigned.");
+                        continue;
+                    }
+                    
+                    // Validate that wagon is parked at the route's start facility
+                    if (selected.getParkedFacilityId() != null && 
+                        !selected.getParkedFacilityId().equals(route.getStartFacility().getId())) {
+                        System.out.println("✗ Warning: Wagon " + wagonId + " is parked at " + 
+                            selected.getParkedFacilityName() + ", but the route starts at " + 
+                            route.getStartFacility().getName() + ".");
+                        System.out.println("   It is not possible to select this wagon. Please choose a different one.");
+                        continue;
+                    }
+                    
+                    // Assign wagon
+                    try {
+                        assemblyController.assignWagonToRoute(wagonId, routeId, requestedStartDate);
+                        assignedWagonIds.add(wagonId);
+                        System.out.println("✓ Wagon " + wagonId + " assigned successfully.");
+                    } catch (IllegalArgumentException e) {
+                        System.out.println("✗ Error: " + e.getMessage());
+                    }
+                } catch (NumberFormatException e) {
+                    System.out.println("✗ Invalid input. Please enter a wagon ID number or press Enter to finish.");
+                }
+            }
+        }
+
+        // Validate that at least one locomotive and one wagon are assigned
+        if (assignedLocomotiveIds.isEmpty()) {
+            System.out.println("\n✗ Error: A train must have at least one locomotive assigned.");
+            connection.rollback();
+            return;
+        }
+        
+        if (assignedWagonIds.isEmpty()) {
+            System.out.println("\n✗ Error: A train must have at least one wagon assigned.");
+            connection.rollback();
+            return;
+        }
+        
+        connection.commit();
+        System.out.println("\n✓ Train assembly completed successfully!");
+        System.out.println("   - Locomotives assigned: " + assignedLocomotiveIds.size());
+        System.out.println("   - Wagons assigned: " + assignedWagonIds.size());
     }
 
     private void viewAssembledTrain() {
         System.out.println("\n=== VIEW ASSEMBLED TRAIN ===");
         try {
+            // Get unique routes (not grouped by train)
+            List<Route> allRoutes = routeRepository.getAll();
+            
+            if (allRoutes.isEmpty()) {
+                System.out.println("No routes available.");
+                return;
+            }
+            
             displayAvailableRoutes();
             
             Integer routeId = getRouteIdFromUser();
@@ -637,9 +818,50 @@ public class FreightManagerUI {
                 return;
             }
             
-            Train train = assemblyController.getTrainForRoute(routeId);
+            // Get all planned trains for this route
+            List<TrainAssemblyController.PlannedTrainInfo> plannedTrains = assemblyController.getAllPlannedTrains();
+            List<TrainAssemblyController.PlannedTrainInfo> trainsForRoute = new ArrayList<>();
+            for (TrainAssemblyController.PlannedTrainInfo train : plannedTrains) {
+                if (train.getRouteId() == routeId) {
+                    trainsForRoute.add(train);
+                }
+            }
+            
+            LocalDateTime selectedStartDate = null;
+            if (trainsForRoute.isEmpty()) {
+                System.out.println("No planned trains found for route " + routeId + ".");
+                return;
+            } else if (trainsForRoute.size() == 1) {
+                // Only one planned train, use it
+                selectedStartDate = trainsForRoute.get(0).getStartDate();
+            } else {
+                // Multiple planned trains, let user select
+                System.out.println("\nMultiple planned trains found for Route ID: " + routeId);
+                DateTimeFormatter tableFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+                for (int i = 0; i < trainsForRoute.size(); i++) {
+                    TrainAssemblyController.PlannedTrainInfo train = trainsForRoute.get(i);
+                    System.out.printf("  %d. Train %d - Start: %s\n",
+                        (i + 1), train.getTrainId(), train.getStartDate().format(tableFormatter));
+                }
+                System.out.print("\nSelect train travel (1-" + trainsForRoute.size() + "): ");
+                String input = scanner.nextLine().trim();
+                try {
+                    int selection = Integer.parseInt(input);
+                    if (selection < 1 || selection > trainsForRoute.size()) {
+                        System.out.println("✗ Invalid selection.");
+                        return;
+                    }
+                    selectedStartDate = trainsForRoute.get(selection - 1).getStartDate();
+                } catch (NumberFormatException e) {
+                    System.out.println("✗ Invalid input. Please enter a number.");
+                    return;
+                }
+            }
+            
+            // Get the train for the selected planned train
+            Train train = trainRepository.getTrainForRoute(routeId, selectedStartDate);
             if (train == null) {
-                System.out.println("No train assigned to route " + routeId + ".");
+                System.out.println("No train assigned to route " + routeId + " for start date " + selectedStartDate + ".");
                 return;
             }
             
@@ -732,16 +954,89 @@ public class FreightManagerUI {
         }
     }
 
+    private void deletePlannedTrain() {
+        System.out.println("\n=== DELETE PLANNED TRAIN ===");
+        try {
+            List<TrainAssemblyController.PlannedTrainInfo> plannedTrains = assemblyController.getAllPlannedTrains();
+            
+            if (plannedTrains.isEmpty()) {
+                System.out.println("No planned trains found.");
+                return;
+            }
+            
+            System.out.println("\n--- All Planned Trains ---");
+            System.out.printf("%-5s | %-12s | %-18s | %-32s | %-32s | %-19s%n",
+                "#", "Route ID", "Train ID", "Start Facility", "End Facility", "Start Date");
+            System.out.println("-----+--------------+--------------------+----------------------------------+----------------------------------+-------------------");
+            
+            DateTimeFormatter tableFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+            for (int i = 0; i < plannedTrains.size(); i++) {
+                TrainAssemblyController.PlannedTrainInfo train = plannedTrains.get(i);
+                System.out.printf("%-5d | %-12d | %-18d | %-32s | %-32s | %-19s%n",
+                    (i + 1), train.getRouteId(), train.getTrainId(),
+                    train.getStartFacilityName(), train.getEndFacilityName(),
+                    train.getStartDate().format(tableFormatter));
+            }
+            
+            System.out.print("\nEnter the number (#) of the planned train to delete (or press Enter to cancel): ");
+            String input = scanner.nextLine().trim();
+            
+            if (input.isEmpty()) {
+                System.out.println("Deletion cancelled.");
+                return;
+            }
+            
+            int selectionNumber;
+            try {
+                selectionNumber = Integer.parseInt(input);
+            } catch (NumberFormatException e) {
+                System.out.println("Invalid input. Please enter a number.");
+                return;
+            }
+            
+            if (selectionNumber < 1 || selectionNumber > plannedTrains.size()) {
+                System.out.println("Invalid selection. Please enter a number between 1 and " + plannedTrains.size() + ".");
+                return;
+            }
+            
+            TrainAssemblyController.PlannedTrainInfo selectedTrain = plannedTrains.get(selectionNumber - 1);
+            
+            DateTimeFormatter confirmFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+            System.out.print("\nAre you sure you want to delete the planned train for route " + selectedTrain.getRouteId() + 
+                " (Train " + selectedTrain.getTrainId() + ") at " + selectedTrain.getStartDate().format(confirmFormatter) + "? (y/n): ");
+            String confirm = scanner.nextLine().trim().toLowerCase();
+            
+            if (!"y".equals(confirm) && !"yes".equals(confirm)) {
+                System.out.println("Deletion cancelled.");
+                return;
+            }
+            
+            boolean success = assemblyController.deletePlannedTrain(selectedTrain.getRouteId(), selectedTrain.getStartDate());
+            if (success) {
+                connection.commit();
+                System.out.println("\n✓ Planned train deleted successfully!");
+                System.out.println("   All assigned locomotives and wagons have been moved back to parked status.");
+            } else {
+                System.out.println("\n✗ Error: Planned train not found.");
+            }
+        } catch (IllegalArgumentException e) {
+            System.out.println("\n✗ Error: " + e.getMessage());
+            rollback();
+        } catch (Exception e) {
+            throw new RuntimeException("Error deleting planned train: " + e.getMessage(), e);
+        }
+    }
+
     // ============================================================================
-    // TRAIN SCHEDULING MENU (USLP10)
+    // TRAIN SCHEDULING MENU
     // ============================================================================
 
     private void showTrainSchedulingMenu() {
         boolean back = false;
         while (!back) {
-            System.out.println("\n=== TRAIN SCHEDULING (USLP10) ===");
-            System.out.println("1. Dispatch train (scheduler - manual/automatic path)");
-            System.out.println("2. View scheduled routes");
+            System.out.println("\n=== TRAIN SCHEDULING ===");
+            System.out.println("1. Dispatch train");
+            System.out.println("2. View scheduled trains");
             System.out.println("3. View passage times for route");
             System.out.println("4. View crossings for route");
             System.out.println("5. View trains available for dispatch");
@@ -751,7 +1046,7 @@ public class FreightManagerUI {
             String choice = scanner.nextLine().trim();
             switch (choice) {
                 case "1":
-                    dispatchTrainScheduler();
+                    dispatchTrain();
                     break;
                 case "2":
                     viewScheduledRoutesScheduler();
@@ -774,322 +1069,52 @@ public class FreightManagerUI {
         }
     }
 
-    private void dispatchTrainScheduler() {
-        System.out.print("\nDo you want to use (A)utomatic or (M)anual path calculation? [A/M]: ");
-        String pathType = scanner.nextLine().trim().toUpperCase();
-        
-        if (!"A".equals(pathType) && !"AUTOMATIC".equals(pathType) && 
-            !"M".equals(pathType) && !"MANUAL".equals(pathType)) {
-            System.out.println("✗ Invalid choice. Please enter 'A' for Automatic or 'M' for Manual.");
-            return;
-        }
-        
-        boolean isAutomatic = "A".equals(pathType) || "AUTOMATIC".equals(pathType);
-        
-        try {
-            // Get trains with their routes
-            List<Train> availableTrains = schedulerController.getTrainsAvailableForDispatch();
-            if (availableTrains.isEmpty()) {
-                System.out.println("No trains available for dispatch.");
-                return;
-            }
-            
-            // Show trains with their routes
-            System.out.println("\n--- Available Trains and Routes ---");
-            Map<Integer, List<Route>> trainRoutesMap = new java.util.HashMap<>();
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
-            
-            for (Train train : availableTrains) {
-                List<Route> routes = dispatchController.getRoutesByTrainId(train.getId());
-                trainRoutesMap.put(train.getId(), routes);
-                
-                System.out.println("\nTrain ID: " + train.getId() + " (Operator ID: " + train.getTrainOperatorId() + ")");
-                if (routes.isEmpty()) {
-                    System.out.println("  No routes defined for this train.");
-                } else {
-                    System.out.println("  Routes:");
-                    for (Route route : routes) {
-                        String startDate = route.getStartDate() != null 
-                            ? route.getStartDate().format(formatter) 
-                            : "Not scheduled";
-                        System.out.printf("    Route ID: %d - %s -> %s (Departure: %s)\n",
-                            route.getId(),
-                            route.getStartFacility().getName(),
-                            route.getEndFacility().getName(),
-                            startDate);
-                    }
-                }
-            }
-            
-            System.out.print("\nEnter Train ID: ");
-            int trainId;
-            try {
-                trainId = Integer.parseInt(scanner.nextLine().trim());
-            } catch (NumberFormatException e) {
-                System.out.println("✗ Invalid Train ID. Please enter a number.");
-                return;
-            }
-            
-            // Validate train exists
-            Train selectedTrain = availableTrains.stream()
-                .filter(t -> t.getId() == trainId)
-                .findFirst()
-                .orElse(null);
-            if (selectedTrain == null) {
-                System.out.println("✗ Train ID " + trainId + " not found in available trains.");
-                return;
-            }
-            
-            // Get routes for selected train
-            List<Route> trainRoutes = trainRoutesMap.get(trainId);
-            if (trainRoutes == null || trainRoutes.isEmpty()) {
-                System.out.println("✗ No routes defined for Train " + trainId + ".");
-                System.out.println("Please create a route first using Route Planning or Train Dispatch menu.");
-                return;
-            }
-            
-            // If multiple routes, let user select one
-            Route selectedRoute;
-            if (trainRoutes.size() == 1) {
-                selectedRoute = trainRoutes.get(0);
-                System.out.println("\nUsing Route ID: " + selectedRoute.getId());
-                System.out.println("  Start: " + selectedRoute.getStartFacility().getName());
-                System.out.println("  End: " + selectedRoute.getEndFacility().getName());
-                if (selectedRoute.getStartDate() != null) {
-                    System.out.println("  Departure: " + selectedRoute.getStartDate().format(formatter));
-                }
-            } else {
-                System.out.println("\n--- Routes for Train " + trainId + " ---");
-                for (int i = 0; i < trainRoutes.size(); i++) {
-                    Route route = trainRoutes.get(i);
-                    String startDate = route.getStartDate() != null 
-                        ? route.getStartDate().format(formatter) 
-                        : "Not scheduled";
-                    System.out.printf("%d. Route ID: %d - %s -> %s (Departure: %s)\n",
-                        i + 1,
-                        route.getId(),
-                        route.getStartFacility().getName(),
-                        route.getEndFacility().getName(),
-                        startDate);
-                }
-                System.out.print("\nSelect route (1-" + trainRoutes.size() + "): ");
-                int routeChoice;
-                try {
-                    routeChoice = Integer.parseInt(scanner.nextLine().trim());
-                    if (routeChoice < 1 || routeChoice > trainRoutes.size()) {
-                        System.out.println("✗ Invalid route selection.");
-                        return;
-                    }
-                    selectedRoute = trainRoutes.get(routeChoice - 1);
-                } catch (NumberFormatException e) {
-                    System.out.println("✗ Invalid input. Please enter a number.");
-                    return;
-                }
-            }
-            
-            // Validate route has required information
-            if (selectedRoute.getStartDate() == null) {
-                System.out.println("✗ Route " + selectedRoute.getId() + " does not have a scheduled departure time.");
-                return;
-            }
-            
-            // Use the existing route
-            int existingRouteId = selectedRoute.getId();
-            int startFacilityId = selectedRoute.getStartFacility().getId();
-            int endFacilityId = selectedRoute.getEndFacility().getId();
-            
-            List<Integer> pathFacilityIds = new ArrayList<>();
-            
-            if (isAutomatic) {
-                // Automatic path calculation
-                System.out.println("\nCalculating automatic path...");
-                try {
-                    List<Integer> calculatedPath = automaticPathService.calculateShortestPath(startFacilityId, endFacilityId);
-                    if (calculatedPath == null || calculatedPath.isEmpty()) {
-                        System.out.println("✗ No path found from facility " + startFacilityId + " to facility " + endFacilityId);
-                        return;
-                    }
-                    // Remove start and end facilities from path (they're route attributes)
-                    calculatedPath.removeIf(id -> id == startFacilityId || id == endFacilityId);
-                    pathFacilityIds = calculatedPath;
-                    System.out.println("✓ Path calculated automatically with " + pathFacilityIds.size() + " intermediate facility(ies).");
-                } catch (Exception e) {
-                    System.out.println("✗ Error calculating automatic path: " + e.getMessage());
-                    return;
-                }
-            } else {
-                // Manual path definition
-                System.out.println("\n=== DEFINE ROUTE PATH (Manual) ===");
-                System.out.println("Enter intermediate facility IDs in order (press Enter with empty line to finish):");
-                int currentFacilityId = startFacilityId;
-                
-                // Get all facilities for validation
-                List<Facility> facilities = facilityRepository.getAll();
-                
-                while (true) {
-                    try {
-                        List<Facility> connectedFacilities = routePlannerService.getConnectedFacilities(currentFacilityId);
-                        if (!connectedFacilities.isEmpty()) {
-                            System.out.println("\nFacilities connected to current facility (ID: " + currentFacilityId + "):");
-                            for (Facility connected : connectedFacilities) {
-                                if (connected.getId() == endFacilityId) {
-                                    System.out.printf("  ID: %d - %s (destination)\n", connected.getId(), connected.getName());
-                                } else if (!pathFacilityIds.contains(connected.getId())) {
-                                    System.out.printf("  ID: %d - %s\n", connected.getId(), connected.getName());
-                                }
-                            }
-                        }
-                    } catch (Exception e) {
-                        // Continue without showing connections
-                    }
-                    
-                    System.out.print("\nFacility ID (or press Enter to finish): ");
-                    String input = scanner.nextLine().trim();
-                    if (input.isEmpty()) {
-                        break;
-                    }
-                    
-                    try {
-                        int facilityId = Integer.parseInt(input);
-                        Facility facility = facilities.stream()
-                            .filter(f -> f.getId() == facilityId)
-                            .findFirst()
-                            .orElse(null);
-                        
-                        if (facility == null) {
-                            System.out.println("✗ Invalid facility ID.");
-                            continue;
-                        }
-                        
-                        if (!pathFacilityIds.isEmpty() && 
-                            pathFacilityIds.get(pathFacilityIds.size() - 1).equals(facilityId)) {
-                            System.out.println("✗ Cannot add the same facility twice in a row.");
-                            continue;
-                        }
-                        
-                        pathFacilityIds.add(facilityId);
-                        System.out.println("✓ Added: " + facility.getName());
-                        currentFacilityId = facilityId;
-                    } catch (NumberFormatException e) {
-                        System.out.println("✗ Invalid facility ID. Please enter a number.");
-                    }
-                }
-            }
-            
-            // Clear existing path points and add new ones
-            System.out.println("\nUpdating route path...");
-            try {
-                // Delete existing path points for this route
-                java.sql.PreparedStatement deleteStmt = connection.prepareStatement(
-                    "DELETE FROM Path WHERE RouteID = ?");
-                deleteStmt.setInt(1, existingRouteId);
-                deleteStmt.executeUpdate();
-                deleteStmt.close();
-                
-                // Add new path points
-                if (!pathFacilityIds.isEmpty()) {
-                    int seqNumber = 2; // Start from 2 (1 is start facility)
-                    for (Integer facilityId : pathFacilityIds) {
-                        routeRepository.addPathPoint(existingRouteId, facilityId, seqNumber++);
-                    }
-                }
-                
-                // Reload route with new path points
-                Route updatedRoute = routeRepository.getById(existingRouteId);
-                if (updatedRoute == null) {
-                    System.out.println("✗ Failed to reload route.");
-                    return;
-                }
-                
-                // Schedule the route (calculate times and detect crossings)
-                TrainSchedulerService schedulerService = new TrainSchedulerService(connection);
-                SchedulingResult result = schedulerService.scheduleRoute(updatedRoute);
-                
-                connection.commit();
-                
-                System.out.println("✓ Route scheduled successfully!");
-                System.out.println("\n--- Route Information ---");
-                System.out.println("Route ID: " + updatedRoute.getId());
-                System.out.println("Start Facility: " + updatedRoute.getStartFacility().getName());
-                System.out.println("End Facility: " + updatedRoute.getEndFacility().getName());
-                System.out.println("Departure Time: " + updatedRoute.getStartDate().format(formatter));
-                
-                System.out.println("\n--- Estimated Passage Times ---");
-                displayPassageTimesTable(result.getEvents());
-                
-                if (!result.getCrossings().isEmpty()) {
-                    System.out.println("\n--- Crossing Operations Required ---");
-                    displayCrossingsTable(result.getCrossings());
-                } else {
-                    System.out.println("\n--- No crossing operations required ---");
-                }
-            } catch (SQLException e) {
-                System.out.println("✗ Error updating route path: " + e.getMessage());
-                connection.rollback();
-                throw e;
-            }
-        } catch (Exception e) {
-            throw new RuntimeException("Error dispatching train: " + e.getMessage(), e);
-        }
-    }
 
     private void viewScheduledRoutesScheduler() {
-        System.out.println("\n=== SCHEDULED ROUTES ===");
+        System.out.println("\n=== SCHEDULED TRAINS ===");
         try {
-            List<Route> routes = schedulerController.getAllScheduledRoutes();
-            if (routes.isEmpty()) {
-                System.out.println("No routes scheduled.");
+            List<TrainAssemblyController.PlannedTrainInfo> plannedTrains = assemblyController.getAllPlannedTrains();
+            
+            if (plannedTrains.isEmpty()) {
+                System.out.println("No scheduled trains found.");
                 return;
             }
             
-            System.out.println(String.format("%-10s | %-25s | %-25s | %-12s | %-19s",
-                "Route ID", "Start Facility", "End Facility", "Train ID", "Departure Time"));
-            System.out.println(String.format("%-10s-+-%-25s-+-%-25s-+-%-12s-+-%-19s",
-                "----------", "-------------------------", "-------------------------", "------------", "-------------------"));
+            System.out.printf("%-10s | %-10s | %-25s | %-25s | %-19s%n",
+                "Train ID", "Route ID", "Start Facility", "End Facility", "Start Date");
+            System.out.printf("%-10s-+-%-10s-+-%-25s-+-%-25s-+-%-19s%n",
+                "----------", "----------", "-------------------------", "-------------------------", "-------------------");
             
             DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
-            for (Route route : routes) {
-                String startFacility = route.getStartFacility() != null ? route.getStartFacility().getName() : "N/A";
-                String endFacility = route.getEndFacility() != null ? route.getEndFacility().getName() : "N/A";
-                String trainId = route.getTrainId() > 0 ? String.valueOf(route.getTrainId()) : "Not assigned";
-                String startDate = route.getStartDate() != null 
-                    ? route.getStartDate().format(formatter) 
-                    : "Not scheduled";
-                
-                System.out.println(String.format("%-10d | %-25s | %-25s | %-12s | %-19s",
-                    route.getId(),
-                    truncateString(startFacility, 25),
-                    truncateString(endFacility, 25),
-                    trainId,
-                    startDate));
+            for (TrainAssemblyController.PlannedTrainInfo train : plannedTrains) {
+                System.out.printf("%-10d | %-10d | %-25s | %-25s | %-19s%n",
+                    train.getTrainId(),
+                    train.getRouteId(),
+                    truncateString(train.getStartFacilityName(), 25),
+                    truncateString(train.getEndFacilityName(), 25),
+                    train.getStartDate().format(formatter));
             }
         } catch (Exception e) {
-            throw new RuntimeException("Error viewing scheduled routes: " + e.getMessage(), e);
+            throw new RuntimeException("Error viewing scheduled trains: " + e.getMessage(), e);
         }
     }
 
     private void viewPassageTimesScheduler() {
         System.out.println("\n=== VIEW PASSAGE TIMES ===");
         try {
-            // Show available routes first
-            List<Route> routes = schedulerController.getAllScheduledRoutes();
+            // Get unique routes
+            List<Route> routes = routeRepository.getAll();
             if (routes.isEmpty()) {
                 System.out.println("No routes scheduled.");
                 return;
             }
             
             System.out.println("\nAvailable routes:");
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
             for (Route route : routes) {
-                String startDate = route.getStartDate() != null 
-                    ? route.getStartDate().format(formatter) 
-                    : "Not scheduled";
-                System.out.printf("  Route ID: %d - Train %d: %s -> %s (Departure: %s)\n",
+                String path = buildRoutePath(route);
+                System.out.printf("  Route ID: %d: %s\n",
                     route.getId(),
-                    route.getTrainId(),
-                    route.getStartFacility().getName(),
-                    route.getEndFacility().getName(),
-                    startDate);
+                    path);
             }
             
             Integer routeId = getRouteIdFromUser();
@@ -1102,7 +1127,70 @@ public class FreightManagerUI {
                 return;
             }
             
-            List<TrainEvent> events = schedulerController.getPassageTimes(routeId);
+            // Get all planned trains for this route
+            List<TrainAssemblyController.PlannedTrainInfo> plannedTrains = assemblyController.getAllPlannedTrains();
+            List<TrainAssemblyController.PlannedTrainInfo> trainsForRoute = new ArrayList<>();
+            for (TrainAssemblyController.PlannedTrainInfo train : plannedTrains) {
+                if (train.getRouteId() == routeId) {
+                    trainsForRoute.add(train);
+                }
+            }
+            
+            LocalDateTime selectedStartDate = null;
+            if (trainsForRoute.isEmpty()) {
+                System.out.println("No planned trains found for route " + routeId + ".");
+                return;
+            } else if (trainsForRoute.size() == 1) {
+                // Only one planned train, use it
+                selectedStartDate = trainsForRoute.get(0).getStartDate();
+            } else {
+                // Multiple planned trains, let user select
+                System.out.println("\nMultiple planned trains found for Route ID: " + routeId);
+                DateTimeFormatter tableFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+                for (int i = 0; i < trainsForRoute.size(); i++) {
+                    TrainAssemblyController.PlannedTrainInfo train = trainsForRoute.get(i);
+                    System.out.printf("  %d. Train %d - Start: %s\n",
+                        (i + 1), train.getTrainId(), train.getStartDate().format(tableFormatter));
+                }
+                System.out.print("\nSelect planned train (1-" + trainsForRoute.size() + "): ");
+                String input = scanner.nextLine().trim();
+                try {
+                    int selection = Integer.parseInt(input);
+                    if (selection < 1 || selection > trainsForRoute.size()) {
+                        System.out.println("✗ Invalid selection.");
+                        return;
+                    }
+                    selectedStartDate = trainsForRoute.get(selection - 1).getStartDate();
+                } catch (NumberFormatException e) {
+                    System.out.println("✗ Invalid input. Please enter a number.");
+                    return;
+                }
+            }
+            
+            // Get route and update it with selected start date for passage time calculation
+            Route route = routeRepository.getById(routeId);
+            if (route == null) {
+                System.out.println("✗ Route ID " + routeId + " does not exist.");
+                return;
+            }
+            
+            // Get train for the selected planned train
+            Train train = trainRepository.getTrainForRoute(routeId, selectedStartDate);
+            if (train == null) {
+                System.out.println("No train assigned to route " + routeId + " for start date " + selectedStartDate + ".");
+                return;
+            }
+            
+            // Create a route with the selected start date for calculation
+            Route routeWithStartDate = new Route(route.getId(), route.getTrainId(), 
+                route.getStartFacility(), route.getEndFacility(), selectedStartDate);
+            for (Route.RoutePathPoint pathPoint : route.getPath()) {
+                routeWithStartDate.addPathPoint(pathPoint.getFacility(), pathPoint.getSequenceNumber());
+            }
+            
+            // Calculate passage times
+            TrainSchedulerService schedulerService = new TrainSchedulerService(connection);
+            List<TrainEvent> events = schedulerService.calculateRouteTimes(routeWithStartDate, train);
             if (events.isEmpty()) {
                 System.out.println("No passage times found for route " + routeId + ".");
                 return;
@@ -1117,25 +1205,19 @@ public class FreightManagerUI {
     private void viewCrossingsScheduler() {
         System.out.println("\n=== VIEW CROSSINGS ===");
         try {
-            // Show available routes first
-            List<Route> routes = schedulerController.getAllScheduledRoutes();
+            // Get unique routes
+            List<Route> routes = routeRepository.getAll();
             if (routes.isEmpty()) {
                 System.out.println("No routes scheduled.");
                 return;
             }
             
             System.out.println("\nAvailable routes:");
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
             for (Route route : routes) {
-                String startDate = route.getStartDate() != null 
-                    ? route.getStartDate().format(formatter) 
-                    : "Not scheduled";
-                System.out.printf("  Route ID: %d - Train %d: %s -> %s (Departure: %s)\n",
+                String path = buildRoutePath(route);
+                System.out.printf("  Route ID: %d: %s\n",
                     route.getId(),
-                    route.getTrainId(),
-                    route.getStartFacility().getName(),
-                    route.getEndFacility().getName(),
-                    startDate);
+                    path);
             }
             
             Integer routeId = getRouteIdFromUser();
@@ -1148,6 +1230,47 @@ public class FreightManagerUI {
                 return;
             }
             
+            // Get all planned trains for this route
+            List<TrainAssemblyController.PlannedTrainInfo> plannedTrains = assemblyController.getAllPlannedTrains();
+            List<TrainAssemblyController.PlannedTrainInfo> trainsForRoute = new ArrayList<>();
+            for (TrainAssemblyController.PlannedTrainInfo train : plannedTrains) {
+                if (train.getRouteId() == routeId) {
+                    trainsForRoute.add(train);
+                }
+            }
+            
+            LocalDateTime selectedStartDate = null;
+            if (trainsForRoute.isEmpty()) {
+                System.out.println("No planned trains found for route " + routeId + ".");
+                return;
+            } else if (trainsForRoute.size() == 1) {
+                // Only one planned train, use it
+                selectedStartDate = trainsForRoute.get(0).getStartDate();
+            } else {
+                // Multiple planned trains, let user select
+                System.out.println("\nMultiple planned trains found for Route ID: " + routeId);
+                DateTimeFormatter tableFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+                for (int i = 0; i < trainsForRoute.size(); i++) {
+                    TrainAssemblyController.PlannedTrainInfo train = trainsForRoute.get(i);
+                    System.out.printf("  %d. Train %d - Start: %s\n",
+                        (i + 1), train.getTrainId(), train.getStartDate().format(tableFormatter));
+                }
+                System.out.print("\nSelect planned train (1-" + trainsForRoute.size() + "): ");
+                String input = scanner.nextLine().trim();
+                try {
+                    int selection = Integer.parseInt(input);
+                    if (selection < 1 || selection > trainsForRoute.size()) {
+                        System.out.println("✗ Invalid selection.");
+                        return;
+                    }
+                    selectedStartDate = trainsForRoute.get(selection - 1).getStartDate();
+                } catch (NumberFormatException e) {
+                    System.out.println("✗ Invalid input. Please enter a number.");
+                    return;
+                }
+            }
+            
+            // Get crossings for the route (crossings are detected across all routes, so we just need routeId)
             List<CrossingOperation> crossings = schedulerController.getCrossings(routeId);
             if (crossings.isEmpty()) {
                 System.out.println("No crossings found for route " + routeId + ".");
@@ -1176,188 +1299,141 @@ public class FreightManagerUI {
         }
     }
 
-    // ============================================================================
-    // TRAIN DISPATCH MENU (with Freight)
-    // ============================================================================
-
-    private void showTrainDispatchMenu() {
-        boolean back = false;
-        while (!back) {
-            System.out.println("\n=== TRAIN DISPATCH (with Freight) ===");
-            System.out.println("1. Dispatch a train (with freight assignment)");
-            System.out.println("2. View train schedule with passage times");
-            System.out.println("3. View crossing operations");
-            System.out.println("0. Back to main menu");
-            System.out.print("\nEnter your choice: ");
-            
-            String choice = scanner.nextLine().trim();
-            switch (choice) {
-                case "1":
-                    dispatchTrain();
-                    break;
-                case "2":
-                    viewTrainSchedule();
-                    break;
-                case "3":
-                    viewCrossingOperations();
-                    break;
-                case "0":
-                    back = true;
-                    break;
-                default:
-                    System.out.println("Invalid choice. Please try again.");
-            }
-        }
-    }
 
     private void dispatchTrain() {
         System.out.println("\n=== DISPATCH TRAIN ===");
         try {
-            List<Train> trains = dispatchController.getAllTrains();
-            if (trains.isEmpty()) {
-                System.out.println("No trains available.");
+            // Show planned trains with their locomotives and wagons
+            List<TrainAssemblyController.PlannedTrainInfo> plannedTrains = assemblyController.getAllPlannedTrains();
+            if (plannedTrains.isEmpty()) {
+                System.out.println("No planned trains available for dispatch.");
                 return;
             }
             
-            System.out.println("\nAvailable trains:");
-            for (Train train : trains) {
-                System.out.printf("  Train ID: %d (Locomotives: %d, Wagons: %d, Power: %.2f kW, Weight: %.2f tons)\n",
-                    train.getId(), train.getLocomotives().size(), train.getWagons().size(),
-                    train.getTotalPower(), train.getTotalWeight());
+            System.out.println("\nAvailable planned trains:");
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+            for (TrainAssemblyController.PlannedTrainInfo plannedTrain : plannedTrains) {
+                // Get train with locomotives and wagons for this planned train
+                Train train = trainRepository.getTrainForRoute(plannedTrain.getRouteId(), plannedTrain.getStartDate());
+                if (train != null) {
+                    System.out.printf("  Planned Train: Route %d, Train %d - %s -> %s (Start: %s)\n",
+                        plannedTrain.getRouteId(),
+                        plannedTrain.getTrainId(),
+                        plannedTrain.getStartFacilityName(),
+                        plannedTrain.getEndFacilityName(),
+                        plannedTrain.getStartDate().format(formatter));
+                    System.out.printf("    Locomotives: %d, Wagons: %d, Power: %.2f kW, Weight: %.2f tons\n",
+                        train.getLocomotives().size(), train.getWagons().size(),
+                        train.getTotalPower(), train.getTotalWeight());
+                } else {
+                    System.out.printf("  Planned Train: Route %d, Train %d - %s -> %s (Start: %s) - No train assembled\n",
+                        plannedTrain.getRouteId(),
+                        plannedTrain.getTrainId(),
+                        plannedTrain.getStartFacilityName(),
+                        plannedTrain.getEndFacilityName(),
+                        plannedTrain.getStartDate().format(formatter));
+                }
             }
             
-            System.out.print("\nEnter train ID: ");
-            int trainId = Integer.parseInt(scanner.nextLine().trim());
+            System.out.print("\nEnter Train ID: ");
+            String input = scanner.nextLine().trim();
+            int trainId;
+            try {
+                trainId = Integer.parseInt(input);
+            } catch (NumberFormatException e) {
+                System.out.println("✗ Invalid input. Please enter a valid Train ID.");
+                return;
+            }
             
-            Train selectedTrain = trains.stream()
-                .filter(t -> t.getId() == trainId)
-                .findFirst()
-                .orElse(null);
+            // Find the planned train with this train ID
+            TrainAssemblyController.PlannedTrainInfo selectedPlannedTrain = null;
+            for (TrainAssemblyController.PlannedTrainInfo train : plannedTrains) {
+                if (train.getTrainId() == trainId) {
+                    selectedPlannedTrain = train;
+                    break;
+                }
+            }
+            
+            if (selectedPlannedTrain == null) {
+                System.out.println("✗ No planned train found with Train ID " + trainId + ".");
+                return;
+            }
+            
+            int routeId = selectedPlannedTrain.getRouteId();
+            LocalDateTime selectedStartDate = selectedPlannedTrain.getStartDate();
+            int selectedTrainId = selectedPlannedTrain.getTrainId();
+            
+            // Get the train for the selected planned train
+            Train selectedTrain = trainRepository.getTrainForRoute(routeId, selectedStartDate);
             if (selectedTrain == null) {
-                System.out.println("✗ Invalid train ID.");
+                System.out.println("✗ No train assembled for route " + routeId + " with start date " + selectedStartDate + ".");
                 return;
             }
             
-            List<Facility> facilities = dispatchController.getAllFacilities();
-            System.out.println("\nAvailable facilities:");
-            for (Facility facility : facilities) {
-                System.out.printf("  ID: %d - %s\n", facility.getId(), facility.getName());
+            // Use the route and train from the selected planned train
+            Route route = routeRepository.getById(routeId);
+            if (route == null) {
+                System.out.println("✗ Route ID " + routeId + " does not exist.");
+                return;
             }
             
-            System.out.print("\nEnter start facility ID: ");
-            int startFacilityId = Integer.parseInt(scanner.nextLine().trim());
+            // Get freight for this route to validate path includes origin/destination facilities
+            List<Freight> routeFreights = freightRepository.getByRouteId(routeId, selectedStartDate);
             
-            System.out.print("Enter end facility ID: ");
-            int endFacilityId = Integer.parseInt(scanner.nextLine().trim());
+            // Ask for automatic or manual path definition
+            System.out.print("\nPath definition: (a)utomatic (use route's path) or (m)anual (define path manually)? [a/m]: ");
+            String pathChoice = scanner.nextLine().trim().toLowerCase();
             
-            System.out.print("Enter departure date/time (yyyy-MM-dd HH:mm:ss): ");
-            String dateTimeStr = scanner.nextLine().trim();
-            LocalDateTime startDate = TrainDispatchController.parseDateTime(dateTimeStr);
+            Route routeForSchedule;
             
-            // Ask for path type (manual or automatic)
-            System.out.print("\nPath type - (A)utomatic or (M)anual? [A/M]: ");
-            String pathType = scanner.nextLine().trim().toUpperCase();
-            
-            List<Integer> pathFacilityIds = new ArrayList<>();
-            if ("A".equals(pathType) || "AUTOMATIC".equals(pathType)) {
-                // Automatic path calculation
-                System.out.println("\nCalculating automatic path...");
-                try {
-                    List<Integer> calculatedPath = automaticPathService.calculateShortestPath(startFacilityId, endFacilityId);
-                    if (calculatedPath == null || calculatedPath.isEmpty()) {
-                        System.out.println("✗ No path found from facility " + startFacilityId + " to facility " + endFacilityId);
-                        return;
-                    }
-                    // Remove start and end facilities from path (they're route attributes)
-                    calculatedPath.removeIf(id -> id == startFacilityId || id == endFacilityId);
-                    pathFacilityIds = calculatedPath;
-                    System.out.println("✓ Path calculated automatically with " + pathFacilityIds.size() + " intermediate facility(ies).");
-                    if (!pathFacilityIds.isEmpty()) {
-                        System.out.println("Intermediate facilities:");
-                        for (Integer facilityId : pathFacilityIds) {
-                            Facility facility = facilities.stream()
-                                .filter(f -> f.getId() == facilityId)
-                                .findFirst()
-                                .orElse(null);
-                            if (facility != null) {
-                                System.out.println("  - " + facility.getName() + " (ID: " + facilityId + ")");
-                            }
-                        }
-                    }
-                } catch (Exception e) {
-                    System.out.println("✗ Error calculating automatic path: " + e.getMessage());
+            if (pathChoice.equals("m") || pathChoice.equals("manual")) {
+                // Manual path selection
+                System.out.println("\n=== MANUAL PATH DEFINITION ===");
+                List<Integer> intermediateFacilityIds = selectManualPath(
+                    route.getStartFacility().getId(), 
+                    route.getEndFacility().getId(),
+                    routeFreights
+                );
+                
+                if (intermediateFacilityIds == null) {
+                    System.out.println("✗ Path selection cancelled or invalid.");
                     return;
                 }
-            } else {
-                // Manual path definition
-                System.out.println("\n=== DEFINE ROUTE PATH (Manual) ===");
-                System.out.println("Enter facility IDs in order (press Enter with empty line to finish):");
-                while (true) {
-                    System.out.print("Facility ID (or press Enter to finish): ");
-                    String input = scanner.nextLine().trim();
-                    if (input.isEmpty()) {
-                        break;
-                    }
-                    try {
-                        int facilityId = Integer.parseInt(input);
-                        pathFacilityIds.add(facilityId);
-                        Facility facility = facilities.stream()
-                            .filter(f -> f.getId() == facilityId)
-                            .findFirst()
-                            .orElse(null);
-                        if (facility != null) {
-                            System.out.println("  ✓ Added: " + facility.getName());
-                        }
-                    } catch (NumberFormatException e) {
-                        System.out.println("✗ Invalid facility ID.");
-                    }
-                }
-            }
-            
-            // Select freight
-            System.out.println("\n=== SELECT FREIGHT ===");
-            List<Freight> unassignedFreight = dispatchController.getUnassignedFreight();
-            List<Integer> selectedFreightIds = new ArrayList<>();
-            
-            if (!unassignedFreight.isEmpty()) {
-                System.out.println("Available unassigned freight:");
-                for (Freight freight : unassignedFreight) {
-                    System.out.printf("  Freight ID: %d - %s -> %s\n",
-                        freight.getId(),
-                        freight.getOriginFacility().getName(),
-                        freight.getDestinationFacility().getName());
-                }
-                System.out.println("\nEnter freight IDs to assign (press Enter with empty line to finish):");
-                while (true) {
-                    System.out.print("Freight ID (or press Enter to finish): ");
-                    String input = scanner.nextLine().trim();
-                    if (input.isEmpty()) {
-                        break;
-                    }
-                    try {
-                        int freightId = Integer.parseInt(input);
-                        Freight freight = unassignedFreight.stream()
-                            .filter(f -> f.getId() == freightId)
-                            .findFirst()
-                            .orElse(null);
-                        if (freight != null) {
-                            selectedFreightIds.add(freightId);
-                            System.out.println("  ✓ Added: Freight " + freightId);
-                        } else {
-                            System.out.println("✗ Invalid freight ID.");
-                        }
-                    } catch (NumberFormatException e) {
-                        System.out.println("✗ Invalid freight ID.");
+                
+                // Create route with manually selected path
+                routeForSchedule = new Route(route.getId(), route.getTrainId(), 
+                    route.getStartFacility(), route.getEndFacility(), selectedStartDate);
+                int sequenceNumber = 1;
+                for (Integer facilityId : intermediateFacilityIds) {
+                    Facility facility = facilityRepository.getById(facilityId);
+                    if (facility != null) {
+                        routeForSchedule.addPathPoint(facility, sequenceNumber++);
                     }
                 }
             } else {
-                System.out.println("No unassigned freight available. Route will be created without freight.");
+                // Automatic path - use route's existing path
+                routeForSchedule = new Route(route.getId(), route.getTrainId(), 
+                    route.getStartFacility(), route.getEndFacility(), selectedStartDate);
+                for (Route.RoutePathPoint pathPoint : route.getPath()) {
+                    routeForSchedule.addPathPoint(pathPoint.getFacility(), pathPoint.getSequenceNumber());
+                }
             }
             
-            // Dispatch the train
-            System.out.println("\nDispatching train...");
-            SchedulingResult result = dispatchController.dispatchTrain(
-                trainId, startFacilityId, endFacilityId, startDate, pathFacilityIds, selectedFreightIds);
+            System.out.println("\nDispatching planned train:");
+            System.out.println("  Route ID: " + routeId);
+            System.out.println("  Train ID: " + selectedTrainId);
+            System.out.println("  Start Facility: " + route.getStartFacility().getName());
+            System.out.println("  End Facility: " + route.getEndFacility().getName());
+            System.out.println("  Path: " + buildRoutePath(routeForSchedule));
+            System.out.println("  Departure: " + selectedStartDate.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+            System.out.println("  Locomotives: " + selectedTrain.getLocomotives().size());
+            System.out.println("  Wagons: " + selectedTrain.getWagons().size());
+            
+            // Schedule the route (this calculates passage times and detects crossings)
+            TrainSchedulerService schedulerService = new TrainSchedulerService(connection);
+            SchedulingResult result = schedulerService.scheduleRoute(routeForSchedule);
+            
+            connection.commit();
             
             System.out.println("\n✓ Train dispatched successfully!");
             printSchedule(result);
@@ -1366,91 +1442,6 @@ public class FreightManagerUI {
         }
     }
 
-    private void viewTrainSchedule() {
-        System.out.println("\n=== TRAIN SCHEDULE ===");
-        try {
-            // Show available routes first
-            List<Train> trains = dispatchController.getAllTrains();
-            List<Route> allRoutes = new ArrayList<>();
-            for (Train train : trains) {
-                allRoutes.addAll(dispatchController.getRoutesByTrainId(train.getId()));
-            }
-            
-            if (allRoutes.isEmpty()) {
-                System.out.println("No routes scheduled.");
-                return;
-            }
-            
-            System.out.println("\nAvailable routes:");
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-            for (Route route : allRoutes) {
-                System.out.printf("  Route ID: %d - Train %d: %s -> %s (Departure: %s)\n",
-                    route.getId(),
-                    route.getTrainId(),
-                    route.getStartFacility().getName(),
-                    route.getEndFacility().getName(),
-                    route.getStartDate() != null ? route.getStartDate().format(formatter) : "Not scheduled");
-            }
-            
-            Integer routeId = getRouteIdFromUser();
-            if (routeId == null) {
-                return;
-            }
-            
-            if (!validateRouteId(routeId)) {
-                System.out.println("✗ Route ID " + routeId + " does not exist.");
-                return;
-            }
-            
-            SchedulingResult result = dispatchController.getScheduleForRoute(routeId);
-            printSchedule(result);
-        } catch (Exception e) {
-            throw new RuntimeException("Error viewing train schedule: " + e.getMessage(), e);
-        }
-    }
-
-    private void viewCrossingOperations() {
-        System.out.println("\n=== ALL CROSSING OPERATIONS ===");
-        try {
-            List<Train> trains = dispatchController.getAllTrains();
-            List<Route> allRoutes = new ArrayList<>();
-            for (Train train : trains) {
-                allRoutes.addAll(dispatchController.getRoutesByTrainId(train.getId()));
-            }
-            
-            if (allRoutes.isEmpty()) {
-                System.out.println("No routes scheduled.");
-                return;
-            }
-            
-            TrainSchedulerService schedulerService = new TrainSchedulerService(connection);
-            List<CrossingOperation> crossings = schedulerService.detectCrossings(allRoutes);
-            
-            System.out.println("\nDetected " + crossings.size() + " crossing operation(s).");
-            
-            if (crossings.isEmpty()) {
-                System.out.println("No crossing operations required.");
-            } else {
-                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-                for (CrossingOperation crossing : crossings) {
-                    System.out.printf("\nTrain %d (Route %d) and Train %d (Route %d):\n",
-                        crossing.getTrain1().getId(),
-                        crossing.getRoute1Id(),
-                        crossing.getTrain2().getId(),
-                        crossing.getRoute2Id());
-                    System.out.printf("  Location: %s\n", crossing.getCrossingLocation().getName());
-                    System.out.printf("  Time: %s\n", crossing.getCrossingTime().format(formatter));
-                    if (crossing.usesSiding()) {
-                        System.out.printf("  Using siding ID: %d\n", crossing.getSiding().getId());
-                    } else {
-                        System.out.println("  Crossing at station");
-                    }
-                }
-            }
-        } catch (Exception e) {
-            throw new RuntimeException("Error viewing crossing operations: " + e.getMessage(), e);
-        }
-    }
 
     // ============================================================================
     // VIEW MENU
@@ -1460,7 +1451,7 @@ public class FreightManagerUI {
         boolean back = false;
         while (!back) {
             System.out.println("\n=== VIEW INFORMATION ===");
-            System.out.println("1. View all trains");
+            System.out.println("1. View planned trains");
             System.out.println("2. View all facilities");
             System.out.println("3. View all routes");
             System.out.println("4. View all locomotives");
@@ -1472,7 +1463,7 @@ public class FreightManagerUI {
             String choice = scanner.nextLine().trim();
             switch (choice) {
                 case "1":
-                    viewAllTrains();
+                    viewPlannedTrains();
                     break;
                 case "2":
                     viewAllFacilities();
@@ -1498,17 +1489,48 @@ public class FreightManagerUI {
         }
     }
 
-    private void viewAllTrains() {
-        System.out.println("\n=== ALL TRAINS ===");
+    private void viewPlannedTrains() {
+        System.out.println("\n=== PLANNED TRAINS ===");
         try {
-            List<Train> trains = dispatchController.getAllTrains();
-            for (Train train : trains) {
-                System.out.printf("\nTrain ID: %d\n", train.getId());
-                System.out.printf("  Locomotives: %d (Total Power: %.2f kW)\n",
-                    train.getLocomotives().size(), train.getTotalPower());
-                System.out.printf("  Wagons: %d (Total Weight: %.2f tons)\n",
-                    train.getWagons().size(), train.getTotalWeight());
-                System.out.printf("  Max Speed: %.2f km/h\n", train.getMaxSpeed());
+            List<TrainAssemblyController.PlannedTrainInfo> plannedTrains = assemblyController.getAllPlannedTrains();
+            
+            if (plannedTrains.isEmpty()) {
+                System.out.println("No planned trains found.");
+                return;
+            }
+            
+            // Remove duplicates - group by route ID and start date to show unique planned trains
+            java.util.Map<String, TrainAssemblyController.PlannedTrainInfo> uniqueTrains = new java.util.LinkedHashMap<>();
+            for (TrainAssemblyController.PlannedTrainInfo train : plannedTrains) {
+                String key = train.getRouteId() + "_" + train.getStartDate();
+                uniqueTrains.put(key, train);
+            }
+            
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+            for (TrainAssemblyController.PlannedTrainInfo train : uniqueTrains.values()) {
+                try {
+                    Route route = routeRepository.getById(train.getRouteId());
+                    if (route != null) {
+                        String path = buildRoutePath(route);
+                        System.out.printf("\nTrain ID: %d - Route ID: %d\n", train.getTrainId(), train.getRouteId());
+                        System.out.printf("  Path: %s\n", path);
+                        System.out.printf("  Start Date: %s\n", train.getStartDate().format(formatter));
+                    } else {
+                        // Fallback if route not found
+                        System.out.printf("\nTrain ID: %d - Route ID: %d\n", train.getTrainId(), train.getRouteId());
+                        System.out.printf("  Start Facility: %s -> End Facility: %s\n",
+                            train.getStartFacilityName(),
+                            train.getEndFacilityName());
+                        System.out.printf("  Start Date: %s\n", train.getStartDate().format(formatter));
+                    }
+                } catch (Exception e) {
+                    // Fallback on error
+                    System.out.printf("\nTrain ID: %d - Route ID: %d\n", train.getTrainId(), train.getRouteId());
+                    System.out.printf("  Start Facility: %s -> End Facility: %s\n",
+                        train.getStartFacilityName(),
+                        train.getEndFacilityName());
+                    System.out.printf("  Start Date: %s\n", train.getStartDate().format(formatter));
+                }
             }
         } catch (Exception e) {
             System.out.println("Error: " + e.getMessage());
@@ -1530,25 +1552,18 @@ public class FreightManagerUI {
     private void viewAllRoutes() {
         System.out.println("\n=== ALL ROUTES ===");
         try {
-            List<Train> trains = dispatchController.getAllTrains();
-            List<Route> allRoutes = new ArrayList<>();
-            for (Train train : trains) {
-                allRoutes.addAll(dispatchController.getRoutesByTrainId(train.getId()));
-            }
+            List<Route> allRoutes = routeRepository.getAll();
             
             if (allRoutes.isEmpty()) {
-                System.out.println("No routes scheduled.");
+                System.out.println("No routes found.");
                 return;
             }
             
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
             for (Route route : allRoutes) {
-                System.out.printf("\nRoute ID: %d - Train %d: %s -> %s (Departure: %s)\n",
+                String path = buildRoutePath(route);
+                System.out.printf("\nRoute ID: %d: %s\n",
                     route.getId(),
-                    route.getTrainId(),
-                    route.getStartFacility().getName(),
-                    route.getEndFacility().getName(),
-                    route.getStartDate() != null ? route.getStartDate().format(formatter) : "Not scheduled");
+                    path);
             }
         } catch (Exception e) {
             System.out.println("Error: " + e.getMessage());
@@ -1573,9 +1588,8 @@ public class FreightManagerUI {
         try {
             List<Wagon> wagons = wagonRepository.getAll();
             for (Wagon wagon : wagons) {
-                System.out.printf("  Wagon ID: %d - Payload: %.2f t, Volume: %.2f m³, Loaded: %s\n",
-                    wagon.getId(), wagon.getSpecs().getPayload(), wagon.getSpecs().getVolumeCapacity(),
-                    wagon.isLoaded() ? "Yes" : "No");
+                System.out.printf("  Wagon ID: %d - Payload: %.2f t, Volume: %.2f m³\n",
+                    wagon.getId(), wagon.getSpecs().getPayload(), wagon.getSpecs().getVolumeCapacity());
             }
         } catch (Exception e) {
             System.out.println("Error: " + e.getMessage());
@@ -1598,40 +1612,12 @@ public class FreightManagerUI {
         }
     }
 
-    // ============================================================================
-    // MANAGEMENT MENU
-    // ============================================================================
-
-    private void showManagementMenu() {
-        boolean back = false;
-        while (!back) {
-            System.out.println("\n=== MANAGEMENT OPERATIONS ===");
-            System.out.println("1. Delete a route");
-            System.out.println("0. Back to main menu");
-            System.out.print("\nEnter your choice: ");
-            
-            String choice = scanner.nextLine().trim();
-            switch (choice) {
-                case "1":
-                    deleteRoute();
-                    break;
-                case "0":
-                    back = true;
-                    break;
-                default:
-                    System.out.println("Invalid choice. Please try again.");
-            }
-        }
-    }
 
     private void deleteRoute() {
         System.out.println("\n=== DELETE ROUTE ===");
         try {
-            List<Train> trains = dispatchController.getAllTrains();
-            List<Route> allRoutes = new ArrayList<>();
-            for (Train train : trains) {
-                allRoutes.addAll(dispatchController.getRoutesByTrainId(train.getId()));
-            }
+            // Get unique routes (not grouped by train)
+            List<Route> allRoutes = routeRepository.getAll();
             
             if (allRoutes.isEmpty()) {
                 System.out.println("No routes scheduled.");
@@ -1639,14 +1625,11 @@ public class FreightManagerUI {
             }
             
             System.out.println("\nScheduled routes:");
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
             for (Route route : allRoutes) {
-                System.out.printf("  Route ID: %d - Train %d: %s -> %s (Departure: %s)\n",
+                String path = buildRoutePath(route);
+                System.out.printf("  Route ID: %d: %s\n",
                     route.getId(),
-                    route.getTrainId(),
-                    route.getStartFacility().getName(),
-                    route.getEndFacility().getName(),
-                    route.getStartDate() != null ? route.getStartDate().format(formatter) : "Not scheduled");
+                    path);
             }
             
             Integer routeId = getRouteIdFromUser();
@@ -1721,16 +1704,62 @@ public class FreightManagerUI {
         System.out.println("\n=== ESTIMATED PASSAGE TIMES ===");
         System.out.printf("Route ID: %d, Train ID: %d\n",
             result.getRoute().getId(), result.getRoute().getTrainId());
-        System.out.println("Path: " + result.getRoute().getStartFacility().getName() + " -> " +
-            result.getRoute().getEndFacility().getName());
+        System.out.println("Path: " + buildRoutePath(result.getRoute()));
         
+        // Get the train from the repository using routeId and startDate to properly initialize loaded status
+        Route route = result.getRoute();
+        Train train;
+        if (route.getStartDate() != null) {
+            train = trainRepository.getTrainForRoute(route.getId(), route.getStartDate());
+        } else {
+            train = trainRepository.getTrainForRoute(route.getId());
+        }
+        if (train == null) {
+            throw new RuntimeException("Train not found for route: " + route.getId());
+        }
+        
+        TrainSchedulerService schedulerService = new TrainSchedulerService(connection);
         FreightRepository freightRepo = new FreightRepository(connection, facilityRepository);
-        Map<Integer, List<Freight>> pickupsByFacility = freightRepo.getPickupsByFacility(result.getRoute().getId());
-        Map<Integer, List<Freight>> deliveriesByFacility = freightRepo.getDeliveriesByFacility(result.getRoute().getId());
+        Map<Integer, List<Freight>> pickupsByFacility;
+        Map<Integer, List<Freight>> deliveriesByFacility;
+        if (route.getStartDate() != null) {
+            pickupsByFacility = freightRepo.getPickupsByFacility(route.getId(), route.getStartDate());
+            deliveriesByFacility = freightRepo.getDeliveriesByFacility(route.getId(), route.getStartDate());
+        } else {
+            pickupsByFacility = freightRepo.getPickupsByFacility(route.getId());
+            deliveriesByFacility = freightRepo.getDeliveriesByFacility(route.getId());
+        }
+        
+        // Create a working copy of the train to track weight changes
+        Train currentTrain = new Train(train.getId(), train.getTrainOperatorId());
+        for (Locomotive loco : train.getLocomotives()) {
+            currentTrain.addLocomotive(loco);
+        }
+        // Copy wagons and reset them all to unloaded initially
+        // We'll mark them as loaded as we process pickups at each facility
+        // This ensures speed changes are shown when pickups/deliveries occur
+        for (Wagon wagon : train.getWagons()) {
+            Wagon wagonCopy = new Wagon(wagon.getId(), wagon.getVehicleModelId(), 
+                wagon.getTrainOperatorId(), wagon.getSpecs(), wagon.getTare());
+            wagonCopy.setLoaded(false);  // Start all wagons as unloaded
+            currentTrain.addWagon(wagonCopy);
+        }
+        
+        // Track which freight has already been picked up/delivered to avoid duplicates
+        java.util.Set<Integer> pickedUpFreightIds = new java.util.HashSet<>();
+        java.util.Set<Integer> deliveredFreightIds = new java.util.HashSet<>();
         
         System.out.println("\nPassage times:");
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-        for (TrainEvent event : result.getEvents()) {
+        
+        // Track previous speed for comparison
+        Double previousSpeed = null;
+        
+        // Helper method to calculate speed based on train weight
+        // (inline calculation - speed = min(operationalSpeed, sqrt(power/weight) * 18))
+        
+        for (int i = 0; i < result.getEvents().size(); i++) {
+            TrainEvent event = result.getEvents().get(i);
             System.out.printf("  %s: %s\n",
                 event.getFacility().getName(),
                 event.getEventTime().format(formatter));
@@ -1739,22 +1768,144 @@ public class FreightManagerUI {
             List<Freight> pickups = pickupsByFacility.get(facilityId);
             List<Freight> deliveries = deliveriesByFacility.get(facilityId);
             
-            if (pickups != null && !pickups.isEmpty()) {
-                System.out.printf("     PICKUP: Freight loaded at %s\n", event.getFacility().getName());
-                for (Freight freight : pickups) {
-                    List<Integer> wagonIds = freightRepo.getWagonIdsByFreightId(freight.getId());
-                    System.out.printf("      Freight ID %d: %d wagon(s) -> Destination: %s\n",
-                        freight.getId(), wagonIds.size(), freight.getDestinationFacility().getName());
+            // Calculate current speed BEFORE any operations at this facility
+            // This represents the speed with the current train state (wagons loaded/unloaded as they are now)
+            // For pickup operations, this will be with unloaded wagons
+            // For delivery operations, this will be with wagons loaded as they currently are
+            double speedBeforeOps;
+            double calculatedSpeedBeforeOps = 0;
+            if (currentTrain.getTotalWeight() > 0) {
+                double powerToWeightRatio = currentTrain.getTotalPower() / currentTrain.getTotalWeight();
+                calculatedSpeedBeforeOps = Math.sqrt(powerToWeightRatio) * 18.0;
+                speedBeforeOps = Math.min(currentTrain.getOperationalSpeed(), calculatedSpeedBeforeOps);
+            } else {
+                speedBeforeOps = currentTrain.getOperationalSpeed();
+                calculatedSpeedBeforeOps = speedBeforeOps;
+            }
+            
+            // Track if we have pickups/deliveries to show speed change
+            boolean hasPickups = (pickups != null && !pickups.isEmpty());
+            boolean hasDeliveries = (deliveries != null && !deliveries.isEmpty());
+            
+            // For the first facility, we'll show speed as part of the pickup operation
+            // For facilities without operations, show speed if it changed
+            if (previousSpeed != null && !hasPickups && !hasDeliveries) {
+                // No operations at this facility, show speed if it changed from previous
+                if (Math.abs(speedBeforeOps - previousSpeed) > 0.01) {
+                    System.out.printf("     Speed: %.2f km/h -> %.2f km/h\n", previousSpeed, speedBeforeOps);
+                    previousSpeed = speedBeforeOps;
                 }
             }
             
-            if (deliveries != null && !deliveries.isEmpty()) {
-                System.out.printf("     DELIVERY: Freight unloaded at %s\n", event.getFacility().getName());
-                for (Freight freight : deliveries) {
-                    List<Integer> wagonIds = freightRepo.getWagonIdsByFreightId(freight.getId());
-                    System.out.printf("      Freight ID %d: %d wagon(s) from %s\n",
-                        freight.getId(), wagonIds.size(), freight.getOriginFacility().getName());
+            // Track speed after operations at this facility
+            double currentSpeed = speedBeforeOps;
+            
+            // Handle pickups - update wagon loaded status and recalculate speed
+            if (hasPickups) {
+                // Filter pickups to only include freight that hasn't been picked up yet
+                List<Freight> actualPickups = new ArrayList<>();
+                for (Freight freight : pickups) {
+                    if (!pickedUpFreightIds.contains(freight.getId())) {
+                        actualPickups.add(freight);
+                        pickedUpFreightIds.add(freight.getId());
+                    }
                 }
+                
+                if (!actualPickups.isEmpty()) {
+                    System.out.printf("     PICKUP: Freight loaded at %s\n", event.getFacility().getName());
+                    for (Freight freight : actualPickups) {
+                        List<Integer> wagonIds = freightRepo.getWagonIdsByFreightId(freight.getId());
+                        System.out.printf("      Freight ID %d: %d wagon(s) -> Destination: %s\n",
+                            freight.getId(), wagonIds.size(), freight.getDestinationFacility().getName());
+                        
+                        // Update wagon loaded status
+                        for (Wagon wagon : currentTrain.getWagons()) {
+                            if (wagonIds.contains(wagon.getId()) && !wagon.isLoaded()) {
+                                wagon.setLoaded(true);
+                            }
+                        }
+                    }
+                    // Recalculate speed after pickup (weight increased)
+                    // IMPORTANT: speedBeforeOps is calculated BEFORE loading wagons, so it represents
+                    // the speed with unloaded wagons. We compare to this to show the speed change.
+                    double speedBeforePickup = speedBeforeOps;
+                    double calculatedSpeedBefore = calculatedSpeedBeforeOps;
+                    
+                    // Now calculate speed after pickup with loaded wagons
+                    double speedAfterPickup;
+                    double calculatedSpeedAfter = 0;
+                    if (currentTrain.getTotalWeight() > 0) {
+                        double powerToWeightRatio = currentTrain.getTotalPower() / currentTrain.getTotalWeight();
+                        calculatedSpeedAfter = Math.sqrt(powerToWeightRatio) * 18.0;
+                        speedAfterPickup = Math.min(currentTrain.getOperationalSpeed(), calculatedSpeedAfter);
+                        currentSpeed = speedAfterPickup;
+                    } else {
+                        speedAfterPickup = currentTrain.getOperationalSpeed();
+                        calculatedSpeedAfter = speedAfterPickup;
+                        currentSpeed = speedAfterPickup;
+                    }
+                    
+                    // Always show speed after pickup operation
+                    // Show speed change if it changed, otherwise just show the speed
+                    boolean displayedSpeedChanged = Math.abs(speedAfterPickup - speedBeforePickup) > 0.001;
+                    
+                    if (displayedSpeedChanged) {
+                        // Speed changed - show the change
+                        System.out.printf("     Speed: %.2f km/h -> %.2f km/h (after pickup)\n", speedBeforePickup, speedAfterPickup);
+                    } else {
+                        // Speed didn't change (might be capped at operational limit) - still show it
+                        System.out.printf("     Speed: %.2f km/h (after pickup)\n", speedAfterPickup);
+                    }
+                    // Update previousSpeed to the new speed after pickup
+                    previousSpeed = speedAfterPickup;
+                }
+            }
+            
+            // Handle deliveries - update wagon loaded status and recalculate speed
+            if (hasDeliveries) {
+                // Filter deliveries to only include freight that hasn't been delivered yet
+                List<Freight> actualDeliveries = new ArrayList<>();
+                for (Freight freight : deliveries) {
+                    if (!deliveredFreightIds.contains(freight.getId())) {
+                        actualDeliveries.add(freight);
+                        deliveredFreightIds.add(freight.getId());
+                    }
+                }
+                
+                if (!actualDeliveries.isEmpty()) {
+                    System.out.printf("     DELIVERY: Freight unloaded at %s\n", event.getFacility().getName());
+                    for (Freight freight : actualDeliveries) {
+                        List<Integer> wagonIds = freightRepo.getWagonIdsByFreightId(freight.getId());
+                        System.out.printf("      Freight ID %d: %d wagon(s) from %s\n",
+                            freight.getId(), wagonIds.size(), freight.getOriginFacility().getName());
+                        
+                        // Update wagon loaded status
+                        for (Wagon wagon : currentTrain.getWagons()) {
+                            if (wagonIds.contains(wagon.getId()) && wagon.isLoaded()) {
+                                wagon.setLoaded(false);
+                            }
+                        }
+                    }
+                    // Recalculate speed after delivery (weight decreased)
+                    double speedBeforeDelivery = (previousSpeed != null) ? previousSpeed : speedBeforeOps;
+                    if (currentTrain.getTotalWeight() > 0) {
+                        double powerToWeightRatio = currentTrain.getTotalPower() / currentTrain.getTotalWeight();
+                        double calculatedSpeed = Math.sqrt(powerToWeightRatio) * 18.0;
+                        currentSpeed = Math.min(currentTrain.getOperationalSpeed(), calculatedSpeed);
+                    } else {
+                        currentSpeed = currentTrain.getOperationalSpeed();
+                    }
+                    if (Math.abs(currentSpeed - speedBeforeDelivery) > 0.01) {
+                        System.out.printf("     Speed: %.2f km/h -> %.2f km/h (after delivery)\n", speedBeforeDelivery, currentSpeed);
+                    }
+                    // Update previousSpeed to the new speed after delivery
+                    previousSpeed = currentSpeed;
+                }
+            }
+            
+            // Update previousSpeed for next iteration if no operations occurred
+            if ((pickups == null || pickups.isEmpty()) && (deliveries == null || deliveries.isEmpty())) {
+                previousSpeed = currentSpeed;
             }
         }
         
@@ -1763,20 +1914,20 @@ public class FreightManagerUI {
             System.out.println("\n=== CROSSING OPERATIONS ===");
             int currentRouteId = result.getRoute().getId();
             for (CrossingOperation crossing : crossings) {
-                Train currentTrain, otherTrain;
+                Train crossingCurrentTrain, otherTrain;
                 int otherRouteId;
                 if (crossing.getRoute1Id() == currentRouteId) {
-                    currentTrain = crossing.getTrain1();
+                    crossingCurrentTrain = crossing.getTrain1();
                     otherTrain = crossing.getTrain2();
                     otherRouteId = crossing.getRoute2Id();
                 } else {
-                    currentTrain = crossing.getTrain2();
+                    crossingCurrentTrain = crossing.getTrain2();
                     otherTrain = crossing.getTrain1();
                     otherRouteId = crossing.getRoute1Id();
                 }
                 
                 System.out.printf("Train %d (Route %d) will cross with Train %d (Route %d) at %s\n",
-                    currentTrain.getId(), currentRouteId, otherTrain.getId(), otherRouteId,
+                    crossingCurrentTrain.getId(), currentRouteId, otherTrain.getId(), otherRouteId,
                     crossing.getCrossingLocation().getName());
                 if (crossing.usesSiding()) {
                     System.out.printf("    Using siding (ID: %d) on segment %d\n",
@@ -1801,26 +1952,13 @@ public class FreightManagerUI {
         }
         
         System.out.println("\n--- Available Routes ---");
-        System.out.println(String.format("%-10s | %-25s | %-25s | %-12s | %-19s",
-            "Route ID", "Start Facility", "End Facility", "Train ID", "Start Date"));
-        System.out.println(String.format("%-10s-+-%-25s-+-%-25s-+-%-12s-+-%-19s",
-            "----------", "-------------------------", "-------------------------", "------------", "-------------------"));
+        System.out.printf("%-10s | %s%n", "Route ID", "Path");
+        System.out.printf("%-10s-+-%s%n", "----------", "----------------------------------------");
         
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
         for (Route route : routes) {
-            String startFacility = route.getStartFacility() != null ? route.getStartFacility().getName() : "N/A";
-            String endFacility = route.getEndFacility() != null ? route.getEndFacility().getName() : "N/A";
-            String trainId = route.getTrainId() > 0 ? String.valueOf(route.getTrainId()) : "Not assigned";
-            String startDate = route.getStartDate() != null 
-                ? route.getStartDate().format(formatter) 
-                : "Not scheduled";
+            String path = buildRoutePath(route);
             
-            System.out.println(String.format("%-10d | %-25s | %-25s | %-12s | %-19s",
-                route.getId(),
-                truncateString(startFacility, 25),
-                truncateString(endFacility, 25),
-                trainId,
-                startDate));
+            System.out.printf("%-10d | %s%n", route.getId(), path);
         }
     }
 
@@ -1831,22 +1969,22 @@ public class FreightManagerUI {
         }
         
         System.out.println("\nLocomotives are ordered by: In-transit first, then parked by distance (descending)");
-        System.out.println(String.format("%-8s | %-12s | %-12s | %-12s | %-25s | %-40s",
-            "ID", "Status", "Power (kW)", "Max Speed", "Make", "Location"));
-        System.out.println(String.format("%-8s-+-%-12s-+-%-12s-+-%-12s-+-%-25s-+-%-40s",
-            "--------", "------------", "------------", "------------", "-------------------------", "----------------------------------------"));
+        System.out.printf("%-8s | %-12s | %-12s | %-12s | %-25s | %-40s%n",
+            "ID", "Status", "Power (kW)", "Max Speed", "Make", "Location");
+        System.out.printf("%-8s-+-%-12s-+-%-12s-+-%-12s-+-%-25s-+-%-40s%n",
+            "--------", "------------", "------------", "------------", "-------------------------", "----------------------------------------");
         
         for (LocomotiveForAssembly loco : locomotives) {
             String status = loco.isInTransit() ? "IN-TRANSIT" : "PARKED";
             String location = loco.getLocationDescription();
             String make = truncateString(loco.getLocomotive().getSpecs().getMake(), 25);
-            System.out.println(String.format("%-8d | %-12s | %-12.1f | %-12.1f | %-25s | %-40s",
+            System.out.printf("%-8d | %-12s | %-12.1f | %-12.1f | %-25s | %-40s%n",
                 loco.getLocomotive().getId(),
                 status,
                 loco.getLocomotive().getPower(),
                 loco.getLocomotive().getMaxSpeed(),
                 make,
-                truncateString(location, 40)));
+                truncateString(location, 40));
         }
     }
 
@@ -1857,34 +1995,30 @@ public class FreightManagerUI {
         }
         
         System.out.println("\nWagons are ordered by: In-transit first, then parked by distance (descending)");
-        System.out.println(String.format("%-10s | %-12s | %-12s | %-12s | %-12s | %-40s",
-            "ID", "Status", "Payload (t)", "Volume (m³)", "Weight (t)", "Location"));
-        System.out.println(String.format("%-10s-+-%-12s-+-%-12s-+-%-12s-+-%-12s-+-%-40s",
-            "----------", "------------", "------------", "------------", "------------", "----------------------------------------"));
+        System.out.printf("%-10s | %-12s | %-12s | %-12s | %-12s | %-40s%n",
+            "ID", "Status", "Payload (t)", "Volume (m³)", "Weight (t)", "Location");
+        System.out.printf("%-10s-+-%-12s-+-%-12s-+-%-12s-+-%-12s-+-%-40s%n",
+            "----------", "------------", "------------", "------------", "------------", "----------------------------------------");
         
         for (WagonForAssembly wagon : wagons) {
             String status = wagon.isInTransit() ? "IN-TRANSIT" : "PARKED";
             String location = wagon.getLocationDescription();
-            System.out.println(String.format("%-10d | %-12s | %-12.1f | %-12.1f | %-12.1f | %-40s",
+            System.out.printf("%-10d | %-12s | %-12.1f | %-12.1f | %-12.1f | %-40s%n",
                 wagon.getWagon().getId(),
                 status,
                 wagon.getWagon().getSpecs().getPayload(),
                 wagon.getWagon().getSpecs().getVolumeCapacity(),
                 wagon.getWagon().getTotalWeight(),
-                truncateString(location, 40)));
+                truncateString(location, 40));
         }
     }
 
     private void displayTrainsTable(List<Train> trains) {
-        System.out.println(String.format("%-10s | %-15s",
-            "Train ID", "Operator ID"));
-        System.out.println(String.format("%-10s-+-%-15s",
-            "----------", "---------------"));
+        System.out.printf("%-10s | %-15s%n", "Train ID", "Operator ID");
+        System.out.printf("%-10s-+-%-15s%n", "----------", "---------------");
         
         for (Train train : trains) {
-            System.out.println(String.format("%-10d | %-15d",
-                train.getId(),
-                train.getTrainOperatorId()));
+            System.out.printf("%-10d | %-15d%n", train.getId(), train.getTrainOperatorId());
         }
     }
 
@@ -1896,49 +2030,60 @@ public class FreightManagerUI {
         }
         
         System.out.println("\n--- Available Facilities ---");
-        System.out.println(String.format("%-10s | %-40s",
-            "Facility ID", "Name"));
-        System.out.println(String.format("%-10s-+-%-40s",
-            "----------", "----------------------------------------"));
+        System.out.printf("%-10s | %-40s%n", "Facility ID", "Name");
+        System.out.printf("%-10s-+-%-40s%n", "----------", "----------------------------------------");
         
         for (Facility facility : facilities) {
-            System.out.println(String.format("%-10d | %-40s",
-                facility.getId(),
-                truncateString(facility.getName(), 40)));
+            System.out.printf("%-10d | %-40s%n", facility.getId(), truncateString(facility.getName(), 40));
         }
     }
 
     private void displayPassageTimesTable(List<TrainEvent> events) {
-        System.out.println(String.format("%-10s | %-25s | %-19s",
-            "Sequence", "Facility", "Estimated Time"));
-        System.out.println(String.format("%-10s-+-%-25s-+-%-19s",
-            "----------", "-------------------------", "-------------------"));
+        System.out.printf("%-10s | %-25s | %-19s%n",
+            "Sequence", "Facility", "Estimated Time");
+        System.out.printf("%-10s-+-%-25s-+-%-19s%n",
+            "----------", "-------------------------", "-------------------");
         
         int sequence = 1;
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
         for (TrainEvent event : events) {
-            System.out.println(String.format("%-10d | %-25s | %-19s",
+            System.out.printf("%-10d | %-25s | %-19s%n",
                 sequence++,
                 truncateString(event.getFacility().getName(), 25),
-                event.getEventTime().format(formatter)));
+                event.getEventTime().format(formatter));
         }
     }
 
     private void displayCrossingsTable(List<CrossingOperation> crossings) {
-        System.out.println(String.format("%-10s | %-10s | %-25s | %-10s | %-19s",
-            "Train 1", "Train 2", "Location", "Siding", "Crossing Time"));
-        System.out.println(String.format("%-10s-+-%-10s-+-%-25s-+-%-10s-+-%-19s",
-            "----------", "----------", "-------------------------", "----------", "-------------------"));
+        System.out.printf("%-10s | %-10s | %-25s | %-10s | %-19s%n",
+            "Train 1", "Train 2", "Location", "Siding", "Crossing Time");
+        System.out.printf("%-10s-+-%-10s-+-%-25s-+-%-10s-+-%-19s%n",
+            "----------", "----------", "-------------------------", "----------", "-------------------");
         
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
         for (CrossingOperation crossing : crossings) {
-            System.out.println(String.format("%-10d | %-10d | %-25s | %-10s | %-19s",
+            System.out.printf("%-10d | %-10d | %-25s | %-10s | %-19s%n",
                 crossing.getTrain1().getId(),
                 crossing.getTrain2().getId(),
                 truncateString(crossing.getCrossingLocation().getName(), 25),
                 crossing.usesSiding() ? "Yes" : "No",
-                crossing.getCrossingTime().format(formatter)));
+                crossing.getCrossingTime().format(formatter));
         }
+    }
+
+    private String buildRoutePath(Route route) {
+        StringBuilder pathBuilder = new StringBuilder();
+        pathBuilder.append(route.getStartFacility().getName());
+        
+        for (Route.RoutePathPoint pathPoint : route.getPath()) {
+            pathBuilder.append(" -> ");
+            pathBuilder.append(pathPoint.getFacility().getName());
+        }
+        
+        pathBuilder.append(" -> ");
+        pathBuilder.append(route.getEndFacility().getName());
+        
+        return pathBuilder.toString();
     }
 
     private String truncateString(String str, int maxLength) {
@@ -1956,6 +2101,134 @@ public class FreightManagerUI {
             connection.rollback();
         } catch (SQLException ex) {
             // Silent rollback on error
+        }
+    }
+    
+    /**
+     * Helper method to select manual path for route dispatch.
+     * Reuses logic from createRoutePlan for manual path selection.
+     * Validates that all freight origin/destination facilities are included in the path.
+     * 
+     * @param startFacilityId the start facility ID
+     * @param endFacilityId the end facility ID
+     * @param routeFreights list of freights assigned to the route (for validation)
+     * @return list of intermediate facility IDs in order, or null if cancelled/invalid
+     */
+    private List<Integer> selectManualPath(int startFacilityId, int endFacilityId, List<Freight> routeFreights) {
+        try {
+            // Get facilities
+            List<Facility> facilities = dispatchController.getAllFacilities();
+            
+            // Collect required facilities from freight (origin and destination)
+            java.util.Set<Integer> requiredFacilityIds = new java.util.HashSet<>();
+            for (Freight freight : routeFreights) {
+                requiredFacilityIds.add(freight.getOriginFacility().getId());
+                requiredFacilityIds.add(freight.getDestinationFacility().getId());
+            }
+            
+            // Show required facilities if any
+            if (!requiredFacilityIds.isEmpty()) {
+                System.out.println("\nRequired facilities (from freight origin/destination):");
+                for (Integer facilityId : requiredFacilityIds) {
+                    Facility facility = facilities.stream()
+                        .filter(f -> f.getId() == facilityId)
+                        .findFirst()
+                        .orElse(null);
+                    if (facility != null) {
+                        System.out.printf("  - %s (ID: %d)\n", facility.getName(), facilityId);
+                    }
+                }
+            }
+            
+            // Get intermediate facilities (path points)
+            System.out.println("\nEnter intermediate facility IDs in order (press Enter with empty line to finish):");
+            List<Integer> intermediateFacilityIds = new ArrayList<>();
+            int currentFacilityId = startFacilityId;
+            
+            while (true) {
+                try {
+                    List<Facility> connectedFacilities = routePlannerService.getConnectedFacilities(currentFacilityId);
+                    if (!connectedFacilities.isEmpty()) {
+                        System.out.println("\nFacilities connected to current facility (ID: " + currentFacilityId + "):");
+                        for (Facility connected : connectedFacilities) {
+                            if (connected.getId() == endFacilityId) {
+                                System.out.printf("  ID: %d - %s (destination)\n", connected.getId(), connected.getName());
+                            } else {
+                                System.out.printf("  ID: %d - %s\n", connected.getId(), connected.getName());
+                            }
+                        }
+                    }
+                } catch (Exception e) {
+                    // Continue without showing connections
+                }
+                
+                System.out.print("\nFacility ID (or press Enter to finish): ");
+                String input = scanner.nextLine().trim();
+                if (input.isEmpty()) {
+                    break;
+                }
+                
+                int facilityId;
+                try {
+                    facilityId = Integer.parseInt(input);
+                } catch (NumberFormatException e) {
+                    System.out.println("✗ Invalid facility ID. Please enter a number.");
+                    continue;
+                }
+                
+                Facility facility = facilities.stream()
+                    .filter(f -> f.getId() == facilityId)
+                    .findFirst()
+                    .orElse(null);
+                
+                if (facility == null) {
+                    System.out.println("✗ Invalid facility ID.");
+                    continue;
+                }
+                
+                if (facilityId == endFacilityId) {
+                    // Allow end facility to be added, but warn that path will end here
+                    System.out.println("✓ Added: " + facility.getName() + " (destination reached)");
+                    intermediateFacilityIds.add(facilityId);
+                    break;
+                }
+                
+                if (!intermediateFacilityIds.isEmpty() && 
+                    intermediateFacilityIds.get(intermediateFacilityIds.size() - 1).equals(facilityId)) {
+                    System.out.println("✗ Cannot add the same facility twice in a row.");
+                    continue;
+                }
+                
+                intermediateFacilityIds.add(facilityId);
+                System.out.println("✓ Added: " + facility.getName());
+                currentFacilityId = facilityId;
+            }
+            
+            // Build the complete path for validation
+            List<Integer> completePath = new ArrayList<>();
+            completePath.add(startFacilityId);
+            completePath.addAll(intermediateFacilityIds);
+            completePath.add(endFacilityId);
+            
+            // Validate that all required facilities (from freight) are in the path
+            for (Integer requiredFacilityId : requiredFacilityIds) {
+                if (!completePath.contains(requiredFacilityId)) {
+                    Facility facility = facilities.stream()
+                        .filter(f -> f.getId() == requiredFacilityId)
+                        .findFirst()
+                        .orElse(null);
+                    String facilityName = facility != null ? facility.getName() : "Facility " + requiredFacilityId;
+                    System.out.println("\n✗ Error: Required facility " + facilityName + " (ID: " + requiredFacilityId + 
+                        ") is not in the selected path.");
+                    System.out.println("   The path must include all freight origin and destination facilities.");
+                    return null;
+                }
+            }
+            
+            return intermediateFacilityIds;
+        } catch (Exception e) {
+            System.out.println("✗ Error during path selection: " + e.getMessage());
+            return null;
         }
     }
 }

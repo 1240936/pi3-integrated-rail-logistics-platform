@@ -67,8 +67,8 @@ public class TrainSchedulerService {
      * @return the maximum speed in km/h, or 0 if train weight is zero
      */
     public double calculateSpeed(Train train, LineSegment segment) {
-        // Start with locomotive's max speed
-        double maxLocoSpeed = train.getMaxSpeed();
+        // Start with locomotive's operational speed (not max speed)
+        double operationalLocoSpeed = train.getOperationalSpeed();
         
         // Apply track speed limit if present
         double speedLimit = segment.getSpeedLimit() != null ? segment.getSpeedLimit() : Double.MAX_VALUE;
@@ -90,8 +90,8 @@ public class TrainSchedulerService {
         // For trains, typical values: k ≈ 15-20 for km/h
         double calculatedSpeed = Math.sqrt(powerToWeightRatio) * 18.0; // km/h
         
-        // Take the minimum of all constraints
-        return Math.min(Math.min(maxLocoSpeed, speedLimit), calculatedSpeed);
+        // Take the minimum of all constraints: operational speed, track speed limit, and calculated speed
+        return Math.min(Math.min(operationalLocoSpeed, speedLimit), calculatedSpeed);
     }
 
     /**
@@ -159,55 +159,44 @@ public class TrainSchedulerService {
 
         // Track which wagons are loaded (map of wagon ID to freight ID)
         Map<Integer, Integer> wagonToFreightMap = new HashMap<>();
+        
+        // Track which freight has already been picked up (to avoid picking up multiple times)
+        java.util.Set<Integer> pickedUpFreightIds = new java.util.HashSet<>();
+        
+        // Track which freight has already been delivered (to avoid delivering multiple times)
+        java.util.Set<Integer> deliveredFreightIds = new java.util.HashSet<>();
 
-        // Build initial wagon-to-freight mapping
-        for (List<Freight> freightList : pickupsByFacility.values()) {
-            for (Freight freight : freightList) {
-                List<Integer> wagonIds = freightRepository.getWagonIdsByFreightId(freight.getId());
-                for (Integer wagonId : wagonIds) {
-                    wagonToFreightMap.put(wagonId, freight.getId());
-                }
-            }
-        }
+        // Don't filter path - allow start/end facilities to be in the path
+        // (they may be added as intermediate points in manual path selection)
 
-        // Validate that path doesn't contain start or end facilities (they are route attributes)
+        LocalDateTime currentTime = route.getStartDate();
         int startFacilityId = route.getStartFacility().getId();
         int endFacilityId = route.getEndFacility().getId();
 
-        // Filter out start and end facilities from path if they somehow got included
-        List<Route.RoutePathPoint> filteredPath = new ArrayList<>();
-        for (Route.RoutePathPoint pathPoint : path) {
-            int facilityId = pathPoint.getFacility().getId();
-            // Only include facilities that are not start or end facilities
-            if (facilityId != startFacilityId && facilityId != endFacilityId) {
-                filteredPath.add(pathPoint);
-            }
-        }
-        path = filteredPath; // Use filtered path from now on
-
-        if (path.isEmpty()) {
+        // Check if start facility is the first path point
+        boolean startIsInPath = !path.isEmpty() && path.get(0).getFacility().getId() == startFacilityId;
+        
+        // Start with the start facility (unless it's already the first path point)
+        if (!startIsInPath) {
             TrainEvent startEvent = new TrainEvent(
-                0, route.getId(), train.getId(), route.getStartFacility(), route.getStartDate()
+                0, route.getId(), train.getId(), route.getStartFacility(), currentTime
             );
             events.add(startEvent);
-            return events;
+            
+            // Process freight at start facility
+            processFreightAtFacility(train, route.getStartFacility().getId(), pickupsByFacility,
+                                    deliveriesByFacility, wagonToFreightMap, freightRepository,
+                                    pickedUpFreightIds, deliveredFreightIds);
         }
 
-        LocalDateTime currentTime = route.getStartDate();
-
-        // Start with the start facility
-        TrainEvent startEvent = new TrainEvent(
-            0, route.getId(), train.getId(), route.getStartFacility(), currentTime
-        );
-        events.add(startEvent);
-
-        // Process freight at start facility
-        processFreightAtFacility(train, route.getStartFacility().getId(), pickupsByFacility,
-                                deliveriesByFacility, wagonToFreightMap, freightRepository);
-
-        // Process each segment of the path
-        // The path now contains only intermediate facilities (start and end have been filtered out)
+        // Process each segment of the path (may include start/end facilities if manually added)
         Facility previousFacility = route.getStartFacility();
+        
+        // Handle empty path case
+        if (path.isEmpty()) {
+            // If path is empty, we still need to travel from start to end
+            // This will be handled in the end facility section below
+        }
 
         for (Route.RoutePathPoint pathPoint : path) {
             Facility nextFacility = pathPoint.getFacility();
@@ -281,14 +270,18 @@ public class TrainSchedulerService {
 
             // Process freight pickup/drop-off at this facility
             processFreightAtFacility(train, nextFacility.getId(), pickupsByFacility,
-                                    deliveriesByFacility, wagonToFreightMap, freightRepository);
+                                    deliveriesByFacility, wagonToFreightMap, freightRepository,
+                                    pickedUpFreightIds, deliveredFreightIds);
 
             previousFacility = nextFacility;
         }
 
+        // Check if end facility is already the last path point
+        boolean endIsInPath = !path.isEmpty() && 
+                              path.get(path.size() - 1).getFacility().getId() == endFacilityId;
+        
         // Always add final destination facility (end facility) as the last event
-        // BUT: Only if it's different from the last path point
-        // The end facility should NOT be in the path - it's the final destination
+        // BUT: Only if it's not already the last path point
         Facility endFacility = route.getEndFacility();
 
         // Check if end facility is already the last event (same as last path point)
@@ -298,8 +291,8 @@ public class TrainSchedulerService {
         // Only add end facility if:
         // 1. It's not already the last event
         // 2. It's different from the last path point (previousFacility)
-        // 3. There was at least one path point processed (path was not empty)
-        if (!endFacilityIsLastEvent && endFacility.getId() != previousFacility.getId() && !path.isEmpty()) {
+        // 3. It's not already in the path as the last point
+        if (!endFacilityIsLastEvent && endFacility.getId() != previousFacility.getId() && !endIsInPath) {
             // Find RailLine connecting last path point to end facility
             List<RailLine> connectingRailLines = railLineRepository.findConnectingLines(
                 previousFacility.getId(), endFacility.getId());
@@ -358,12 +351,14 @@ public class TrainSchedulerService {
 
             // Process freight pickup/drop-off at end facility
             processFreightAtFacility(train, endFacility.getId(), pickupsByFacility,
-                                    deliveriesByFacility, wagonToFreightMap, freightRepository);
+                                    deliveriesByFacility, wagonToFreightMap, freightRepository,
+                                    pickedUpFreightIds, deliveredFreightIds);
         } else if (endFacility.getId() == previousFacility.getId()) {
             // End facility is same as last path point, but ensure it's shown as the final destination
             // The event was already added in the loop, so just ensure freight is processed
             processFreightAtFacility(train, endFacility.getId(), pickupsByFacility,
-                                    deliveriesByFacility, wagonToFreightMap, freightRepository);
+                                    deliveriesByFacility, wagonToFreightMap, freightRepository,
+                                    pickedUpFreightIds, deliveredFreightIds);
         }
 
         return events;
@@ -390,39 +385,49 @@ public class TrainSchedulerService {
                                          Map<Integer, List<Freight>> pickupsByFacility,
                                          Map<Integer, List<Freight>> deliveriesByFacility,
                                          Map<Integer, Integer> wagonToFreightMap,
-                                         FreightRepository freightRepository) throws SQLException {
-        // Drop off freight (unload wagons)
+                                         FreightRepository freightRepository,
+                                         java.util.Set<Integer> pickedUpFreightIds,
+                                         java.util.Set<Integer> deliveredFreightIds) throws SQLException {
+        // Drop off freight (unload wagons) - only if not already delivered
         List<Freight> deliveries = deliveriesByFacility.get(facilityId);
         if (deliveries != null) {
             for (Freight freight : deliveries) {
-                List<Integer> wagonIds = freightRepository.getWagonIdsByFreightId(freight.getId());
-                for (Integer wagonId : wagonIds) {
-                    Wagon wagon = train.getWagons().stream()
-                            .filter(w -> w.getId() == wagonId)
-                            .findFirst()
-                            .orElse(null);
-                    if (wagon != null) {
-                        wagon.setLoaded(false);
-                        wagonToFreightMap.remove(wagonId);
+                // Only deliver if not already delivered
+                if (!deliveredFreightIds.contains(freight.getId())) {
+                    List<Integer> wagonIds = freightRepository.getWagonIdsByFreightId(freight.getId());
+                    for (Integer wagonId : wagonIds) {
+                        Wagon wagon = train.getWagons().stream()
+                                .filter(w -> w.getId() == wagonId)
+                                .findFirst()
+                                .orElse(null);
+                        if (wagon != null) {
+                            wagon.setLoaded(false);
+                            wagonToFreightMap.remove(wagonId);
+                        }
                     }
+                    deliveredFreightIds.add(freight.getId());
                 }
             }
         }
 
-        // Pick up freight (load wagons)
+        // Pick up freight (load wagons) - only if not already picked up
         List<Freight> pickups = pickupsByFacility.get(facilityId);
         if (pickups != null) {
             for (Freight freight : pickups) {
-                List<Integer> wagonIds = freightRepository.getWagonIdsByFreightId(freight.getId());
-                for (Integer wagonId : wagonIds) {
-                    Wagon wagon = train.getWagons().stream()
-                            .filter(w -> w.getId() == wagonId)
-                            .findFirst()
-                            .orElse(null);
-                    if (wagon != null) {
-                        wagon.setLoaded(true);
-                        wagonToFreightMap.put(wagonId, freight.getId());
+                // Only pick up if not already picked up
+                if (!pickedUpFreightIds.contains(freight.getId())) {
+                    List<Integer> wagonIds = freightRepository.getWagonIdsByFreightId(freight.getId());
+                    for (Integer wagonId : wagonIds) {
+                        Wagon wagon = train.getWagons().stream()
+                                .filter(w -> w.getId() == wagonId)
+                                .findFirst()
+                                .orElse(null);
+                        if (wagon != null) {
+                            wagon.setLoaded(true);
+                            wagonToFreightMap.put(wagonId, freight.getId());
+                        }
                     }
+                    pickedUpFreightIds.add(freight.getId());
                 }
             }
         }

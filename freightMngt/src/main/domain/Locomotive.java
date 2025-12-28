@@ -82,6 +82,15 @@ public class Locomotive {
     }
 
     /**
+     * Gets the operational speed of this locomotive.
+     * 
+     * @return the operational speed in km/h, or 0.0 if specs are not available
+     */
+    public double getOperationalSpeed() {
+        return specs != null ? specs.getOperationalSpeed() : 0.0;
+    }
+
+    /**
      * Gets the maximum speed of this locomotive.
      * 
      * @return the maximum speed in km/h, or 0.0 if specs are not available

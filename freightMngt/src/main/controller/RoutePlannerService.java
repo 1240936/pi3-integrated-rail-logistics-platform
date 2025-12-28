@@ -227,6 +227,32 @@ public class RoutePlannerService {
             // Fallback if startDate is not available
             routeFreights = freightRepository.getByRouteId(routeId);
         }
+        return generateRoutePlanInternal(route, routeFreights);
+    }
+
+    /**
+     * Generates a route plan for a specific planned train (route and start date combination).
+     * 
+     * @param routeId the ID of the route
+     * @param startDate the start date for the planned train
+     * @return the route plan with station sequence and cargo operations
+     * @throws SQLException if there is a database error
+     */
+    public RoutePlan generateRoutePlan(int routeId, LocalDateTime startDate) throws SQLException {
+        Route route = routeRepository.getById(routeId);
+        if (route == null) {
+            return null;
+        }
+
+        // Get freights for this specific planned train (using startDate)
+        List<Freight> routeFreights = freightRepository.getByRouteId(routeId, startDate);
+        return generateRoutePlanInternal(route, routeFreights);
+    }
+
+    /**
+     * Internal method to generate route plan from route and freights.
+     */
+    private RoutePlan generateRoutePlanInternal(Route route, List<Freight> routeFreights) throws SQLException {
 
         // Build the route plan
         RoutePlan routePlan = new RoutePlan(route);
@@ -339,7 +365,29 @@ public class RoutePlannerService {
         if (plan == null) {
             return "Route not found.";
         }
+        return formatRoutePlan(plan, routeId);
+    }
 
+    /**
+     * Gets a formatted string representation of the route plan for a specific planned train.
+     * 
+     * @param routeId the ID of the route
+     * @param startDate the start date for the planned train
+     * @return formatted string with station sequence and cargo operations
+     * @throws SQLException if there is a database error
+     */
+    public String presentRoutePlan(int routeId, LocalDateTime startDate) throws SQLException {
+        RoutePlan plan = generateRoutePlan(routeId, startDate);
+        if (plan == null) {
+            return "Route not found.";
+        }
+        return formatRoutePlan(plan, routeId);
+    }
+
+    /**
+     * Formats a RoutePlan into a string representation.
+     */
+    private String formatRoutePlan(RoutePlan plan, int routeId) {
         StringBuilder sb = new StringBuilder();
         sb.append("=== Route Plan for Route ID: ").append(routeId).append(" ===\n");
         int freightCount = plan.getAllFreight().size();

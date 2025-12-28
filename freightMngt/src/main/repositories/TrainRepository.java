@@ -8,6 +8,7 @@ import java.sql.CallableStatement;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.LocalDateTime;
 import java.util.List;
 
 import oracle.jdbc.OracleTypes;
@@ -82,6 +83,52 @@ public class TrainRepository {
         
         // Load wagons for this route (uses PL/SQL function)
         List<Wagon> wagons = wagonRepository.getByRouteId(routeId);
+        for (Wagon wagon : wagons) {
+            train.addWagon(wagon);
+        }
+        
+        return train;
+    }
+
+    /**
+     * Get train for a specific planned train (route and start date combination) with all locomotives and wagons.
+     * 
+     * @param routeId the route ID
+     * @param startDate the start date/time for the planned train
+     * @return the Train object with locomotives and wagons, or null if no train is assigned
+     * @throws SQLException if there is a database error
+     */
+    public Train getTrainForRoute(int routeId, LocalDateTime startDate) throws SQLException {
+        // Get all planned trains to find the one matching routeId and startDate
+        // We need to query Planned_Train to get trainId
+        Integer trainId = null;
+        try (java.sql.PreparedStatement stmt = connection.prepareStatement(
+                "SELECT TrainID FROM Planned_Train WHERE RouteID = ? AND startDate = ?")) {
+            stmt.setInt(1, routeId);
+            stmt.setTimestamp(2, java.sql.Timestamp.valueOf(startDate));
+            try (java.sql.ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    trainId = rs.getInt("TrainID");
+                } else {
+                    return null; // No planned train found for this route and start date
+                }
+            }
+        }
+        
+        // Get the train
+        Train train = getById(trainId);
+        if (train == null) {
+            return null;
+        }
+        
+        // Load locomotives for this planned train (uses PL/SQL function with trainId and startDate)
+        List<Locomotive> locomotives = locomotiveRepository.getByTrainId(trainId, java.sql.Timestamp.valueOf(startDate));
+        for (Locomotive loco : locomotives) {
+            train.addLocomotive(loco);
+        }
+        
+        // Load wagons for this planned train (uses PL/SQL function with trainId and startDate)
+        List<Wagon> wagons = wagonRepository.getByTrainId(trainId, java.sql.Timestamp.valueOf(startDate));
         for (Wagon wagon : wagons) {
             train.addWagon(wagon);
         }

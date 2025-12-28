@@ -41,6 +41,7 @@ public class LocomotiveRepository {
                         rs.getString("make"),
                         rs.getDouble("power"),
                         rs.getDouble("acceleration"),
+                        rs.getDouble("operationalSpeed"),
                         rs.getDouble("maxSpeed"),
                         rs.getInt("numberOfWheels")
                     );
@@ -75,6 +76,7 @@ public class LocomotiveRepository {
                         rs.getString("make"),
                         rs.getDouble("power"),
                         rs.getDouble("acceleration"),
+                        rs.getDouble("operationalSpeed"),
                         rs.getDouble("maxSpeed"),
                         rs.getInt("numberOfWheels")
                     );
@@ -110,6 +112,7 @@ public class LocomotiveRepository {
                         rs.getString("make"),
                         rs.getDouble("power"),
                         rs.getDouble("acceleration"),
+                        rs.getDouble("operationalSpeed"),
                         rs.getDouble("maxSpeed"),
                         rs.getInt("numberOfWheels")
                     );
@@ -151,6 +154,7 @@ public class LocomotiveRepository {
                         rs.getString("make"),
                         rs.getDouble("power"),
                         rs.getDouble("acceleration"),
+                        rs.getDouble("operationalSpeed"),
                         rs.getDouble("maxSpeed"),
                         rs.getInt("numberOfWheels")
                     );

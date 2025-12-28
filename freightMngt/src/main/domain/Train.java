@@ -125,6 +125,21 @@ public class Train {
     }
 
     /**
+     * Gets the operational speed based on locomotive specifications.
+     * The operational speed is the minimum of all locomotive operational speeds,
+     * as the train is limited by its slowest locomotive.
+     * Speed is measured in kilometers per hour (km/h).
+     * 
+     * @return the operational speed in km/h, or 0.0 if there are no locomotives
+     */
+    public double getOperationalSpeed() {
+        return locomotives.stream()
+                .mapToDouble(Locomotive::getOperationalSpeed)
+                .min()
+                .orElse(0.0);
+    }
+
+    /**
      * Gets the maximum speed based on locomotive specifications.
      * The maximum speed is the minimum of all locomotive maximum speeds,
      * as the train is limited by its slowest locomotive.

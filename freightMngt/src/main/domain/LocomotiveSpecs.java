@@ -8,15 +8,17 @@ public class LocomotiveSpecs {
     private final String make;
     private final double power; // in kW
     private final Double acceleration; // in m/s² (nullable)
+    private final double operationalSpeed; // in km/h
     private final double maxSpeed; // in km/h
     private final int numberOfWheels;
 
     public LocomotiveSpecs(int vehicleModelId, String make, double power, Double acceleration, 
-                          double maxSpeed, int numberOfWheels) {
+                          double operationalSpeed, double maxSpeed, int numberOfWheels) {
         this.vehicleModelId = vehicleModelId;
         this.make = make;
         this.power = power;
         this.acceleration = acceleration;
+        this.operationalSpeed = operationalSpeed;
         this.maxSpeed = maxSpeed;
         this.numberOfWheels = numberOfWheels;
     }
@@ -35,6 +37,10 @@ public class LocomotiveSpecs {
 
     public Double getAcceleration() {
         return acceleration;
+    }
+
+    public double getOperationalSpeed() {
+        return operationalSpeed;
     }
 
     public double getMaxSpeed() {
