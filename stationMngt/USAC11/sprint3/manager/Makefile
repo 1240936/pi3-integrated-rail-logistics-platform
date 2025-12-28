@@ -3,7 +3,7 @@
 
 CC = riscv32-linux-gcc
 CFLAGS = -Wall -Wextra -g
-ARCHFLAGS = -march=rv32im -mabi=ilp32
+ARCHFLAGS = -march=rv32imd -mabi=ilp32d
 LDFLAGS = -static
 LIBRV32 = ${HOME}/bin/bootlin/riscv32-buildroot-linux-gnu/sysroot
 
@@ -21,7 +21,7 @@ ASM_OBJS = \
 	$(ASM_DIR)/USAC09/sprint2/usac09/func1.o
 
 # Source files
-SRCS = main.c initialize.c
+SRCS = main.c initialize.c helper_functions.c
 OBJS = $(SRCS:.c=.o)
 
 # Target executable
@@ -78,4 +78,3 @@ debug: $(TARGET)
 	@echo "On other terminal window do:"
 	@echo "riscv32-linux-gdb -tui ./$(TARGET)"
 	qemu-riscv32 -L $(LIBRV32) -g 1234 $(TARGET) -S
-

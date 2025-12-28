@@ -15,6 +15,7 @@
 #include <stdlib.h>
 #include "data_structures.h"
 #include "asm.h"
+#include "helper_functions.h"
 
 #define MAX_LINE_LENGTH 500
 #define INITIAL_CAPACITY 10
@@ -58,7 +59,7 @@ static int str_compare(const char* str1, const char* str2) {
     if (str1 == NULL && str2 == NULL) return 0;
     if (str1 == NULL) return -1;
     if (str2 == NULL) return 1;
-    
+
     int i = 0;
     while (str1[i] != '\0' && str2[i] != '\0') {
         if (str1[i] != str2[i]) {
@@ -77,7 +78,7 @@ static int str_ncompare(const char* str1, const char* str2, int n) {
     if (str1 == NULL) return -1;
     if (str2 == NULL) return 1;
     if (n <= 0) return 0;
-    
+
     int i = 0;
     while (i < n && str1[i] != '\0' && str2[i] != '\0') {
         if (str1[i] != str2[i]) {
@@ -96,7 +97,7 @@ static int str_ncompare(const char* str1, const char* str2, int n) {
  */
 static void mem_move(char* dest, const char* src, int n) {
     if (dest == NULL || src == NULL || n <= 0) return;
-    
+
     // Handle overlapping memory
     if (dest < src || dest >= src + n) {
         // No overlap, copy forward
@@ -142,20 +143,20 @@ static char* str_find_char(char* str, char c) {
  */
 static void trim_string(char* str) {
     if (str == NULL) return;
-    
+
     // Find start (skip leading whitespace)
     int start = 0;
     while (str[start] != '\0' && is_whitespace(str[start])) {
         start++;
     }
-    
+
     // Find end (last non-whitespace character)
     int len = str_length(str);
     int end = len - 1;
     while (end >= start && is_whitespace(str[end])) {
         end--;
     }
-    
+
     // Move trimmed string to beginning
     if (start > 0 || end < len - 1) {
         int new_len = end - start + 1;
@@ -178,16 +179,16 @@ static int is_digit(char c) {
  */
 static int parse_int(const char* str, int* value) {
     if (str == NULL || value == NULL) return 0;
-    
+
     int result = 0;
     int sign = 1;
     int i = 0;
-    
+
     // Skip whitespace
     while (str[i] != '\0' && is_whitespace(str[i])) {
         i++;
     }
-    
+
     // Check for sign
     if (str[i] == '-') {
         sign = -1;
@@ -195,7 +196,7 @@ static int parse_int(const char* str, int* value) {
     } else if (str[i] == '+') {
         i++;
     }
-    
+
     // Parse digits
     int has_digits = 0;
     while (str[i] != '\0' && is_digit(str[i])) {
@@ -203,7 +204,7 @@ static int parse_int(const char* str, int* value) {
         i++;
         has_digits = 1;
     }
-    
+
     // Check if there are invalid characters remaining
     while (str[i] != '\0') {
         if (!is_whitespace(str[i])) {
@@ -211,11 +212,11 @@ static int parse_int(const char* str, int* value) {
         }
         i++;
     }
-    
+
     if (!has_digits) {
         return 0; // No digits found
     }
-    
+
     *value = result * sign;
     return 1;
 }
@@ -242,38 +243,38 @@ static int expand_users_array(ManagerData* data) {
 static int parse_user_line(const char* line, ManagerData* data) {
     char line_copy[MAX_LINE_LENGTH];
     str_copy(line_copy, line, MAX_LINE_LENGTH);
-    
+
     char token[MAX_LINE_LENGTH];
     int pos = 0;
-    
+
     // Parse "USER"
     pos = get_token(line_copy, pos, ':', token, sizeof(token));
     if (pos < 0 || str_compare(token, "USER") != 0) {
         return 0;
     }
-    
+
     if (!expand_users_array(data)) {
         return 0;
     }
-    
+
     User* user = &data->users[data->num_users];
-    
+
     // Parse name
     pos = get_token(line_copy, pos, ':', token, sizeof(token));
     if (pos < 0) return 0;
     str_copy(user->name, token, MAX_NAME_LENGTH);
-    
+
     // Parse username
     pos = get_token(line_copy, pos, ':', token, sizeof(token));
     if (pos < 0) return 0;
     str_copy(user->username, token, MAX_USERNAME_LENGTH);
-    
+
     // Parse password (plain text, will be encrypted)
     pos = get_token(line_copy, pos, ':', token, sizeof(token));
     if (pos < 0) return 0;
     char plain_password[MAX_PASSWORD_LENGTH];
     str_copy(plain_password, token, MAX_PASSWORD_LENGTH);
-    
+
     // Parse Caesar key
     pos = get_token(line_copy, pos, ':', token, sizeof(token));
     if (pos < 0) return 0;
@@ -283,12 +284,12 @@ static int parse_user_line(const char* line, ManagerData* data) {
     if (user->caesar_key < 1 || user->caesar_key > 26) {
         return 0;
     }
-    
+
     // Encrypt password using assembly function
     if (encrypt_data(plain_password, user->caesar_key, user->password) != 1) {
         return 0;
     }
-    
+
     data->num_users++;
     return 1;
 }
@@ -332,29 +333,29 @@ static int expand_trains_array(ManagerData* data) {
 static int parse_track_line(const char* line, ManagerData* data) {
     char line_copy[MAX_LINE_LENGTH];
     str_copy(line_copy, line, MAX_LINE_LENGTH);
-    
+
     char token[MAX_LINE_LENGTH];
     int pos = 0;
-    
+
     // Parse "TRACK"
     pos = get_token(line_copy, pos, ':', token, sizeof(token));
     if (pos < 0 || str_compare(token, "TRACK") != 0) {
         return 0;
     }
-    
+
     if (!expand_tracks_array(data)) {
         return 0;
     }
-    
+
     Track* track = &data->tracks[data->num_tracks];
-    
+
     // Parse track ID
     pos = get_token(line_copy, pos, ':', token, sizeof(token));
     if (pos < 0) return 0;
     if (!parse_int(token, &track->id)) {
         return 0;
     }
-    
+
     // Parse state
     pos = get_token(line_copy, pos, ':', token, sizeof(token));
     if (pos < 0) return 0;
@@ -366,14 +367,14 @@ static int parse_track_line(const char* line, ManagerData* data) {
         return 0;
     }
     track->state = (TrackState)state_value;
-    
+
     // Parse train_id (0 if free)
     pos = get_token(line_copy, pos, ':', token, sizeof(token));
     if (pos < 0) return 0;
     if (!parse_int(token, &track->train_id)) {
         return 0;
     }
-    
+
     data->num_tracks++;
     return 1;
 }
@@ -384,29 +385,29 @@ static int parse_track_line(const char* line, ManagerData* data) {
 static int parse_train_line(const char* line, ManagerData* data) {
     char line_copy[MAX_LINE_LENGTH];
     str_copy(line_copy, line, MAX_LINE_LENGTH);
-    
+
     char token[MAX_LINE_LENGTH];
     int pos = 0;
-    
+
     // Parse "TRAIN"
     pos = get_token(line_copy, pos, ':', token, sizeof(token));
     if (pos < 0 || str_compare(token, "TRAIN") != 0) {
         return 0;
     }
-    
+
     if (!expand_trains_array(data)) {
         return 0;
     }
-    
+
     Train* train = &data->trains[data->num_trains];
-    
+
     // Parse train ID
     pos = get_token(line_copy, pos, ':', token, sizeof(token));
     if (pos < 0) return 0;
     if (!parse_int(token, &train->id)) {
         return 0;
     }
-    
+
     data->num_trains++;
     return 1;
 }
@@ -417,16 +418,16 @@ static int parse_train_line(const char* line, ManagerData* data) {
 static int parse_sensor_line(const char* line, ManagerData* data) {
     char line_copy[MAX_LINE_LENGTH];
     str_copy(line_copy, line, MAX_LINE_LENGTH);
-    
+
     char token[MAX_LINE_LENGTH];
     int pos = 0;
-    
+
     // Parse "SENSOR"
     pos = get_token(line_copy, pos, ':', token, sizeof(token));
     if (pos < 0 || str_compare(token, "SENSOR") != 0) {
         return 0;
     }
-    
+
     // Parse temp_buffer_length
     pos = get_token(line_copy, pos, ':', token, sizeof(token));
     if (pos < 0) return 0;
@@ -436,7 +437,7 @@ static int parse_sensor_line(const char* line, ManagerData* data) {
     if (data->sensor_config.temp_buffer_length <= 0) {
         return 0;
     }
-    
+
     // Parse temp_window_length
     pos = get_token(line_copy, pos, ':', token, sizeof(token));
     if (pos < 0) return 0;
@@ -446,7 +447,7 @@ static int parse_sensor_line(const char* line, ManagerData* data) {
     if (data->sensor_config.temp_window_length <= 0) {
         return 0;
     }
-    
+
     // Parse hum_buffer_length
     pos = get_token(line_copy, pos, ':', token, sizeof(token));
     if (pos < 0) return 0;
@@ -456,7 +457,7 @@ static int parse_sensor_line(const char* line, ManagerData* data) {
     if (data->sensor_config.hum_buffer_length <= 0) {
         return 0;
     }
-    
+
     // Parse hum_window_length
     pos = get_token(line_copy, pos, ':', token, sizeof(token));
     if (pos < 0) return 0;
@@ -466,7 +467,7 @@ static int parse_sensor_line(const char* line, ManagerData* data) {
     if (data->sensor_config.hum_window_length <= 0) {
         return 0;
     }
-    
+
     return 1;
 }
 
@@ -492,22 +493,22 @@ static int expand_logs_array(ManagerData* data) {
 static int parse_log_line(const char* line, ManagerData* data) {
     char line_copy[MAX_LINE_LENGTH];
     str_copy(line_copy, line, MAX_LINE_LENGTH);
-    
+
     char token[MAX_LINE_LENGTH];
     int pos = 0;
-    
+
     // Parse "LOG"
     pos = get_token(line_copy, pos, ':', token, sizeof(token));
     if (pos < 0 || str_compare(token, "LOG") != 0) {
         return 0;
     }
-    
+
     if (!expand_logs_array(data)) {
         return 0;
     }
-    
+
     Log* log = &data->logs[data->num_logs];
-    
+
     // Parse log ID
     pos = get_token(line_copy, pos, ':', token, sizeof(token));
     if (pos < 0) return 0;
@@ -517,7 +518,7 @@ static int parse_log_line(const char* line, ManagerData* data) {
     if (log->id <= 0) {
         return 0;
     }
-    
+
     // Parse user_id (can be index or identifier - storing as int for flexibility)
     pos = get_token(line_copy, pos, ':', token, sizeof(token));
     if (pos < 0) return 0;
@@ -527,12 +528,12 @@ static int parse_log_line(const char* line, ManagerData* data) {
     }
     // Store user_id as part of user_identification field (convert to string)
     int_to_string(user_id, log->user_identification, MAX_USERNAME_LENGTH);
-    
+
     // Parse action
     pos = get_token(line_copy, pos, ':', token, sizeof(token));
     if (pos < 0) return 0;
     str_copy(log->action, token, MAX_ACTION_LENGTH);
-    
+
     // Parse timestamp
     pos = get_token(line_copy, pos, ':', token, sizeof(token));
     if (pos < 0) return 0;
@@ -541,7 +542,7 @@ static int parse_log_line(const char* line, ManagerData* data) {
         return 0;
     }
     log->timestamp = (time_t)timestamp;
-    
+
     data->num_logs++;
     return 1;
 }
@@ -553,24 +554,24 @@ int initialize_from_file(const char* filename, ManagerData* data) {
     if (filename == NULL || data == NULL) {
         return 0;
     }
-    
+
     // Initialize data structure
     mem_set(data, 0, sizeof(ManagerData));
-    
+
     // Allocate initial arrays
     data->users_capacity = INITIAL_CAPACITY;
     data->users = malloc(data->users_capacity * sizeof(User));
     if (data->users == NULL) {
         return 0;
     }
-    
+
     data->tracks_capacity = INITIAL_CAPACITY;
     data->tracks = malloc(data->tracks_capacity * sizeof(Track));
     if (data->tracks == NULL) {
         free(data->users);
         return 0;
     }
-    
+
     data->trains_capacity = INITIAL_CAPACITY;
     data->trains = malloc(data->trains_capacity * sizeof(Train));
     if (data->trains == NULL) {
@@ -578,7 +579,7 @@ int initialize_from_file(const char* filename, ManagerData* data) {
         free(data->tracks);
         return 0;
     }
-    
+
     data->logs_capacity = INITIAL_CAPACITY;
     data->logs = malloc(data->logs_capacity * sizeof(Log));
     if (data->logs == NULL) {
@@ -587,9 +588,9 @@ int initialize_from_file(const char* filename, ManagerData* data) {
         free(data->trains);
         return 0;
     }
-    
+
     data->next_log_id = 1;
-    
+
     // Open file
     FILE* file = fopen(filename, "r");
     if (file == NULL) {
@@ -599,20 +600,20 @@ int initialize_from_file(const char* filename, ManagerData* data) {
         free(data->logs);
         return 0;
     }
-    
+
     char line[MAX_LINE_LENGTH];
     int line_number = 0;
-    
+
     // Read file line by line
     while (fgets(line, sizeof(line), file) != NULL) {
         line_number++;
         trim_string(line);
-        
+
         // Skip empty lines and comments
         if (line[0] == '\0' || line[0] == '#') {
             continue;
         }
-        
+
         // Parse based on line type
         if (str_ncompare(line, "USER:", 5) == 0) {
             if (!parse_user_line(line, data)) {
@@ -650,7 +651,7 @@ int initialize_from_file(const char* filename, ManagerData* data) {
             continue;
         }
     }
-    
+
     fclose(file);
     return 1;
 }
@@ -662,27 +663,26 @@ void free_manager_data(ManagerData* data) {
     if (data == NULL) {
         return;
     }
-    
+
     if (data->users != NULL) {
         free(data->users);
         data->users = NULL;
     }
-    
+
     if (data->tracks != NULL) {
         free(data->tracks);
         data->tracks = NULL;
     }
-    
+
     if (data->trains != NULL) {
         free(data->trains);
         data->trains = NULL;
     }
-    
+
     if (data->logs != NULL) {
         free(data->logs);
         data->logs = NULL;
     }
-    
+
     mem_set(data, 0, sizeof(ManagerData));
 }
-
