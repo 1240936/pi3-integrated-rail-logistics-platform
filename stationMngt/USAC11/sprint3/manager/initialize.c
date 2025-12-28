@@ -275,6 +275,20 @@ static int parse_user_line(const char* line, ManagerData* data) {
     char plain_password[MAX_PASSWORD_LENGTH];
     str_copy(plain_password, token, MAX_PASSWORD_LENGTH);
 
+    // Convert password to uppercase (encrypt_data only works with A-Z)
+    int pwd_len = str_length(plain_password);
+    for (int i = 0; i < pwd_len; i++) {
+        if (plain_password[i] >= 'a' && plain_password[i] <= 'z') {
+            plain_password[i] = plain_password[i] - 'a' + 'A';
+        }
+        // Remove non-letter characters (encrypt_data only accepts A-Z)
+        if (plain_password[i] < 'A' || plain_password[i] > 'Z') {
+            // Replace with a placeholder or skip
+            // For now, we'll replace with 'X'
+            plain_password[i] = 'X';
+        }
+    }
+
     // Parse Caesar key
     pos = get_token(line_copy, pos, ':', token, sizeof(token));
     if (pos < 0) return 0;
