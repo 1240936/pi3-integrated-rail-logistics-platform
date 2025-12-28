@@ -86,7 +86,7 @@ public class TestCreatePickPlan {
         List<String> scannedSkus = trolleys.stream()
                 .flatMap(t -> t.getItems().stream())
                 .map(PickItem::getSku)
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
 
         // Check if SKU order matches AllocationRow input order
         List<String> expectedOrder = Arrays.asList("SKU-A", "SKU-B", "SKU-C");
@@ -122,7 +122,7 @@ public class TestCreatePickPlan {
         List<String> sortedSkus = trolleys.stream()
                 .flatMap(t -> t.getItems().stream())
                 .map(PickItem::getSku)
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
 
         // Expected: descending weight order → SKU-Y (5), SKU-Z (3), SKU-X (2)
         List<String> expectedOrder = Arrays.asList("SKU-Y", "SKU-Z", "SKU-X");
@@ -207,7 +207,7 @@ public class TestCreatePickPlan {
         List<String> allSkus = trolleys.stream()
                 .flatMap(t -> t.getItems().stream())
                 .map(PickItem::getSku)
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
 
         assertTrue(allSkus.containsAll(Arrays.asList("SKU-A", "SKU-B", "SKU-C")));
         assertEquals(0, plan.getSkippedItems().size());
@@ -280,7 +280,7 @@ public class TestCreatePickPlan {
         List<String> allSkus = trolleys.stream()
                 .flatMap(t -> t.getItems().stream())
                 .map(PickItem::getSku)
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
 
         assertFalse("Item should not have been allocated", allSkus.contains("SKU-BIG"));
 
@@ -328,7 +328,7 @@ public class TestCreatePickPlan {
         List<String> allSkus = plan.getTrolleys().stream()
                 .flatMap(t -> t.getItems().stream())
                 .map(PickItem::getSku)
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
 
         assertTrue(allSkus.containsAll(Arrays.asList("SKU-1", "SKU-2", "SKU-3", "SKU-4")));
         assertEquals(0, plan.getSkippedItems().size());

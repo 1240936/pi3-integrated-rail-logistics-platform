@@ -188,7 +188,7 @@ public class TestBuildBalanced2DTree {
             List<Station> sameCoordStations = allStations.stream()
                     .filter(s -> Math.abs(s.getLatitude() - lat) < 0.0001 && 
                                  Math.abs(s.getLongitude() - lon) < 0.0001)
-                    .toList();
+                    .collect(java.util.stream.Collectors.toList());
             assertEquals("Should have 3 stations at same coordinate", 3, sameCoordStations.size());
             
             // Verify names are present

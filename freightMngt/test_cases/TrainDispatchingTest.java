@@ -27,7 +27,7 @@ public class TrainDispatchingTest {
         facilityC = new Facility(3, "Facility C");
 
         // Create test train
-        LocomotiveSpecs locoSpecs = new LocomotiveSpecs(1, "Test", 5600.0, null, 120.0, 6);
+        LocomotiveSpecs locoSpecs = new LocomotiveSpecs(1, "Test", 5600.0, 0.5, 70.0, 120.0, 6);
         Locomotive locomotive = new Locomotive(1, 1, 1, locoSpecs);
         train1 = new Train(1, 1);
         train1.addLocomotive(locomotive);

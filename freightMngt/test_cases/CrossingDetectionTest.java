@@ -23,12 +23,12 @@ public class CrossingDetectionTest {
         Facility facilityC = new Facility(3, "Facility C");
 
         // Create test trains
-        LocomotiveSpecs locoSpecs1 = new LocomotiveSpecs(1, "Test", 5600.0, null, 120.0, 6);
+        LocomotiveSpecs locoSpecs1 = new LocomotiveSpecs(1, "Test", 5600.0, 0.5, 70.0, 120.0, 6);
         Locomotive locomotive1 = new Locomotive(1, 1, 1, locoSpecs1);
         Train train1 = new Train(1, 1);
         train1.addLocomotive(locomotive1);
 
-        LocomotiveSpecs locoSpecs2 = new LocomotiveSpecs(2, "Test", 5600.0, null, 120.0, 6);
+        LocomotiveSpecs locoSpecs2 = new LocomotiveSpecs(2, "Test", 5600.0, 0.5, 70.0, 120.0, 6);
         Locomotive locomotive2 = new Locomotive(2, 1, 1, locoSpecs2);
         Train train2 = new Train(2, 1);
         train2.addLocomotive(locomotive2);

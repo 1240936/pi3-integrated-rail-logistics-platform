@@ -167,7 +167,7 @@ public class TestNearestNNeighbors {
 
             List<String> actualNames = neighbors.stream()
                     .map(nwd -> nwd.getStation().getName())
-                    .toList();
+                    .collect(java.util.stream.Collectors.toList());
 
             // Verification based on calculated closest points for the full dataset (32 stations)
             assertEquals("The 2nd nearest neighbor is incorrect.", "Digne-les-Bains", actualNames.get(1));
