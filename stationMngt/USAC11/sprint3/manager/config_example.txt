@@ -1,0 +1,30 @@
+# USAC11 Configuration File Example
+# Lines starting with # are comments
+# Empty lines are ignored
+
+# Users: USER:name:username:password:caesar_key
+# caesar_key must be between 1 and 26
+USER:John Doe:johndoe:password123:5
+USER:Jane Smith:janesmith:mypass:10
+USER:Admin User:admin:admin123:15
+
+# Tracks: TRACK🆔state:train_id
+# state: 0=FREE, 1=OCCUPIED, 2=MAINTENANCE
+# train_id: 0 if free, otherwise train ID
+TRACK:1:0:0
+TRACK:2:1:101
+TRACK:3:0:0
+TRACK:4:2:0
+TRACK:5:1:102
+
+# Trains: TRAIN:id
+TRAIN:101
+TRAIN:102
+TRAIN:103
+
+# Sensor Configuration: SENSOR:temp_buffer:temp_window:hum_buffer:hum_window
+SENSOR:10:5:10:5
+
+# Logs (optional): LOG🆔user_id:action:timestamp
+LOG:1:1:LOGIN:1234567890
+LOG:2:2:LOGOUT:1234567900
