@@ -11,7 +11,6 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include "lightsigns_comm.h"
 #include "../../../USAC13/sprint3/manager/serial_comm.h"
 
@@ -52,21 +51,18 @@ int main(int argc, char* argv[]) {
     }
     
     // Track 2: Yellow
-    printf("  Track 2: Yellow\n");
+    printf("Track 2: Yellow\n");
     if (send_light_command(&port, LIGHT_CMD_YELLOW, 2) == 0) {
         printf("Command sent successfully: YE,02\n");
     } else {
         printf("Failed to send command\n");
     }
     
-    printf("\nLights are ON. Waiting 2 seconds...\n");
-    usleep(2000000);  // 2 seconds delay
-    
     // Turn off all lights
     printf("\nTurning off all lights...\n");
     
     // Turn off track 1
-    printf("  Track 1: OFF\n");
+    printf("Track 1: OFF\n");
     if (turn_off_track_leds(&port, 1) == 0) {
         printf("OFF command sent successfully: OFF,01\n");
     } else {
@@ -74,7 +70,7 @@ int main(int argc, char* argv[]) {
     }
     
     // Turn off track 2
-    printf("  Track 2: OFF\n");
+    printf("Track 2: OFF\n");
     if (turn_off_track_leds(&port, 2) == 0) {
         printf("OFF command sent successfully: OFF,02\n");
     } else {
