@@ -42,7 +42,7 @@ int main(int argc, char* argv[]) {
     // Turn on all lights for all tracks
     printf("Turning on all lights...\n");
     
-    // Track 1: Green
+    // Track 1: Green, Yellow, Red
     printf("Track 1: Green\n");
     if (send_light_command(&port, LIGHT_CMD_GREEN, 1) == 0) {
         printf("Command sent successfully: GE,01\n");
@@ -50,10 +50,38 @@ int main(int argc, char* argv[]) {
         printf("Failed to send command\n");
     }
     
-    // Track 2: Yellow
+    printf("Track 1: Yellow\n");
+    if (send_light_command(&port, LIGHT_CMD_YELLOW, 1) == 0) {
+        printf("Command sent successfully: YE,01\n");
+    } else {
+        printf("Failed to send command\n");
+    }
+    
+    printf("Track 1: Red\n");
+    if (send_light_command(&port, LIGHT_CMD_RED, 1) == 0) {
+        printf("Command sent successfully: RE,01\n");
+    } else {
+        printf("Failed to send command\n");
+    }
+    
+    // Track 2: Green, Yellow, Red
+    printf("Track 2: Green\n");
+    if (send_light_command(&port, LIGHT_CMD_GREEN, 2) == 0) {
+        printf("Command sent successfully: GE,02\n");
+    } else {
+        printf("Failed to send command\n");
+    }
+    
     printf("Track 2: Yellow\n");
     if (send_light_command(&port, LIGHT_CMD_YELLOW, 2) == 0) {
         printf("Command sent successfully: YE,02\n");
+    } else {
+        printf("Failed to send command\n");
+    }
+    
+    printf("Track 2: Red\n");
+    if (send_light_command(&port, LIGHT_CMD_RED, 2) == 0) {
+        printf("Command sent successfully: RE,02\n");
     } else {
         printf("Failed to send command\n");
     }
