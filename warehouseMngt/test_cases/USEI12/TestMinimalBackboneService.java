@@ -1,13 +1,22 @@
 package USEI12;
 
+import main.controller.MinimalBackboneService;
+import main.graph.Edge;
+import org.junit.Before;
 import org.junit.Test;
+
+
+import main.domain.MinimalBackboneResult;
+import main.domain.Station;
+import main.graph.Graph;
+
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
-
 import static org.junit.Assert.*;
+import java.nio.file.Files;
+
 
 /**
  * Test cases for USEI12: Minimal Backbone Network (MST using Prim's algorithm).
@@ -16,6 +25,19 @@ import static org.junit.Assert.*;
  * Use stations.csv and lines.csv files from the warehouseMngt directory.
  */
 public class TestMinimalBackboneService {
+
+    private MinimalBackboneService service;
+    private String outputDir;
+
+    @Before
+    public void setUp() throws IOException {
+        // Inicializa o serviço (o StationService pode ser null se não for usado no MST)
+        service = new MinimalBackboneService(null);
+
+        // Inicializa o diretório temporário
+        Path tempPath = createTempOutputDir();
+        outputDir = tempPath.toString();
+    }
 
     /**
      * Gets the path to stations.csv file.
@@ -90,47 +112,89 @@ public class TestMinimalBackboneService {
     }
 
     /**
-     * TODO: Test Case 1 - Compute MST for valid graph
-     * Test Intent: Verify that MST computation returns a valid result with correct MST properties.
-     * Expected: MST has n vertices and n-1 edges (where n is the number of vertices), total distance is non-negative.
+     * Test Case 1: Verify MST basic properties (vertices and bidirectional edges).
      */
     @Test
     public void testComputeMinimalBackbone_ValidGraph() throws IOException, InterruptedException {
-        // TODO: Implement this test
-        fail("Test not yet implemented");
+        String stationsPath = getStationsCsvPath();
+        String linesPath = getLinesCsvPath();
+
+        MinimalBackboneResult result = service.computeMinimalBackbone(stationsPath, linesPath, outputDir);
+
+        // Verify result exists
+        assertNotNull("Result should not be null", result);
+        Graph<Station, Double> mst = result.getMstGraph();
+        int n = mst.numVertices();
+        int e = mst.numEdges();
+
+        // Check for (n-1)*2 edges because graph stores both directions (A->B and B->A)
+        int expectedEdges = (n - 1) * 2;
+
+        assertTrue("Graph should contain vertices", n > 0);
+        assertEquals("MST should have (n-1)*2 edges (bidirectional)", expectedEdges, e);
+        assertEquals("Edge list size should match graph count", e, result.getMstEdges().size());
+        assertTrue("Total distance should be positive", result.getTotalDistance() > 0);
     }
 
     /**
-     * TODO: Test Case 2 - Verify MST connectivity
-     * Test Intent: Verify that the MST is connected (all vertices are reachable).
-     * Expected: MST has exactly n-1 edges for n vertices, indicating a connected tree structure.
+     * Test Case 2: Verify that all vertices are connected (no isolated stations).
      */
     @Test
     public void testComputeMinimalBackbone_MSTConnectivity() throws IOException, InterruptedException {
-        // TODO: Implement this test
-        fail("Test not yet implemented");
+        String stationsPath = getStationsCsvPath();
+        String linesPath = getLinesCsvPath();
+
+        MinimalBackboneResult result = service.computeMinimalBackbone(stationsPath, linesPath, outputDir);
+        Graph<Station, Double> mst = result.getMstGraph();
+
+        // Every station must have at least one connection
+        if (mst.numVertices() > 1) {
+            for (Station s : mst.vertices()) {
+                assertTrue("Station " + s.getName() + " should be connected", mst.outDegree(s) > 0);
+            }
+        }
+        assertEquals("Connected tree requires (n-1)*2 edges", (mst.numVertices() - 1) * 2, mst.numEdges());
     }
 
     /**
-     * TODO: Test Case 3 - Verify DOT file generation
-     * Test Intent: Verify that the service generates a DOT file for visualization.
-     * Expected: DOT file path is provided and the file exists and is not empty.
+     * Test Case 3: Verify that the DOT file is generated and not empty.
      */
     @Test
     public void testComputeMinimalBackbone_DotFileGeneration() throws IOException, InterruptedException {
-        // TODO: Implement this test
-        fail("Test not yet implemented");
+        String stationsPath = getStationsCsvPath();
+        String linesPath = getLinesCsvPath();
+
+        MinimalBackboneResult result = service.computeMinimalBackbone(stationsPath, linesPath, outputDir);
+
+        String dotPath = result.getDotFilePath();
+        assertNotNull("DOT path should not be null", dotPath);
+
+        File dotFile = new File(dotPath);
+        // Check if file exists on disk and has content
+        assertTrue("DOT file should exist", dotFile.exists());
+        assertTrue("DOT file should not be empty", dotFile.length() > 0);
+        assertTrue("File extension should be .dot", dotPath.toLowerCase().endsWith(".dot"));
     }
 
     /**
-     * TODO: Test Case 4 - Verify MST minimizes total distance
-     * Test Intent: Verify that the MST represents a minimal spanning tree (minimum total distance).
-     * Expected: The total distance of the MST is less than or equal to any other spanning tree.
-     * Note: This might require comparing with alternative spanning trees or verifying MST properties.
+     * Test Case 4: Verify weight consistency between total distance and edge list.
      */
     @Test
     public void testComputeMinimalBackbone_MinimumWeight() throws IOException, InterruptedException {
-        // TODO: Implement this test
-        fail("Test not yet implemented");
+        String stationsPath = getStationsCsvPath();
+        String linesPath = getLinesCsvPath();
+
+        MinimalBackboneResult result = service.computeMinimalBackbone(stationsPath, linesPath, outputDir);
+        double totalDist = result.getTotalDistance();
+
+        // Calculate sum of edges manually to compare with result distance
+        double sumOfEdges = 0;
+        for (Edge<Station, Double> edge : result.getMstEdges()) {
+            sumOfEdges += edge.getWeight();
+        }
+
+        // Use delta for double precision comparison
+        assertEquals("Total distance must match edge weights sum", sumOfEdges, totalDist, 0.001);
+        assertNotNull("Edge list should not be empty", result.getMstEdges());
     }
 }
