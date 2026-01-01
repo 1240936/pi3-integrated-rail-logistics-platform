@@ -9,7 +9,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "board_comm.h"
-#include "shared/communication.h"
+#include "../shared/communication.h"
 
 int main() {
     printf("=== Manager Component - USAC15 (Board Communication) ===\n\n");
