@@ -72,47 +72,54 @@ static char calculate_checksum(const char* str) {
 //         DEPART:track_id:train_id
 //         EMERGENCY_STOP:train_id
 //         SYNOPSIS:track1:train1:state1:track2:train2:state2:...
+// Demo format: [BOARD] TRACK_ASSIGN:track_id:train_id
 static void parse_and_display(const char* data) {
     if (data == NULL) return;
-    
+
+    // Handle demo mode [BOARD] prefix
+    const char* actual_data = data;
+    if (str_ncompare(data, "[BOARD] ", 8) == 0) {
+        actual_data = data + 8;
+    }
+
     // Check command type
-    if (str_ncompare(data, "TRACK_ASSIGN:", 13) == 0) {
+    if (str_ncompare(actual_data, "TRACK_ASSIGN:", 13) == 0) {
         int track_id, train_id;
-        if (sscanf(data + 13, "%d:%d", &track_id, &train_id) == 2) {
+        if (sscanf(actual_data + 13, "%d:%d", &track_id, &train_id) == 2) {
             display_track_assigned(track_id, train_id);
         }
     }
-    else if (str_ncompare(data, "TRACK_MAINT:", 12) == 0) {
+    else if (str_ncompare(actual_data, "TRACK_MAINT:", 12) == 0) {
         int track_id;
-        if (sscanf(data + 12, "%d", &track_id) == 1) {
+        if (sscanf(actual_data + 12, "%d", &track_id) == 1) {
             display_track_maintenance(track_id);
         }
     }
-    else if (str_ncompare(data, "TRACK_FREE:", 11) == 0) {
+    else if (str_ncompare(actual_data, "TRACK_FREE:", 11) == 0) {
         int track_id;
-        if (sscanf(data + 11, "%d", &track_id) == 1) {
+        if (sscanf(actual_data + 11, "%d", &track_id) == 1) {
             display_track_free(track_id);
         }
     }
-    else if (str_ncompare(data, "DEPART:", 7) == 0) {
+    else if (str_ncompare(actual_data, "DEPART:", 7) == 0) {
         int track_id, train_id;
-        if (sscanf(data + 7, "%d:%d", &track_id, &train_id) == 2) {
+        if (sscanf(actual_data + 7, "%d:%d", &track_id, &train_id) == 2) {
             display_departure_order(track_id, train_id);
         }
     }
-    else if (str_ncompare(data, "EMERGENCY_STOP:", 15) == 0) {
+    else if (str_ncompare(actual_data, "EMERGENCY_STOP:", 15) == 0) {
         int train_id;
-        if (sscanf(data + 15, "%d", &train_id) == 1) {
+        if (sscanf(actual_data + 15, "%d", &train_id) == 1) {
             display_emergency_stop(train_id);
         }
     }
-    else if (str_ncompare(data, "SYNOPSIS:", 9) == 0) {
+    else if (str_ncompare(actual_data, "SYNOPSIS:", 9) == 0) {
         // Parse synopsis data
         int tracks[MAX_TRACKS];
         int trains[MAX_TRACKS];
         int states[MAX_TRACKS];
         int count = 0;
-        const char* ptr = data + 9;
+        const char* ptr = actual_data + 9;
         
         while (*ptr && count < MAX_TRACKS) {
             if (sscanf(ptr, "%d:%d:%d", &tracks[count], &trains[count], &states[count]) == 3) {
@@ -141,6 +148,7 @@ int main(void) {
     char data[256];
     int data_pos = 0;
     int in_packet = 0;
+    int packet_type = 0; // 0=binary, 1=plain text
     char received_checksum = 0;
     
     // Initial display
@@ -156,43 +164,60 @@ int main(void) {
     fflush(stdout);
     
     // Main loop: read data from stdin
-    // Protocol: [STX][DATA...][CHKSUM][LF]
+    // Protocol: [STX][DATA...][CHKSUM][LF] or plain text commands
     while (1) {
         int ch = getchar();
         if (ch == EOF) break;
-        
+
         if (!in_packet) {
-            // Waiting for STX (0x02)
+            // Waiting for STX (0x02) or start of plain text command
             if (ch == 0x02) {
+                // Binary packet mode
                 in_packet = 1;
                 buffer_pos = 0;
                 buffer[0] = '\0';
+            } else if (ch != '\n' && ch != '\r' && ch != ' ') {
+                // Plain text command mode - start of command
+                in_packet = 1;
+                packet_type = 1; // Plain text mode
+                buffer_pos = 0;
+                buffer[buffer_pos++] = (char)ch;
+                buffer[buffer_pos] = '\0';
             }
         } else {
-            // Inside packet
+            // Inside packet/command
             if (ch == '\n' || ch == 0x0A) {
-                // End of packet (LF)
-                // The last byte in buffer is the checksum
-                // All bytes before that are the data
-                if (buffer_pos > 0) {
-                    received_checksum = buffer[buffer_pos - 1];
-                    // Copy data without checksum
-                    for (int i = 0; i < buffer_pos - 1; i++) {
-                        data[i] = buffer[i];
-                    }
-                    data[buffer_pos - 1] = '\0';
-                    
-                    // Verify checksum
-                    char calculated_cksum = calculate_checksum(data);
-                    if (calculated_cksum == received_checksum) {
-                        // Valid packet, parse and display
-                        parse_and_display(data);
+                // End of line
+                if (packet_type == 1) {
+                    // Plain text command
+                    buffer[buffer_pos] = '\0';
+                    // Parse and display plain text command
+                    parse_and_display(buffer);
+                } else {
+                    // Binary packet
+                    // The last byte in buffer is the checksum
+                    // All bytes before that are the data
+                    if (buffer_pos > 0) {
+                        received_checksum = buffer[buffer_pos - 1];
+                        // Copy data without checksum
+                        for (int i = 0; i < buffer_pos - 1; i++) {
+                            data[i] = buffer[i];
+                        }
+                        data[buffer_pos - 1] = '\0';
+
+                        // Verify checksum
+                        char calculated_cksum = calculate_checksum(data);
+                        if (calculated_cksum == received_checksum) {
+                            // Valid packet, parse and display
+                            parse_and_display(data);
+                        }
                     }
                 }
                 in_packet = 0;
+                packet_type = 0;
                 buffer_pos = 0;
             } else {
-                // Data byte (payload or checksum)
+                // Data byte
                 if (buffer_pos < 255) {
                     buffer[buffer_pos++] = (char)ch;
                     buffer[buffer_pos] = '\0';

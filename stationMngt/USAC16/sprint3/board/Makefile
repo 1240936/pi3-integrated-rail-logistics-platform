@@ -1,11 +1,12 @@
 # Makefile for USAC16 - Board Component
-# Compiles for RV32IM architecture (Linux)
+# Compiles for RISC-V architecture with minimal flags (Linux)
+#
+# Uses minimal compilation flags to avoid sysroot issues with the toolchain
 
 CC = riscv32-linux-gcc
+# Minimal flags that work with the current toolchain (same as manager)
 CFLAGS = -Wall -Wextra -g
-ARCHFLAGS = -march=rv32im -mabi=ilp32
 LDFLAGS = -static
-LIBRV32 = ${HOME}/bin/bootlin/riscv32-buildroot-linux-gnu/sysroot
 
 # Source files
 SRCS = main.c board.c
@@ -19,10 +20,10 @@ TARGET = board.elf
 all: $(TARGET)
 
 $(TARGET): $(OBJS)
-	$(CC) $(CFLAGS) $(ARCHFLAGS) $(LDFLAGS) -o $(TARGET) $(OBJS)
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $(TARGET) $(OBJS)
 
 %.o: %.c
-	$(CC) $(CFLAGS) $(ARCHFLAGS) -c $< -o $@
+	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
 	rm -f $(OBJS) $(TARGET)

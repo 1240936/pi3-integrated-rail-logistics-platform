@@ -123,20 +123,6 @@ static void mem_set(void* ptr, int value, int n) {
     }
 }
 
-/**
- * Helper function to find character in string
- */
-static char* str_find_char(char* str, char c) {
-    if (str == NULL) return NULL;
-    int i = 0;
-    while (str[i] != '\0') {
-        if (str[i] == c) {
-            return &str[i];
-        }
-        i++;
-    }
-    return NULL;
-}
 
 /**
  * Helper function to trim whitespace from string
@@ -373,13 +359,24 @@ static int parse_track_line(const char* line, ManagerData* data) {
     // Parse state
     pos = get_token(line_copy, pos, ':', token, sizeof(token));
     if (pos < 0) return 0;
+
+    // Try to parse as string first (FREE, OCCUPIED, MAINTENANCE), then as number
     int state_value;
-    if (!parse_int(token, &state_value)) {
+    if (str_compare(token, "FREE") == 0) {
+        state_value = 0;
+    } else if (str_compare(token, "OCCUPIED") == 0) {
+        state_value = 1;
+    } else if (str_compare(token, "MAINTENANCE") == 0) {
+        state_value = 2;
+    } else if (parse_int(token, &state_value)) {
+        // If it's a valid number, use it
+        if (state_value < 0 || state_value > 2) {
+            return 0;
+        }
+    } else {
         return 0;
     }
-    if (state_value < 0 || state_value > 2) {
-        return 0;
-    }
+
     track->state = (TrackState)state_value;
 
     // Parse train_id (0 if free)
