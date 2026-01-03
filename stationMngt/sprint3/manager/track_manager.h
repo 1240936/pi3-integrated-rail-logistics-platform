@@ -69,7 +69,7 @@ TrackOperationResult set_track_maintenance(ManagerData* manager_data, int track_
 /**
  * Set a track as free
  *
- * Only works if track is currently occupied. Sets track to FREE state,
+ * Works if track is currently occupied or in maintenance. Sets track to FREE state,
  * removes train assignment, and updates Board and LightSigns components.
  *
  * @param manager_data Pointer to ManagerData structure

@@ -20,8 +20,35 @@ extern int parse_integer(const char* str, int* value);
 int main(void) {
     ui_init();
     
-    printf("Welcome to the Station Management System\n");
-    printf("Type 'HELP' for available commands or use the menu numbers\n\n");
+    // Handle login first - send LOGIN command to Manager
+    // (Welcome message will appear after Manager initializes)
+    fprintf(stderr, "=== User Login ===\n");
+    fprintf(stderr, "Username: ");
+    fflush(stderr);
+    char username[64];
+    if (read_input_line(username, sizeof(username)) <= 0) {
+        fprintf(stderr, "ERROR: Failed to read username\n");
+        ui_cleanup();
+        return 1;
+    }
+    
+    fprintf(stderr, "Password: ");
+    fflush(stderr);
+    char password[64];
+    if (read_input_line(password, sizeof(password)) <= 0) {
+        fprintf(stderr, "ERROR: Failed to read password\n");
+        ui_cleanup();
+        return 1;
+    }
+    
+    // Format and send LOGIN command to Manager (stdout)
+    printf("LOGIN:%s:%s\n", username, password);
+    fflush(stdout);
+    
+    // Show welcome message after login command is sent
+    // (Manager initialization messages will appear first)
+    fprintf(stderr, "\nWelcome to the Station Management System\n");
+    fprintf(stderr, "Type 'HELP' for available commands or use the menu numbers\n\n");
     
     ParsedCommand command;
     char formatted_command[MAX_COMMAND_LENGTH];
@@ -38,7 +65,7 @@ int main(void) {
         }
         
         // Handle commands that don't need parameters
-        if (command.type == CMD_SYNOPSIS) {
+        if (command.type == CMD_SYNOPSIS || command.type == CMD_GET_SENSOR_DATA) {
             if (ui_format_command(&command, formatted_command, sizeof(formatted_command))) {
                 printf("%s\n", formatted_command);
                 fflush(stdout);
@@ -48,7 +75,7 @@ int main(void) {
             ui_show_help();
             continue;
         } else if (command.type == CMD_EXIT) {
-            printf("Exiting...\n");
+            fprintf(stderr, "Exiting...\n");
             running = 0;
             if (ui_format_command(&command, formatted_command, sizeof(formatted_command))) {
                 printf("%s\n", formatted_command);
@@ -59,18 +86,15 @@ int main(void) {
         
         // Handle commands that need parameters
         if (command.param1 == 0) {
-            // Prompt for parameter
-            const char* param_name = "";
+            // Prompt for parameter (use stderr so it appears on terminal)
             if (command.type == CMD_ASSIGN_TRACK) {
-                printf("Enter Train ID: ");
-                param_name = "Train ID";
+                fprintf(stderr, "Enter Train ID: ");
             } else if (command.type == CMD_SET_MAINTENANCE ||
                        command.type == CMD_SET_FREE ||
                        command.type == CMD_DEPART) {
-                printf("Enter Track ID: ");
-                param_name = "Track ID";
+                fprintf(stderr, "Enter Track ID: ");
             }
-            fflush(stdout);
+            fflush(stderr);
             
             char param_input[MAX_PARAM_LENGTH];
             if (read_input_line(param_input, sizeof(param_input)) > 0) {

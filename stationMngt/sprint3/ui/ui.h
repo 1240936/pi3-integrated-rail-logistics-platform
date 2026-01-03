@@ -25,6 +25,7 @@ typedef enum {
     CMD_SET_FREE,
     CMD_DEPART,
     CMD_SYNOPSIS,
+    CMD_GET_SENSOR_DATA,
     CMD_EXIT,
     CMD_HELP,
     CMD_INVALID

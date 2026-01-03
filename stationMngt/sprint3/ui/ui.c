@@ -34,42 +34,45 @@ static int str_length(const char* str) {
 
 void ui_init(void) {
     // Clear screen (if terminal supports it)
-    printf("\033[2J\033[H");  // ANSI escape codes
-    printf("=== Station Management System - UI Component ===\n\n");
+    fprintf(stderr, "\033[2J\033[H");  // ANSI escape codes
+    fprintf(stderr, "=== Station Management System - UI Component ===\n");
+    fprintf(stderr, "\nWaiting for Manager initialization...\n\n");
 }
 
 void ui_cleanup(void) {
-    printf("\n=== UI Component Shutting Down ===\n");
+    fprintf(stderr, "\n=== UI Component Shutting Down ===\n");
 }
 
 void ui_show_main_menu(void) {
-    printf("\n=== MAIN MENU ===\n");
-    printf("1. Assign track to train\n");
-    printf("2. Set track to maintenance\n");
-    printf("3. Set track as free\n");
-    printf("4. Issue departure order\n");
-    printf("5. View track status (synopsis)\n");
-    printf("6. Help\n");
-    printf("0. Exit\n");
-    printf("\nEnter command (number or name): ");
-    fflush(stdout);
+    fprintf(stderr, "\n=== MAIN MENU ===\n");
+    fprintf(stderr, "1. Assign track to train\n");
+    fprintf(stderr, "2. Set track to maintenance\n");
+    fprintf(stderr, "3. Set track as free\n");
+    fprintf(stderr, "4. Issue departure order\n");
+    fprintf(stderr, "5. View track status (synopsis)\n");
+    fprintf(stderr, "6. View sensor data\n");
+    fprintf(stderr, "7. Help\n");
+    fprintf(stderr, "0. Exit\n");
+    fprintf(stderr, "\nEnter command (number or name): ");
+    fflush(stderr);
 }
 
 void ui_show_help(void) {
-    printf("\n=== HELP ===\n");
-    printf("Available commands:\n");
-    printf("  ASSIGN_TRACK <train_id>  - Assign a track to an arriving train\n");
-    printf("  SET_MAINTENANCE <track_id> - Set a track to maintenance mode\n");
-    printf("  SET_FREE <track_id>      - Free a track (make it available)\n");
-    printf("  DEPART <track_id>        - Issue departure order for a train\n");
-    printf("  SYNOPSIS                 - View current track status\n");
-    printf("  HELP                     - Show this help message\n");
-    printf("  EXIT                     - Exit the system\n");
-    printf("\nExamples:\n");
-    printf("  ASSIGN_TRACK 101\n");
-    printf("  SET_MAINTENANCE 2\n");
-    printf("  SYNOPSIS\n");
-    printf("\n");
+    fprintf(stderr, "\n=== HELP ===\n");
+    fprintf(stderr, "Available commands:\n");
+    fprintf(stderr, "  ASSIGN_TRACK <train_id>  - Assign a track to an arriving train\n");
+    fprintf(stderr, "  SET_MAINTENANCE <track_id> - Set a track to maintenance mode\n");
+    fprintf(stderr, "  SET_FREE <track_id>      - Free a track (make it available)\n");
+    fprintf(stderr, "  DEPART <track_id>        - Issue departure order for a train\n");
+    fprintf(stderr, "  SYNOPSIS                 - View current track status\n");
+    fprintf(stderr, "  GET_SENSOR_DATA or SENSOR - View current sensor data (temperature & humidity)\n");
+    fprintf(stderr, "  HELP                     - Show this help message\n");
+    fprintf(stderr, "  EXIT                     - Exit the system\n");
+    fprintf(stderr, "\nExamples:\n");
+    fprintf(stderr, "  ASSIGN_TRACK 101\n");
+    fprintf(stderr, "  SET_MAINTENANCE 2\n");
+    fprintf(stderr, "  SYNOPSIS\n");
+    fprintf(stderr, "\n");
 }
 
 int ui_read_command(ParsedCommand* command) {
@@ -119,7 +122,8 @@ int ui_parse_command(const char* input, ParsedCommand* command) {
             case 3: command->type = CMD_SET_FREE; break;
             case 4: command->type = CMD_DEPART; break;
             case 5: command->type = CMD_SYNOPSIS; break;
-            case 6: command->type = CMD_HELP; break;
+            case 6: command->type = CMD_GET_SENSOR_DATA; break;
+            case 7: command->type = CMD_HELP; break;
             case 0: command->type = CMD_EXIT; break;
             default: command->type = CMD_INVALID; return 0;
         }
@@ -156,6 +160,8 @@ int ui_parse_command(const char* input, ParsedCommand* command) {
         command->type = CMD_DEPART;
     } else if (str_compare(cmd_name, "SYNOPSIS") == 0) {
         command->type = CMD_SYNOPSIS;
+    } else if (str_compare(cmd_name, "GET_SENSOR_DATA") == 0 || str_compare(cmd_name, "SENSOR") == 0) {
+        command->type = CMD_GET_SENSOR_DATA;
     } else if (str_compare(cmd_name, "HELP") == 0) {
         command->type = CMD_HELP;
     } else if (str_compare(cmd_name, "EXIT") == 0 || str_compare(cmd_name, "QUIT") == 0) {
@@ -385,6 +391,18 @@ int ui_format_command(const ParsedCommand* command, char* output, int output_siz
             }
             return 1;
             
+        case CMD_GET_SENSOR_DATA:
+            {
+                int len = 0;
+                const char* cmd = "GET_SENSOR_DATA";
+                while (cmd[len] != '\0' && len < output_size - 1) {
+                    output[len] = cmd[len];
+                    len++;
+                }
+                output[len] = '\0';
+            }
+            return 1;
+            
         case CMD_EXIT:
             {
                 int len = 0;
@@ -404,22 +422,22 @@ int ui_format_command(const ParsedCommand* command, char* output, int output_siz
 
 void ui_display_error(const char* message) {
     if (message != NULL) {
-        printf("ERROR: %s\n", message);
-        fflush(stdout);
+        fprintf(stderr, "ERROR: %s\n", message);
+        fflush(stderr);
     }
 }
 
 void ui_display_success(const char* message) {
     if (message != NULL) {
-        printf("SUCCESS: %s\n", message);
-        fflush(stdout);
+        fprintf(stderr, "SUCCESS: %s\n", message);
+        fflush(stderr);
     }
 }
 
 void ui_display_info(const char* message) {
     if (message != NULL) {
-        printf("INFO: %s\n", message);
-        fflush(stdout);
+        fprintf(stderr, "INFO: %s\n", message);
+        fflush(stderr);
     }
 }
 

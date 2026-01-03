@@ -24,6 +24,7 @@
 #include "sensor_manager.h"
 #include "serial_comm.h"
 #include "track_manager.h"
+#include "logging.h"
 
 // Configuration
 #define DEFAULT_SENSORS_PORT "/dev/ttyS0"
@@ -267,41 +268,41 @@ int main(int argc, char* argv[]) {
         lightsigns_port = argv[4];
     }
     
-    printf("=== Manager Component - Sprint 3 ===\n\n");
+    fprintf(stderr, "=== Manager Component - Sprint 3 ===\n\n");
     
     // Initialize data structures from config file (USAC11)
-    printf("Initializing data structures from %s...\n", config_file);
+    fprintf(stderr, "Initializing data structures from %s...\n", config_file);
     if (initialize_from_file(config_file, &g_manager_data) != 1) {
         fprintf(stderr, "ERROR: Failed to initialize data structures\n");
         return 1;
     }
-    printf("✓ Data structures initialized\n");
-    printf("  Users: %d, Tracks: %d, Trains: %d\n\n", 
+    fprintf(stderr, "✓ Data structures initialized\n");
+    fprintf(stderr, "  Users: %d, Tracks: %d, Trains: %d\n\n", 
            g_manager_data.num_users, g_manager_data.num_tracks, g_manager_data.num_trains);
     
     // Initialize sensor data
     init_sensor_data(&g_sensor_data);
     
     // Initialize serial ports
-    printf("Initializing communication ports...\n");
+    fprintf(stderr, "Initializing communication ports...\n");
     if (init_serial_port(&g_sensors_port, sensors_port) != 0) {
         fprintf(stderr, "WARNING: Failed to initialize sensors port (%s) - running in simulation mode\n", sensors_port);
     } else {
-        printf("  ✓ Sensors port: %s\n", sensors_port);
+        fprintf(stderr, "  ✓ Sensors port: %s\n", sensors_port);
     }
     
     if (init_board_comm(&g_board_port, board_port) != 0) {
         fprintf(stderr, "WARNING: Failed to initialize board port (%s) - running in simulation mode\n", board_port);
     } else {
-        printf("  ✓ Board port: %s\n", board_port);
+        fprintf(stderr, "  ✓ Board port: %s\n", board_port);
     }
     
     if (init_serial_port(&g_lightsigns_port, lightsigns_port) != 0) {
         fprintf(stderr, "WARNING: Failed to initialize lightsigns port (%s) - running in simulation mode\n", lightsigns_port);
     } else {
-        printf("  ✓ LightSigns port: %s\n", lightsigns_port);
+        fprintf(stderr, "  ✓ LightSigns port: %s\n", lightsigns_port);
     }
-    printf("\n");
+    fprintf(stderr, "\n");
     
     // Initialize track manager (for USAC16 operations)
     if (init_track_manager(&g_manager_data, board_port, lightsigns_port) != 0) {
@@ -310,40 +311,57 @@ int main(int argc, char* argv[]) {
     
     g_initialized = 1;
     
-    // Step 1: Login
-    printf("=== User Login ===\n");
-    printf("Username: ");
-    fflush(stdout);
-    char username[64];
-    if (read_line(username, sizeof(username)) == 0) {
-        fprintf(stderr, "ERROR: Failed to read username\n");
-        free_manager_data(&g_manager_data);
-        return 1;
-    }
+    // Step 1: Login - read from stdin (from UI)
+    const User* user = NULL;
+    char instruction[MAX_INSTRUCTION_LENGTH];
     
-    printf("Password: ");
-    fflush(stdout);
-    char password[64];
-    if (read_line(password, sizeof(password)) == 0) {
-        fprintf(stderr, "ERROR: Failed to read password\n");
-        free_manager_data(&g_manager_data);
-        return 1;
+    // Wait for LOGIN command from UI (format: LOGIN:username:password)
+    while (user == NULL) {
+        if (read_line(instruction, sizeof(instruction)) <= 0) {
+            fprintf(stderr, "ERROR: Failed to read login command\n");
+            free_manager_data(&g_manager_data);
+            return 1;
+        }
+        
+        // Parse LOGIN command
+        if (str_ncompare_custom(instruction, "LOGIN:", 6) == 0) {
+            // Extract username and password
+            char username[64] = {0};
+            char password[64] = {0};
+            const char* ptr = instruction + 6;  // Skip "LOGIN:"
+            
+            // Extract username (until next colon)
+            int i = 0;
+            while (*ptr != ':' && *ptr != '\0' && i < 63) {
+                username[i++] = *ptr++;
+            }
+            username[i] = '\0';
+            
+            if (*ptr == ':') {
+                ptr++;  // Skip colon
+                // Extract password (until end)
+                i = 0;
+                while (*ptr != '\0' && i < 63) {
+                    password[i++] = *ptr++;
+                }
+                password[i] = '\0';
+            }
+            
+            user = login(&g_manager_data, username, password);
+            if (user == NULL) {
+                fprintf(stderr, "ERROR: Login failed - invalid username or password\n");
+                // Send error response (could be sent to UI, but for now just continue)
+                // UI will need to handle login retries
+            }
+        } else {
+            fprintf(stderr, "ERROR: Expected LOGIN command, got: %s\n", instruction);
+            free_manager_data(&g_manager_data);
+            return 1;
+        }
     }
-    
-    const User* user = login(&g_manager_data, username, password);
-    if (user == NULL) {
-        fprintf(stderr, "ERROR: Login failed - invalid username or password\n");
-        free_manager_data(&g_manager_data);
-        return 1;
-    }
-    
-    printf("✓ Login successful: %s (%s)\n\n", user->name, user->username);
     
     // Step 2: Main loop
-    printf("=== Starting Manager Main Loop ===\n");
-    printf("Enter commands (EXIT to quit, SYNOPSIS for status):\n\n");
-    
-    char instruction[MAX_INSTRUCTION_LENGTH];
+    char instruction_loop[MAX_INSTRUCTION_LENGTH];
     
     while (1) {
         // Step 3: Send command to sensors
@@ -359,40 +377,76 @@ int main(int argc, char* argv[]) {
         }
         
         // Step 7: Wait for instructions from UI
-        printf("> ");
-        fflush(stdout);
-        if (read_line(instruction, sizeof(instruction)) > 0) {
+        if (read_line(instruction_loop, sizeof(instruction_loop)) > 0) {
             // Check for exit command
-            if (str_compare_custom(instruction, "EXIT") == 0 || 
-                str_compare_custom(instruction, "QUIT") == 0) {
-                printf("Exiting...\n");
+            if (str_compare_custom(instruction_loop, "EXIT") == 0 || 
+                str_compare_custom(instruction_loop, "QUIT") == 0) {
                 break;
             }
             
             // Step 8: Process instruction
-            if (str_compare_custom(instruction, "SYNOPSIS") == 0) {
+            if (str_compare_custom(instruction_loop, "SYNOPSIS") == 0) {
                 // SYNOPSIS command - send to board
                 send_synopsis_to_board(&g_manager_data);
-                printf("SUCCESS: Synopsis sent to board\n");
+            } else if (str_compare_custom(instruction_loop, "GET_SENSOR_DATA") == 0) {
+                // USAC13: Display current sensor data
+                fprintf(stderr, "\n=== SENSOR DATA ===\n");
+                fprintf(stderr, "Temperature: %d %s\n", g_sensor_data.temperature, g_sensor_data.temp_unit);
+                fprintf(stderr, "Humidity: %d %s\n", g_sensor_data.humidity, g_sensor_data.hum_unit);
+                fprintf(stderr, "===================\n\n");
             } else {
                 // Parse and process other instructions (ASSIGN_TRACK, SET_MAINTENANCE, etc.)
                 // The track_manager functions handle board and lightsigns internally
-                process_instruction(instruction);
+                process_instruction(instruction_loop);
             }
             
             // Step 11: Record action
-            record_action(&g_manager_data, user, instruction);
+            record_action(&g_manager_data, user, instruction_loop);
+        } else {
+            // EOF or error reading
+            break;
         }
     }
     
     // Cleanup
-    printf("\n=== Cleaning up ===\n");
+    fprintf(stderr, "\n=== Cleaning up ===\n");
+    
+    // USAC12: Export logs for the logged-in user automatically on exit
+    if (user != NULL && g_manager_data.num_logs > 0) {
+        char log_filename[256];
+        // Create filename: logs_<username>.txt
+        int len = 0;
+        const char* prefix = "logs_";
+        while (prefix[len] != '\0' && len < 250) {
+            log_filename[len] = prefix[len];
+            len++;
+        }
+        const char* username = user->username;
+        int username_len = str_length_custom(username);
+        for (int i = 0; i < username_len && len < 250; i++) {
+            log_filename[len++] = username[i];
+        }
+        const char* suffix = ".txt";
+        int suffix_len = 0;
+        while (suffix[suffix_len] != '\0' && len < 255) {
+            log_filename[len++] = suffix[suffix_len++];
+        }
+        log_filename[len] = '\0';
+        
+        int logs_exported = export_user_logs(log_filename, g_manager_data.logs, g_manager_data.num_logs, username);
+        if (logs_exported >= 0) {
+            fprintf(stderr, "✓ Exported %d log entries to %s\n", logs_exported, log_filename);
+        } else {
+            fprintf(stderr, "⚠ Failed to export logs to %s\n", log_filename);
+        }
+    }
+    
     close_serial_port(&g_sensors_port);
     close_board_comm(&g_board_port);
     close_serial_port(&g_lightsigns_port);
     cleanup_track_manager();
     free_manager_data(&g_manager_data);
-    printf("✓ Cleanup complete\n");
+    fprintf(stderr, "✓ Cleanup complete\n");
     
     return 0;
 }

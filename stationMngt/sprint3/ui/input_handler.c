@@ -18,17 +18,6 @@ static int str_length(const char* str) {
     return len;
 }
 
-// Custom string copy (avoiding string.h)
-static void str_copy(char* dest, const char* src, int dest_size) {
-    if (dest == NULL || src == NULL || dest_size <= 0) return;
-    int i = 0;
-    while (i < dest_size - 1 && src[i] != '\0') {
-        dest[i] = src[i];
-        i++;
-    }
-    dest[i] = '\0';
-}
-
 // Check if character is whitespace
 static int is_whitespace(char c) {
     return (c == ' ' || c == '\t' || c == '\n' || c == '\r');

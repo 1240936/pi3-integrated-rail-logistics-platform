@@ -90,7 +90,10 @@ static TrackOperationResult send_command_to_board(const char* command) {
             return TRACK_OP_BOARD_COMM_ERROR;
         }
     } else {
-        printf("[SIMULATION] Board command: %s\n", command);
+        // Serial port not available - send via stdout (for pipe to Board component)
+        // Board expects plain text commands ending with newline
+        printf("%s\n", command);
+        fflush(stdout);
     }
 
     return TRACK_OP_SUCCESS;
@@ -128,8 +131,14 @@ void send_synopsis_to_board(ManagerData* data) {
 
     for (int i = 0; i < data->num_tracks; i++) {
         char track_info[64];
-        int state_num = (data->tracks[i].state == TRACK_FREE) ? 0 :
-                       (data->tracks[i].state == TRACK_OCCUPIED) ? 1 : 2;
+        int state_num;
+        if (data->tracks[i].state == TRACK_FREE) {
+            state_num = 0;
+        } else if (data->tracks[i].state == TRACK_OCCUPIED) {
+            state_num = 1;
+        } else {  // TRACK_MAINTENANCE
+            state_num = 2;
+        }
 
         snprintf(track_info, sizeof(track_info), "%d:%d:%d:",
                  data->tracks[i].id, data->tracks[i].train_id, state_num);
@@ -301,9 +310,11 @@ TrackOperationResult free_track(ManagerData* manager_data, int track_id) {
         return TRACK_OP_TRACK_NOT_FOUND;
     }
 
-    // Can only free if track is occupied
-    if (manager_data->tracks[track_index].state != TRACK_OCCUPIED) {
-        return TRACK_OP_TRACK_UNDER_MAINTENANCE;
+    // Can free if track is occupied or in maintenance
+    TrackState old_state = manager_data->tracks[track_index].state;
+    if (old_state != TRACK_OCCUPIED && old_state != TRACK_MAINTENANCE) {
+        // Track is already free, no error
+        return TRACK_OP_SUCCESS;
     }
 
     int old_train_id = manager_data->tracks[track_index].train_id;
@@ -326,7 +337,11 @@ TrackOperationResult free_track(ManagerData* manager_data, int track_id) {
     // Log free action
     User system_user = {"SYSTEM", "system", "", 0};
     char action[200];
-    snprintf(action, sizeof(action), "Freed track %d (was occupied by train %d)", track_id, old_train_id);
+    if (old_state == TRACK_OCCUPIED) {
+        snprintf(action, sizeof(action), "Freed track %d (was occupied by train %d)", track_id, old_train_id);
+    } else {
+        snprintf(action, sizeof(action), "Freed track %d (was in maintenance)", track_id);
+    }
     record_action(manager_data, &system_user, action);
 
     return TRACK_OP_SUCCESS;

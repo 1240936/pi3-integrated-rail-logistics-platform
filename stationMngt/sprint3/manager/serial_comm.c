@@ -5,12 +5,15 @@
  * Used by USAC13 (Sensors), USAC14 (LightSigns), and USAC15 (Board)
  */
 
+#define _POSIX_C_SOURCE 200809L
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
 #include <sys/select.h>
 #include <sys/time.h>
+#include <time.h>
+#include <unistd.h>
 #include "serial_comm.h"
 
 int init_serial_port(SerialPort* port, const char* port_path) {
@@ -42,7 +45,9 @@ int init_serial_port(SerialPort* port, const char* port_path) {
     tty.c_cflag &= ~CSTOPB;         // 1 stop bit
     tty.c_cflag &= ~CSIZE;          // Clear size bits
     tty.c_cflag |= CS8;             // 8 data bits
+    #ifdef CRTSCTS
     tty.c_cflag &= ~CRTSCTS;        // No hardware flow control
+    #endif
     tty.c_cflag |= CREAD | CLOCAL;  // Enable receiver, ignore modem controls
     
     // Input flags
@@ -194,7 +199,10 @@ int get_sensor_response(SerialPort* port, char* response, int response_size) {
     
     // Arduino needs 2 seconds delay after receiving GTH before reading sensor
     // Wait 2.5 seconds to ensure sensor reading is complete
-    usleep(2500000);  // 2.5 seconds
+    struct timespec ts;
+    ts.tv_sec = 2;
+    ts.tv_nsec = 500000000;  // 500000000 nanoseconds = 0.5 seconds
+    nanosleep(&ts, NULL);
     
     // Receive response
     int bytes_read = receive_response(port, response, response_size);

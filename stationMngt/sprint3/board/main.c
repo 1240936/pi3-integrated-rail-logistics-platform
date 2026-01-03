@@ -8,24 +8,6 @@
 #include <unistd.h>
 
 // Custom string functions (avoiding string.h)
-static int str_length(const char* str) {
-    if (str == NULL) return 0;
-    int len = 0;
-    while (str[len] != '\0') {
-        len++;
-    }
-    return len;
-}
-
-static int str_compare(const char* s1, const char* s2) {
-    if (s1 == NULL || s2 == NULL) return -1;
-    while (*s1 && (*s1 == *s2)) {
-        s1++;
-        s2++;
-    }
-    return *(const unsigned char*)s1 - *(const unsigned char*)s2;
-}
-
 static int str_ncompare(const char* s1, const char* s2, int n) {
     if (s1 == NULL || s2 == NULL || n <= 0) return -1;
     while (n-- > 0 && *s1 && (*s1 == *s2)) {
@@ -34,26 +16,6 @@ static int str_ncompare(const char* s1, const char* s2, int n) {
     }
     if (n < 0) return 0;
     return *(const unsigned char*)s1 - *(const unsigned char*)s2;
-}
-
-static int parse_int(const char* str, int* value) {
-    if (str == NULL || value == NULL) return 0;
-    *value = 0;
-    int sign = 1;
-    int i = 0;
-    
-    if (str[0] == '-') {
-        sign = -1;
-        i = 1;
-    }
-    
-    while (str[i] >= '0' && str[i] <= '9') {
-        *value = *value * 10 + (str[i] - '0');
-        i++;
-    }
-    
-    *value *= sign;
-    return (str[i] == '\0') ? 1 : 0;
 }
 
 // Calculate checksum (same as Manager)
@@ -122,15 +84,22 @@ static void parse_and_display(const char* data) {
         const char* ptr = actual_data + 9;
         
         while (*ptr && count < MAX_TRACKS) {
-            if (sscanf(ptr, "%d:%d:%d", &tracks[count], &trains[count], &states[count]) == 3) {
+            int track_id, train_id, state;
+            int parsed = sscanf(ptr, "%d:%d:%d", &track_id, &train_id, &state);
+            if (parsed == 3) {
+                tracks[count] = track_id;
+                trains[count] = train_id;
+                states[count] = state;
                 count++;
-                // Move to next entry
-                while (*ptr && *ptr != ':') ptr++;
-                if (*ptr == ':') {
+                
+                // Move to next entry by finding the end of current entry (after the 3rd ':')
+                int colons_found = 0;
+                while (*ptr && colons_found < 3) {
+                    if (*ptr == ':') {
+                        colons_found++;
+                    }
                     ptr++;
-                    while (*ptr && *ptr != ':') ptr++;
                 }
-                if (*ptr == ':') ptr++;
             } else {
                 break;
             }
@@ -146,7 +115,6 @@ int main(void) {
     char buffer[256];
     int buffer_pos = 0;
     char data[256];
-    int data_pos = 0;
     int in_packet = 0;
     int packet_type = 0; // 0=binary, 1=plain text
     char received_checksum = 0;
