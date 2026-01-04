@@ -28,8 +28,8 @@
 
 // Configuration
 #define DEFAULT_SENSORS_PORT "/dev/ttyS0"
-#define DEFAULT_BOARD_PORT "/dev/ttyS1"
-#define DEFAULT_LIGHTSIGNS_PORT "/dev/ttyS2"
+#define DEFAULT_BOARD_PORT "DEMO_MODE"
+#define DEFAULT_LIGHTSIGNS_PORT "/dev/ttyS0"
 #define CONFIG_FILE "config_example.txt"
 #define MAX_INSTRUCTION_LENGTH 256
 

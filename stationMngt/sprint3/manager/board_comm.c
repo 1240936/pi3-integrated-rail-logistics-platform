@@ -10,6 +10,15 @@
  * Initialize board communication on specified serial port
  */
 int init_board_comm(SerialPort* port, const char* serial_port) {
+    // Special handling for demo mode
+    if (strcmp(serial_port, "DEMO_MODE") == 0) {
+        // Set up port structure for demo mode
+        strcpy(port->port_path, serial_port);
+        port->is_open = 1;  // Mark as "open" for demo mode
+        return 0;  // Success
+    }
+
+    // Normal serial port initialization
     return init_serial_port(port, serial_port);
 }
 
