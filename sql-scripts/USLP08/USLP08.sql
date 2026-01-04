@@ -5,14 +5,14 @@
 -- Function: Get all unassigned freight
 -- Returns a cursor with freight information (ID, OriginFacilityID, DestinationFacilityID)
 CREATE OR REPLACE FUNCTION GET_UNASSIGNED_FREIGHT
-RETURN SYS_REFCURSOR
+    RETURN SYS_REFCURSOR
 AS
     v_cursor SYS_REFCURSOR;
 BEGIN
     OPEN v_cursor FOR
         SELECT DISTINCT f.ID, f.OriginFacilityID, f.DestinationFacilityID
         FROM Freight f
-        INNER JOIN Unassigned_Freight uf ON f.ID = uf.FreightID
+                 INNER JOIN Unassigned_Freight uf ON f.ID = uf.FreightID
         ORDER BY f.ID;
     RETURN v_cursor;
 END;
@@ -24,17 +24,17 @@ CREATE OR REPLACE FUNCTION GET_FREIGHT_BY_ROUTE(
     p_route_id IN NUMBER,
     p_start_date IN DATE
 )
-RETURN SYS_REFCURSOR
+    RETURN SYS_REFCURSOR
 AS
     v_cursor SYS_REFCURSOR;
 BEGIN
     OPEN v_cursor FOR
         SELECT DISTINCT f.ID, f.OriginFacilityID, f.DestinationFacilityID
         FROM Freight f
-        INNER JOIN Assigned_Freight af ON f.ID = af.FreightID
-        INNER JOIN Planned_Train pt ON af.PlannedTrainID = pt.TrainID 
-                                      AND af.PlannedTrainStartDate = pt.startDate
-        WHERE pt.RouteID = p_route_id 
+                 INNER JOIN Assigned_Freight af ON f.ID = af.FreightID
+                 INNER JOIN Planned_Train pt ON af.PlannedTrainID = pt.TrainID
+            AND af.PlannedTrainStartDate = pt.startDate
+        WHERE pt.RouteID = p_route_id
           AND pt.startDate = p_start_date
         ORDER BY f.ID;
     RETURN v_cursor;
@@ -47,17 +47,17 @@ CREATE OR REPLACE FUNCTION GET_FREIGHT_PICKUPS_BY_FACILITY(
     p_route_id IN NUMBER,
     p_start_date IN DATE
 )
-RETURN SYS_REFCURSOR
+    RETURN SYS_REFCURSOR
 AS
     v_cursor SYS_REFCURSOR;
 BEGIN
     OPEN v_cursor FOR
         SELECT DISTINCT f.ID, f.OriginFacilityID, f.DestinationFacilityID
         FROM Freight f
-        INNER JOIN Assigned_Freight af ON f.ID = af.FreightID
-        INNER JOIN Planned_Train pt ON af.PlannedTrainID = pt.TrainID 
-                                      AND af.PlannedTrainStartDate = pt.startDate
-        WHERE pt.RouteID = p_route_id 
+                 INNER JOIN Assigned_Freight af ON f.ID = af.FreightID
+                 INNER JOIN Planned_Train pt ON af.PlannedTrainID = pt.TrainID
+            AND af.PlannedTrainStartDate = pt.startDate
+        WHERE pt.RouteID = p_route_id
           AND pt.startDate = p_start_date
         ORDER BY f.OriginFacilityID, f.ID;
     RETURN v_cursor;
@@ -70,17 +70,17 @@ CREATE OR REPLACE FUNCTION GET_FREIGHT_DELIVERIES_BY_FACILITY(
     p_route_id IN NUMBER,
     p_start_date IN DATE
 )
-RETURN SYS_REFCURSOR
+    RETURN SYS_REFCURSOR
 AS
     v_cursor SYS_REFCURSOR;
 BEGIN
     OPEN v_cursor FOR
         SELECT DISTINCT f.ID, f.OriginFacilityID, f.DestinationFacilityID
         FROM Freight f
-        INNER JOIN Assigned_Freight af ON f.ID = af.FreightID
-        INNER JOIN Planned_Train pt ON af.PlannedTrainID = pt.TrainID 
-                                      AND af.PlannedTrainStartDate = pt.startDate
-        WHERE pt.RouteID = p_route_id 
+                 INNER JOIN Assigned_Freight af ON f.ID = af.FreightID
+                 INNER JOIN Planned_Train pt ON af.PlannedTrainID = pt.TrainID
+            AND af.PlannedTrainStartDate = pt.startDate
+        WHERE pt.RouteID = p_route_id
           AND pt.startDate = p_start_date
         ORDER BY f.DestinationFacilityID, f.ID;
     RETURN v_cursor;
@@ -92,7 +92,7 @@ END;
 CREATE OR REPLACE FUNCTION GET_FREIGHT_BY_ID(
     p_freight_id IN NUMBER
 )
-RETURN SYS_REFCURSOR
+    RETURN SYS_REFCURSOR
 AS
     v_cursor SYS_REFCURSOR;
 BEGIN
@@ -109,7 +109,7 @@ END;
 CREATE OR REPLACE FUNCTION GET_WAGON_IDS_BY_FREIGHT_ID(
     p_freight_id IN NUMBER
 )
-RETURN SYS_REFCURSOR
+    RETURN SYS_REFCURSOR
 AS
     v_cursor SYS_REFCURSOR;
 BEGIN
@@ -134,12 +134,12 @@ CREATE OR REPLACE FUNCTION ASSIGN_FREIGHT_TO_ROUTE(
     p_freight_id IN NUMBER,
     p_route_id IN NUMBER
 )
-RETURN NUMBER
+    RETURN NUMBER
 AS
-    v_planned_train_id NUMBER;
+    v_planned_train_id         NUMBER;
     v_planned_train_start_date DATE;
-    v_wagon_id NUMBER;
-    v_wagon_exists NUMBER;
+    v_wagon_id                 NUMBER;
+    v_wagon_exists             NUMBER;
     CURSOR c_unassigned_wagons IS
         SELECT WagonID
         FROM Unassigned_Freight
@@ -151,41 +151,43 @@ BEGIN
     FROM Planned_Train
     WHERE RouteID = p_route_id
       AND ROWNUM = 1;
-    
+
     IF v_planned_train_id IS NULL THEN
-        RAISE_APPLICATION_ERROR(-20001, 'Route ' || p_route_id || 
-            ' does not have a Planned_Train entry. Cannot assign freight.');
+        RAISE_APPLICATION_ERROR(-20001, 'Route ' || p_route_id ||
+                                        ' does not have a Planned_Train entry. Cannot assign freight.');
     END IF;
-    
+
     -- Process each unassigned wagon for this freight
-    FOR wagon_rec IN c_unassigned_wagons LOOP
-        v_wagon_id := wagon_rec.WagonID;
-        
-        -- Check if wagon is already in Assigned_Wagon for this planned train
-        SELECT COUNT(*)
-        INTO v_wagon_exists
-        FROM Assigned_Wagon
-        WHERE PlannedTrainID = v_planned_train_id
-          AND PlannedTrainStartDate = v_planned_train_start_date
-          AND WagonID = v_wagon_id;
-        
-        -- If not, move it from Parked_Wagon to Assigned_Wagon
-        IF v_wagon_exists = 0 THEN
-            DELETE FROM Parked_Wagon WHERE WagonID = v_wagon_id;
-            INSERT INTO Assigned_Wagon (WagonID, PlannedTrainID, PlannedTrainStartDate)
-            VALUES (v_wagon_id, v_planned_train_id, v_planned_train_start_date);
-        END IF;
-        
-        -- Delete from Unassigned_Freight
-        DELETE FROM Unassigned_Freight
-        WHERE FreightID = p_freight_id
-          AND WagonID = v_wagon_id;
-        
-        -- Insert into Assigned_Freight
-        INSERT INTO Assigned_Freight (FreightID, WagonID, PlannedTrainID, PlannedTrainStartDate)
-        VALUES (p_freight_id, v_wagon_id, v_planned_train_id, v_planned_train_start_date);
-    END LOOP;
-    
+    FOR wagon_rec IN c_unassigned_wagons
+        LOOP
+            v_wagon_id := wagon_rec.WagonID;
+
+            -- Check if wagon is already in Assigned_Wagon for this planned train
+            SELECT COUNT(*)
+            INTO v_wagon_exists
+            FROM Assigned_Wagon
+            WHERE PlannedTrainID = v_planned_train_id
+              AND PlannedTrainStartDate = v_planned_train_start_date
+              AND WagonID = v_wagon_id;
+
+            -- If not, move it from Parked_Wagon to Assigned_Wagon
+            IF v_wagon_exists = 0 THEN
+                DELETE FROM Parked_Wagon WHERE WagonID = v_wagon_id;
+                INSERT INTO Assigned_Wagon (WagonID, PlannedTrainID, PlannedTrainStartDate)
+                VALUES (v_wagon_id, v_planned_train_id, v_planned_train_start_date);
+            END IF;
+
+            -- Delete from Unassigned_Freight
+            DELETE
+            FROM Unassigned_Freight
+            WHERE FreightID = p_freight_id
+              AND WagonID = v_wagon_id;
+
+            -- Insert into Assigned_Freight
+            INSERT INTO Assigned_Freight (FreightID, WagonID, PlannedTrainID, PlannedTrainStartDate)
+            VALUES (p_freight_id, v_wagon_id, v_planned_train_id, v_planned_train_start_date);
+        END LOOP;
+
     -- Check if any wagons were processed
     SELECT COUNT(*)
     INTO v_wagon_exists
@@ -193,17 +195,17 @@ BEGIN
     WHERE FreightID = p_freight_id
       AND PlannedTrainID = v_planned_train_id
       AND PlannedTrainStartDate = v_planned_train_start_date;
-    
+
     IF v_wagon_exists = 0 THEN
-        RAISE_APPLICATION_ERROR(-20002, 'Freight ' || p_freight_id || 
-            ' has no unassigned wagons. It may already be assigned or has no wagons.');
+        RAISE_APPLICATION_ERROR(-20002, 'Freight ' || p_freight_id ||
+                                        ' has no unassigned wagons. It may already be assigned or has no wagons.');
     END IF;
-    
+
     RETURN 1;
 EXCEPTION
     WHEN NO_DATA_FOUND THEN
-        RAISE_APPLICATION_ERROR(-20003, 'Route ' || p_route_id || 
-            ' does not have a Planned_Train  entry. Cannot assign freight.');
+        RAISE_APPLICATION_ERROR(-20003, 'Route ' || p_route_id ||
+                                        ' does not have a Planned_Train  entry. Cannot assign freight.');
 END;
 /
 
@@ -212,14 +214,14 @@ END;
 CREATE OR REPLACE FUNCTION GET_ROUTE_BY_ID(
     p_route_id IN NUMBER
 )
-RETURN SYS_REFCURSOR
+    RETURN SYS_REFCURSOR
 AS
     v_cursor SYS_REFCURSOR;
 BEGIN
     OPEN v_cursor FOR
         SELECT r.ID, r.StartFacilityID, r.EndFacilityID, pt.TrainID, pt.startDate
         FROM Route r
-        LEFT JOIN Planned_Train pt ON r.ID = pt.RouteID
+                 LEFT JOIN Planned_Train pt ON r.ID = pt.RouteID
         WHERE r.ID = p_route_id
           AND ROWNUM = 1;
     RETURN v_cursor;
@@ -231,7 +233,7 @@ END;
 CREATE OR REPLACE FUNCTION GET_PATH_POINTS_BY_ROUTE_ID(
     p_route_id IN NUMBER
 )
-RETURN SYS_REFCURSOR
+    RETURN SYS_REFCURSOR
 AS
     v_cursor SYS_REFCURSOR;
 BEGIN
@@ -249,7 +251,7 @@ END;
 CREATE OR REPLACE FUNCTION GET_ROUTES_BY_TRAIN_ID(
     p_train_id IN NUMBER
 )
-RETURN SYS_REFCURSOR
+    RETURN SYS_REFCURSOR
 AS
     v_cursor SYS_REFCURSOR;
 BEGIN
@@ -271,7 +273,7 @@ CREATE OR REPLACE FUNCTION CREATE_ROUTE(
     p_end_facility_id IN NUMBER,
     p_start_date IN DATE
 )
-RETURN NUMBER
+    RETURN NUMBER
 AS
     v_route_id NUMBER;
 BEGIN
@@ -279,15 +281,15 @@ BEGIN
     SELECT CASE WHEN MAX(ID) IS NULL THEN 1 ELSE MAX(ID) + 1 END
     INTO v_route_id
     FROM Route;
-    
+
     -- Insert into Route table
     INSERT INTO Route (ID, StartFacilityID, EndFacilityID)
     VALUES (v_route_id, p_start_facility_id, p_end_facility_id);
-    
+
     -- Insert into Planned_Train
     INSERT INTO Planned_Train (TrainID, startDate, RouteID)
     VALUES (p_train_id, p_start_date, v_route_id);
-    
+
     RETURN v_route_id;
 EXCEPTION
     WHEN DUP_VAL_ON_INDEX THEN
@@ -295,13 +297,13 @@ EXCEPTION
         SELECT CASE WHEN MAX(ID) IS NULL THEN 1 ELSE MAX(ID) + 1 END
         INTO v_route_id
         FROM Route;
-        
+
         INSERT INTO Route (ID, StartFacilityID, EndFacilityID)
         VALUES (v_route_id, p_start_facility_id, p_end_facility_id);
-        
+
         INSERT INTO Planned_Train (TrainID, startDate, RouteID)
         VALUES (p_train_id, p_start_date, v_route_id);
-        
+
         RETURN v_route_id;
 END;
 /
@@ -313,12 +315,12 @@ CREATE OR REPLACE FUNCTION ADD_PATH_POINT(
     p_facility_id IN NUMBER,
     p_sequence_number IN NUMBER
 )
-RETURN NUMBER
+    RETURN NUMBER
 AS
 BEGIN
     INSERT INTO Path (RouteID, FacilityID, seqNumber)
     VALUES (p_route_id, p_facility_id, p_sequence_number);
-    
+
     RETURN 1;
 END;
 /
@@ -328,15 +330,16 @@ END;
 CREATE OR REPLACE FUNCTION GET_START_DATE_BY_ROUTE_ID(
     p_route_id IN NUMBER
 )
-RETURN DATE
+    RETURN DATE
 AS
     v_start_date DATE;
 BEGIN
-    SELECT startDate INTO v_start_date
+    SELECT startDate
+    INTO v_start_date
     FROM Planned_Train
     WHERE RouteID = p_route_id
       AND ROWNUM = 1;
-    
+
     RETURN v_start_date;
 EXCEPTION
     WHEN NO_DATA_FOUND THEN
@@ -347,7 +350,7 @@ END;
 -- Function: Get all route IDs
 -- Returns a cursor with all route IDs
 CREATE OR REPLACE FUNCTION GET_ALL_ROUTE_IDS
-RETURN SYS_REFCURSOR
+    RETURN SYS_REFCURSOR
 AS
     v_cursor SYS_REFCURSOR;
 BEGIN
@@ -365,18 +368,18 @@ END;
 CREATE OR REPLACE FUNCTION DELETE_ROUTE(
     p_route_id IN NUMBER
 )
-RETURN NUMBER
+    RETURN NUMBER
 AS
-    v_train_id NUMBER;
-    v_start_date DATE;
-    v_freight_id NUMBER;
-    v_wagon_id NUMBER;
-    v_locomotive_id NUMBER;
+    v_train_id        NUMBER;
+    v_start_date      DATE;
+    v_freight_id      NUMBER;
+    v_wagon_id        NUMBER;
+    v_locomotive_id   NUMBER;
     v_end_facility_id NUMBER;
     CURSOR c_planned_trains IS
         SELECT pt.TrainID, pt.startDate, r.EndFacilityID
         FROM Planned_Train pt
-        JOIN Route r ON pt.RouteID = r.ID
+                 JOIN Route r ON pt.RouteID = r.ID
         WHERE pt.RouteID = p_route_id;
     CURSOR c_assigned_freight(p_train_id NUMBER, p_start_date DATE) IS
         SELECT FreightID, WagonID
@@ -395,92 +398,103 @@ AS
           AND PlannedTrainStartDate = p_start_date;
 BEGIN
     -- Process each planned train for this route
-    FOR planned_train_rec IN c_planned_trains LOOP
-        v_train_id := planned_train_rec.TrainID;
-        v_start_date := planned_train_rec.startDate;
-        v_end_facility_id := planned_train_rec.EndFacilityID;
-        
-        -- Move Assigned_Freight back to Unassigned_Freight
-        FOR freight_rec IN c_assigned_freight(v_train_id, v_start_date) LOOP
-            v_freight_id := freight_rec.FreightID;
-            v_wagon_id := freight_rec.WagonID;
-            
-            -- Try to insert into Unassigned_Freight (ignore if already exists)
-            BEGIN
-                INSERT INTO Unassigned_Freight (FreightID, WagonID)
-                VALUES (v_freight_id, v_wagon_id);
-            EXCEPTION
-                WHEN DUP_VAL_ON_INDEX THEN
-                    NULL;  -- Already exists, ignore
-            END;
-        END LOOP;
-        
-        -- Delete from Assigned_Freight
-        DELETE FROM Assigned_Freight
-        WHERE PlannedTrainID = v_train_id
-          AND PlannedTrainStartDate = v_start_date;
-        
-        -- Move wagons from Assigned_Wagon to Parked_Wagon (at route end facility)
-        -- Note: Only delete the specific assignment (by all PK columns) since wagons can be assigned to multiple trains
-        FOR wagon_rec IN c_assigned_wagons(v_train_id, v_start_date) LOOP
-            v_wagon_id := wagon_rec.WagonID;
-            -- Delete specific assignment for this train/startDate combination
-            DELETE FROM Assigned_Wagon 
-            WHERE WagonID = v_wagon_id 
-              AND PlannedTrainID = v_train_id 
+    FOR planned_train_rec IN c_planned_trains
+        LOOP
+            v_train_id := planned_train_rec.TrainID;
+            v_start_date := planned_train_rec.startDate;
+            v_end_facility_id := planned_train_rec.EndFacilityID;
+
+            -- Move Assigned_Freight back to Unassigned_Freight
+            FOR freight_rec IN c_assigned_freight(v_train_id, v_start_date)
+                LOOP
+                    v_freight_id := freight_rec.FreightID;
+                    v_wagon_id := freight_rec.WagonID;
+
+                    -- Try to insert into Unassigned_Freight (ignore if already exists)
+                    BEGIN
+                        INSERT INTO Unassigned_Freight (FreightID, WagonID)
+                        VALUES (v_freight_id, v_wagon_id);
+                    EXCEPTION
+                        WHEN DUP_VAL_ON_INDEX THEN
+                            NULL; -- Already exists, ignore
+                    END;
+                END LOOP;
+
+            -- Delete from Assigned_Freight
+            DELETE
+            FROM Assigned_Freight
+            WHERE PlannedTrainID = v_train_id
               AND PlannedTrainStartDate = v_start_date;
-            -- Only insert into Parked_Wagon if wagon is not already parked (check if exists)
-            BEGIN
-                INSERT INTO Parked_Wagon (WagonID, FacilityID) 
-                VALUES (v_wagon_id, v_end_facility_id);
-            EXCEPTION
-                WHEN DUP_VAL_ON_INDEX THEN
-                    -- Wagon already parked, update facility location
-                    UPDATE Parked_Wagon 
-                    SET FacilityID = v_end_facility_id 
-                    WHERE WagonID = v_wagon_id;
-            END;
+
+            -- Move wagons from Assigned_Wagon to Parked_Wagon (at route end facility)
+            -- Note: Only delete the specific assignment (by all PK columns) since wagons can be assigned to multiple trains
+            FOR wagon_rec IN c_assigned_wagons(v_train_id, v_start_date)
+                LOOP
+                    v_wagon_id := wagon_rec.WagonID;
+                    -- Delete specific assignment for this train/startDate combination
+                    DELETE
+                    FROM Assigned_Wagon
+                    WHERE WagonID = v_wagon_id
+                      AND PlannedTrainID = v_train_id
+                      AND PlannedTrainStartDate = v_start_date;
+                    -- Only insert into Parked_Wagon if wagon is not already parked (check if exists)
+                    BEGIN
+                        INSERT INTO Parked_Wagon (WagonID, FacilityID)
+                        VALUES (v_wagon_id, v_end_facility_id);
+                    EXCEPTION
+                        WHEN DUP_VAL_ON_INDEX THEN
+                            -- Wagon already parked, update facility location
+                            UPDATE Parked_Wagon
+                            SET FacilityID = v_end_facility_id
+                            WHERE WagonID = v_wagon_id;
+                    END;
+                END LOOP;
+
+            -- Move locomotives from Assigned_Locomotive to Parked_Locomotive (at route end facility)
+            -- Note: Only delete the specific assignment (by all PK columns) since locomotives can be assigned to multiple trains
+            FOR loco_rec IN c_assigned_locomotives(v_train_id, v_start_date)
+                LOOP
+                    v_locomotive_id := loco_rec.LocomotiveID;
+                    -- Delete specific assignment for this train/startDate combination
+                    DELETE
+                    FROM Assigned_Locomotive
+                    WHERE LocomotiveID = v_locomotive_id
+                      AND PlannedTrainID = v_train_id
+                      AND PlannedTrainStartDate = v_start_date;
+                    -- Only insert into Parked_Locomotive if locomotive is not already parked (check if exists)
+                    BEGIN
+                        INSERT INTO Parked_Locomotive (LocomotiveID, FacilityID)
+                        VALUES (v_locomotive_id, v_end_facility_id);
+                    EXCEPTION
+                        WHEN DUP_VAL_ON_INDEX THEN
+                            -- Locomotive already parked, update facility location
+                            UPDATE Parked_Locomotive
+                            SET FacilityID = v_end_facility_id
+                            WHERE LocomotiveID = v_locomotive_id;
+                    END;
+                END LOOP;
         END LOOP;
-        
-        -- Move locomotives from Assigned_Locomotive to Parked_Locomotive (at route end facility)
-        -- Note: Only delete the specific assignment (by all PK columns) since locomotives can be assigned to multiple trains
-        FOR loco_rec IN c_assigned_locomotives(v_train_id, v_start_date) LOOP
-            v_locomotive_id := loco_rec.LocomotiveID;
-            -- Delete specific assignment for this train/startDate combination
-            DELETE FROM Assigned_Locomotive 
-            WHERE LocomotiveID = v_locomotive_id 
-              AND PlannedTrainID = v_train_id 
-              AND PlannedTrainStartDate = v_start_date;
-            -- Only insert into Parked_Locomotive if locomotive is not already parked (check if exists)
-            BEGIN
-                INSERT INTO Parked_Locomotive (LocomotiveID, FacilityID) 
-                VALUES (v_locomotive_id, v_end_facility_id);
-            EXCEPTION
-                WHEN DUP_VAL_ON_INDEX THEN
-                    -- Locomotive already parked, update facility location
-                    UPDATE Parked_Locomotive 
-                    SET FacilityID = v_end_facility_id 
-                    WHERE LocomotiveID = v_locomotive_id;
-            END;
-        END LOOP;
-    END LOOP;
-    
+
     -- Delete Path points
-    DELETE FROM Path
+    DELETE
+    FROM Path
     WHERE RouteID = p_route_id;
-    
+
     -- Delete Planned_Train
-    DELETE FROM Planned_Train
+    DELETE
+    FROM Planned_Train
     WHERE RouteID = p_route_id;
-    
+
     -- Delete TrainEvent by eventType (contains route ID)
-    DELETE FROM TrainEvent
+    DELETE
+    FROM TrainEvent
     WHERE eventType = 'ROUTE_' || p_route_id;
-    
+
     -- Finally delete the Route
-    DELETE FROM Route
+    DELETE
+    FROM Route
     WHERE ID = p_route_id;
-    
+
     -- Check if route was actually deleted
     IF SQL%ROWCOUNT > 0 THEN
         RETURN 1;
@@ -503,15 +517,15 @@ CREATE OR REPLACE FUNCTION CREATE_TRAIN_EVENT(
     p_facility_id IN NUMBER,
     p_event_time IN DATE
 )
-RETURN NUMBER
+    RETURN NUMBER
 AS
     v_event_type VARCHAR2(255);
 BEGIN
     v_event_type := 'ROUTE_' || p_route_id;
-    
+
     INSERT INTO TrainEvent (TrainID, FacilityID, eventTime, eventType)
     VALUES (p_train_id, p_facility_id, p_event_time, v_event_type);
-    
+
     RETURN 1;
 END;
 /
@@ -522,26 +536,26 @@ END;
 CREATE OR REPLACE FUNCTION DELETE_TRAIN_EVENTS_BY_ROUTE_ID(
     p_route_id IN NUMBER
 )
-RETURN NUMBER
+    RETURN NUMBER
 AS
     v_deleted_count NUMBER;
 BEGIN
-    DELETE FROM TrainEvent
+    DELETE
+    FROM TrainEvent
     WHERE eventType = 'ROUTE_' || p_route_id;
-    
+
     v_deleted_count := SQL%ROWCOUNT;
-    
+
     -- If no rows deleted, try alternative approach: delete by train ID
     IF v_deleted_count = 0 THEN
-        DELETE FROM TrainEvent
-        WHERE TrainID IN (
-            SELECT TrainID
-            FROM Planned_Train
-            WHERE RouteID = p_route_id
-        );
+        DELETE
+        FROM TrainEvent
+        WHERE TrainID IN (SELECT TrainID
+                          FROM Planned_Train
+                          WHERE RouteID = p_route_id);
         v_deleted_count := SQL%ROWCOUNT;
     END IF;
-    
+
     RETURN v_deleted_count;
 END;
 /

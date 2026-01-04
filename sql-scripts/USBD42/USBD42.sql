@@ -29,8 +29,6 @@
 --   p_facility_id    - ID of the facility where the movement occurred
 --   p_arrival_time   - Arrival time at the facility (required)
 --   p_departure_time - Departure time from the facility (optional, NULL if train didn't stop)
---   p_route_id       - ID of the route (optional, can be NULL) - Note: TrainEvent doesn't have RouteID,
---                     so this parameter is kept for future compatibility but not stored
 --
 -- Returns:
 --   Number of events created (1 if no departure, 2 if departure recorded)
@@ -48,8 +46,7 @@ CREATE OR REPLACE PROCEDURE RegisterTrainMovement(
     p_train_id IN NUMBER,
     p_facility_id IN NUMBER,
     p_arrival_time IN DATE,
-    p_departure_time IN DATE DEFAULT NULL,
-    p_route_id IN NUMBER DEFAULT NULL
+    p_departure_time IN DATE DEFAULT NULL
 )
 IS
     v_train_exists NUMBER;
@@ -94,7 +91,7 @@ BEGIN
             'Cannot register train movement: Facility with ID ' || p_facility_id || ' does not exist.');
     END IF;
     
-    -- Validate departure time is after arrival time (if provided)
+    -- Validate departure time is after arrival time
     IF p_departure_time IS NOT NULL THEN
         IF p_departure_time <= p_arrival_time THEN
             RAISE_APPLICATION_ERROR(-20016, 
@@ -125,11 +122,6 @@ BEGIN
         v_departure_event_id := v_next_id;
         v_events_created := 2;
     END IF;
-    
-    -- Note: p_route_id parameter is accepted but not stored in TrainEvent table
-    -- as TrainEvent table from USBD31 does not have a RouteID column
-    
-    -- Commit is handled by the caller
     
 EXCEPTION
     WHEN OTHERS THEN
@@ -194,8 +186,7 @@ BEGIN
         p_train_id => v_train_id,
         p_facility_id => v_facility_id,
         p_arrival_time => v_arrival_time,
-        p_departure_time => NULL,
-        p_route_id => NULL
+        p_departure_time => NULL
     );
     
     -- Count events after
@@ -257,8 +248,7 @@ BEGIN
         p_train_id => v_train_id,
         p_facility_id => v_facility_id,
         p_arrival_time => v_arrival_time,
-        p_departure_time => v_departure_time,
-        p_route_id => NULL
+        p_departure_time => v_departure_time
     );
     
     -- Count events after
@@ -329,8 +319,7 @@ BEGIN
         p_train_id => 999999,
         p_facility_id => v_facility_id,
         p_arrival_time => v_arrival_time,
-        p_departure_time => NULL,
-        p_route_id => NULL
+        p_departure_time => NULL
     );
     
     DBMS_OUTPUT.PUT_LINE('ERROR: Should have raised exception!');
@@ -378,8 +367,7 @@ BEGIN
         p_train_id => v_train_id,
         p_facility_id => 999999,
         p_arrival_time => v_arrival_time,
-        p_departure_time => NULL,
-        p_route_id => NULL
+        p_departure_time => NULL
     );
     
     DBMS_OUTPUT.PUT_LINE('ERROR: Should have raised exception!');
@@ -416,8 +404,7 @@ BEGIN
         p_train_id => NULL,
         p_facility_id => v_facility_id,
         p_arrival_time => v_arrival_time,
-        p_departure_time => NULL,
-        p_route_id => NULL
+        p_departure_time => NULL
     );
     DBMS_OUTPUT.PUT_LINE('ERROR: Should have raised exception!');
     ROLLBACK;
@@ -447,8 +434,7 @@ BEGIN
         p_train_id => v_train_id,
         p_facility_id => NULL,
         p_arrival_time => v_arrival_time,
-        p_departure_time => NULL,
-        p_route_id => NULL
+        p_departure_time => NULL
     );
     DBMS_OUTPUT.PUT_LINE('ERROR: Should have raised exception!');
     ROLLBACK;
@@ -483,8 +469,7 @@ BEGIN
         p_train_id => v_train_id,
         p_facility_id => v_facility_id,
         p_arrival_time => NULL,
-        p_departure_time => NULL,
-        p_route_id => NULL
+        p_departure_time => NULL
     );
     DBMS_OUTPUT.PUT_LINE('ERROR: Should have raised exception!');
     ROLLBACK;
@@ -529,8 +514,7 @@ BEGIN
         p_train_id => v_train_id,
         p_facility_id => v_facility_id,
         p_arrival_time => v_arrival_time,
-        p_departure_time => v_departure_time,
-        p_route_id => NULL
+        p_departure_time => v_departure_time
     );
     
     DBMS_OUTPUT.PUT_LINE('ERROR: Should have raised exception!');
@@ -578,8 +562,7 @@ BEGIN
         p_train_id => v_train_id,
         p_facility_id => v_facility_id,
         p_arrival_time => v_arrival_time,
-        p_departure_time => v_departure_time,
-        p_route_id => NULL
+        p_departure_time => v_departure_time
     );
     
     -- Verify arrival event

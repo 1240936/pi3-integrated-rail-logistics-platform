@@ -10,57 +10,64 @@ CREATE OR REPLACE FUNCTION RemoveFreightFromTrain(
     p_planned_train_id IN NUMBER,
     p_start_date IN DATE
 ) RETURN NUMBER
-IS
+    IS
     v_freight_exists NUMBER;
-    v_train_exists NUMBER;
-    v_link_exists NUMBER;
+    v_train_exists   NUMBER;
+    v_link_exists    NUMBER;
 BEGIN
     -- 1. Validation: Check for NULL parameters
     IF p_freight_id IS NULL OR p_planned_train_id IS NULL OR p_start_date IS NULL THEN
         RAISE_APPLICATION_ERROR(-20100, 'Parameters FreightID, TrainID, and StartDate cannot be NULL');
-END IF;
+    END IF;
 
     -- 2. Validation: Check if Freight exists in the Freight table
-SELECT COUNT(*) INTO v_freight_exists
-FROM Freight
-WHERE ID = p_freight_id;
+    SELECT COUNT(*)
+    INTO v_freight_exists
+    FROM Freight
+    WHERE ID = p_freight_id;
 
-IF v_freight_exists = 0 THEN
+    IF v_freight_exists = 0 THEN
         RAISE_APPLICATION_ERROR(-20102, 'Freight ID ' || p_freight_id || ' does not exist.');
-END IF;
+    END IF;
 
     -- 3. Validation: Check if Planned_Train exists (Key: TrainID + startDate)
-SELECT COUNT(*) INTO v_train_exists
-FROM Planned_Train
-WHERE TrainID = p_planned_train_id AND startDate = p_start_date;
+    SELECT COUNT(*)
+    INTO v_train_exists
+    FROM Planned_Train
+    WHERE TrainID = p_planned_train_id
+      AND startDate = p_start_date;
 
-IF v_train_exists = 0 THEN
-        RAISE_APPLICATION_ERROR(-20103, 'Planned Train not found for ID ' || p_planned_train_id || ' on ' || TO_CHAR(p_start_date, 'YYYY-MM-DD'));
-END IF;
+    IF v_train_exists = 0 THEN
+        RAISE_APPLICATION_ERROR(-20103, 'Planned Train not found for ID ' || p_planned_train_id || ' on ' ||
+                                        TO_CHAR(p_start_date, 'YYYY-MM-DD'));
+    END IF;
 
     -- 4. Check if there is any assignment linking this freight to this train
-SELECT COUNT(*) INTO v_link_exists
-FROM Assigned_Freight
-WHERE FreightID = p_freight_id
-  AND PlannedTrainID = p_planned_train_id
-  AND PlannedTrainStartDate = p_start_date;
+    SELECT COUNT(*)
+    INTO v_link_exists
+    FROM Assigned_Freight
+    WHERE FreightID = p_freight_id
+      AND PlannedTrainID = p_planned_train_id
+      AND PlannedTrainStartDate = p_start_date;
 
-IF v_link_exists = 0 THEN
+    IF v_link_exists = 0 THEN
         RAISE_APPLICATION_ERROR(-20104, 'The specified Freight is not assigned to this Planned Train.');
-END IF;
+    END IF;
 
     -- 5. Operation: Detach all wagons associated with this freight from the train
     -- According to US requirements, removing the freight must detach all its wagons.
-DELETE FROM Assigned_Freight
-WHERE FreightID = p_freight_id
-  AND PlannedTrainID = p_planned_train_id
-  AND PlannedTrainStartDate = p_start_date;
+    DELETE
+    FROM Assigned_Freight
+    WHERE FreightID = p_freight_id
+      AND PlannedTrainID = p_planned_train_id
+      AND PlannedTrainStartDate = p_start_date;
 
 -- 6. Atomic Transaction
-COMMIT;
+    COMMIT;
 
-DBMS_OUTPUT.PUT_LINE('SUCCESS: Freight ' || p_freight_id || ' and its wagons removed from Train ' || p_planned_train_id);
-RETURN 1;
+    DBMS_OUTPUT.PUT_LINE('SUCCESS: Freight ' || p_freight_id || ' and its wagons removed from Train ' ||
+                         p_planned_train_id);
+    RETURN 1;
 
 EXCEPTION
     WHEN OTHERS THEN
@@ -68,9 +75,9 @@ EXCEPTION
         -- Re-raise custom application errors
         IF SQLCODE BETWEEN -20999 AND -20000 THEN
             RAISE;
-ELSE
+        ELSE
             RAISE_APPLICATION_ERROR(-20199, 'Unexpected System Error: ' || SQLERRM);
-END IF;
+        END IF;
 END RemoveFreightFromTrain;
 /
 
@@ -95,45 +102,45 @@ END RemoveFreightFromTrain;
 
 -- 1.1 Test NULL Freight ID (Expects -20100)
 DECLARE
-v_result NUMBER;
+    v_result   NUMBER;
     v_train_id NUMBER := 500;
-    v_date DATE := TO_DATE('2025-01-20', 'YYYY-MM-DD');
+    v_date     DATE   := TO_DATE('2025-01-20', 'YYYY-MM-DD');
 BEGIN
     DBMS_OUTPUT.PUT_LINE('--- Case 1.1: Testing NULL Freight ID ---');
     v_result := RemoveFreightFromTrain(NULL, v_train_id, v_date);
 
     DBMS_OUTPUT.PUT_LINE('ERROR: Should have raised exception for NULL Freight ID');
-ROLLBACK;
+    ROLLBACK;
 EXCEPTION
     WHEN OTHERS THEN
         IF SQLCODE = -20100 THEN
             DBMS_OUTPUT.PUT_LINE('SUCCESS: Correctly rejected NULL Freight ID (-20100).');
-ELSE
+        ELSE
             DBMS_OUTPUT.PUT_LINE('FAILED: Unexpected error: ' || SQLERRM);
-END IF;
-ROLLBACK;
+        END IF;
+        ROLLBACK;
 END;
 /
 
 -- 1.2 Test NULL Train ID (Expects -20100)
 DECLARE
-v_result NUMBER;
+    v_result     NUMBER;
     v_freight_id NUMBER := 100;
-    v_date DATE := TO_DATE('2025-01-20', 'YYYY-MM-DD');
+    v_date       DATE   := TO_DATE('2025-01-20', 'YYYY-MM-DD');
 BEGIN
     DBMS_OUTPUT.PUT_LINE('--- Case 1.2: Testing NULL Train ID ---');
     v_result := RemoveFreightFromTrain(v_freight_id, NULL, v_date);
 
     DBMS_OUTPUT.PUT_LINE('ERROR: Should have raised exception for NULL Train ID');
-ROLLBACK;
+    ROLLBACK;
 EXCEPTION
     WHEN OTHERS THEN
         IF SQLCODE = -20100 THEN
             DBMS_OUTPUT.PUT_LINE('SUCCESS: Correctly rejected NULL Train ID (-20100).');
-ELSE
+        ELSE
             DBMS_OUTPUT.PUT_LINE('FAILED: Unexpected error: ' || SQLERRM);
-END IF;
-ROLLBACK;
+        END IF;
+        ROLLBACK;
 END;
 /
 
@@ -142,10 +149,10 @@ END;
 -- ============================================================================
 
 DECLARE
-v_result NUMBER;
+    v_result             NUMBER;
     v_invalid_freight_id NUMBER := -999; -- An ID that definitely does not exist
-    v_train_id NUMBER := 500;
-    v_date DATE := TO_DATE('2025-01-20', 'YYYY-MM-DD');
+    v_train_id           NUMBER := 500;
+    v_date               DATE   := TO_DATE('2025-01-20', 'YYYY-MM-DD');
 BEGIN
     DBMS_OUTPUT.PUT_LINE('--- Starting Test Case 2: Non-existent Freight ---');
     DBMS_OUTPUT.PUT_LINE('Attempting to remove Freight ID: ' || v_invalid_freight_id);
@@ -155,7 +162,7 @@ BEGIN
 
     -- If it reaches here, it means the function didn't raise the error
     DBMS_OUTPUT.PUT_LINE('ERROR: Function should have raised an exception for non-existent Freight!');
-ROLLBACK;
+    ROLLBACK;
 
 EXCEPTION
     WHEN OTHERS THEN
@@ -163,10 +170,10 @@ EXCEPTION
         IF SQLCODE = -20102 THEN
             DBMS_OUTPUT.PUT_LINE('SUCCESS: Correctly rejected non-existent Freight ID.');
             DBMS_OUTPUT.PUT_LINE('Expected Error Message: ' || SQLERRM);
-ELSE
+        ELSE
             DBMS_OUTPUT.PUT_LINE('FAILED: Expected error -20102 but got ' || SQLCODE || ' - ' || SQLERRM);
-END IF;
-ROLLBACK;
+        END IF;
+        ROLLBACK;
 END;
 /
 
@@ -175,40 +182,41 @@ END;
 -- ============================================================================
 
 DECLARE
-v_result NUMBER;
-    v_freight_id NUMBER;
-    v_train_id NUMBER;
+    v_result       NUMBER;
+    v_freight_id   NUMBER;
+    v_train_id     NUMBER;
     v_invalid_date DATE := TO_DATE('1900-01-01', 'YYYY-MM-DD'); -- A date with no planned trips
 BEGIN
     DBMS_OUTPUT.PUT_LINE('--- Starting Test Case 3: Non-existent Planned Train ---');
 
     -- Get a valid freight ID
-SELECT ID INTO v_freight_id FROM Freight WHERE ROWNUM = 1;
+    SELECT ID INTO v_freight_id FROM Freight WHERE ROWNUM = 1;
 
 -- Get a valid train ID from Planned_Train
-SELECT TrainID INTO v_train_id FROM Planned_Train WHERE ROWNUM = 1;
+    SELECT TrainID INTO v_train_id FROM Planned_Train WHERE ROWNUM = 1;
 
-DBMS_OUTPUT.PUT_LINE('Attempting to remove Freight ' || v_freight_id || ' from Train ID ' || v_train_id || ' on an invalid date.');
+    DBMS_OUTPUT.PUT_LINE('Attempting to remove Freight ' || v_freight_id || ' from Train ID ' || v_train_id ||
+                         ' on an invalid date.');
 
     -- Call the function with a date that has no planned train
     -- This should trigger RAISE_APPLICATION_ERROR (-20103)
     v_result := RemoveFreightFromTrain(v_freight_id, v_train_id, v_invalid_date);
 
     DBMS_OUTPUT.PUT_LINE('ERROR: Function should have failed for non-existent Train/Date combination!');
-ROLLBACK;
+    ROLLBACK;
 
 EXCEPTION
     WHEN NO_DATA_FOUND THEN
         DBMS_OUTPUT.PUT_LINE('SKIPPED: No freight or planned train found for testing.');
-WHEN OTHERS THEN
+    WHEN OTHERS THEN
         -- Check if the error code is -20103 (Planned Train not found)
         IF SQLCODE = -20103 THEN
             DBMS_OUTPUT.PUT_LINE('SUCCESS: Correctly rejected invalid Planned Train (ID + Date).');
             DBMS_OUTPUT.PUT_LINE('Expected Error Message: ' || SQLERRM);
-ELSE
+        ELSE
             DBMS_OUTPUT.PUT_LINE('FAILED: Expected error -20103 but got ' || SQLCODE || ' - ' || SQLERRM);
-END IF;
-ROLLBACK;
+        END IF;
+        ROLLBACK;
 END;
 /
 
@@ -217,44 +225,45 @@ END;
 -- ============================================================================
 
 DECLARE
-v_result NUMBER;
+    v_result     NUMBER;
     v_freight_id NUMBER;
-    v_train_id NUMBER;
-    v_date DATE := TO_DATE('2025-12-25', 'YYYY-MM-DD');
+    v_train_id   NUMBER;
+    v_date       DATE := TO_DATE('2025-12-25', 'YYYY-MM-DD');
 BEGIN
     -- 1. Setup: Get a valid Freight and a valid Planned Train
-SELECT ID INTO v_freight_id FROM Freight WHERE ROWNUM = 1;
+    SELECT ID INTO v_freight_id FROM Freight WHERE ROWNUM = 1;
 
-SELECT TrainID, startDate
-INTO v_train_id, v_date
-FROM Planned_Train
-WHERE ROWNUM = 1;
+    SELECT TrainID, startDate
+    INTO v_train_id, v_date
+    FROM Planned_Train
+    WHERE ROWNUM = 1;
 
 -- 2. Ensure they are NOT linked in Assigned_Freight for this test
-DELETE FROM Assigned_Freight
-WHERE FreightID = v_freight_id
-  AND PlannedTrainID = v_train_id
-  AND PlannedTrainStartDate = v_date;
-COMMIT;
+    DELETE
+    FROM Assigned_Freight
+    WHERE FreightID = v_freight_id
+      AND PlannedTrainID = v_train_id
+      AND PlannedTrainStartDate = v_date;
+    COMMIT;
 
-DBMS_OUTPUT.PUT_LINE('--- Starting Test Case 4: Missing Assignment Link ---');
+    DBMS_OUTPUT.PUT_LINE('--- Starting Test Case 4: Missing Assignment Link ---');
     DBMS_OUTPUT.PUT_LINE('Testing Freight ' || v_freight_id || ' with Train ' || v_train_id || ' (No link exists)');
 
     -- 3. Call function - Expected to raise -20104
     v_result := RemoveFreightFromTrain(v_freight_id, v_train_id, v_date);
 
     DBMS_OUTPUT.PUT_LINE('ERROR: Function should have raised -20104 for missing link!');
-ROLLBACK;
+    ROLLBACK;
 
 EXCEPTION
     WHEN OTHERS THEN
         IF SQLCODE = -20104 THEN
             DBMS_OUTPUT.PUT_LINE('SUCCESS: Correctly rejected removal because no assignment was found.');
             DBMS_OUTPUT.PUT_LINE('Expected Error Message: ' || SQLERRM);
-ELSE
+        ELSE
             DBMS_OUTPUT.PUT_LINE('FAILED: Expected -20104 but got ' || SQLCODE || ' - ' || SQLERRM);
-END IF;
-ROLLBACK;
+        END IF;
+        ROLLBACK;
 END;
 /
 
@@ -263,30 +272,32 @@ END;
 -- ============================================================================
 
 DECLARE
-v_result NUMBER;
-    v_freight_id NUMBER;
-    v_train_id NUMBER;
-    v_date DATE;
-    v_wagon_id NUMBER;
+    v_result       NUMBER;
+    v_freight_id   NUMBER;
+    v_train_id     NUMBER;
+    v_date         DATE;
+    v_wagon_id     NUMBER;
     v_count_before NUMBER;
-    v_count_after NUMBER;
+    v_count_after  NUMBER;
 BEGIN
     DBMS_OUTPUT.PUT_LINE('--- Starting Test Case 5: Happy Path ---');
 
     -- Find an existing Assigned_Freight entry to use for testing
-SELECT af.FreightID, af.PlannedTrainID, af.PlannedTrainStartDate, af.WagonID
-INTO v_freight_id, v_train_id, v_date, v_wagon_id
-FROM Assigned_Freight af
-WHERE ROWNUM = 1;
+    SELECT af.FreightID, af.PlannedTrainID, af.PlannedTrainStartDate, af.WagonID
+    INTO v_freight_id, v_train_id, v_date, v_wagon_id
+    FROM Assigned_Freight af
+    WHERE ROWNUM = 1;
 
 -- Count before removal
-SELECT COUNT(*) INTO v_count_before
-FROM Assigned_Freight
-WHERE FreightID = v_freight_id
-  AND PlannedTrainID = v_train_id
-  AND PlannedTrainStartDate = v_date;
+    SELECT COUNT(*)
+    INTO v_count_before
+    FROM Assigned_Freight
+    WHERE FreightID = v_freight_id
+      AND PlannedTrainID = v_train_id
+      AND PlannedTrainStartDate = v_date;
 
-DBMS_OUTPUT.PUT_LINE('Found Freight ' || v_freight_id || ' on Train ' || v_train_id || ' with ' || v_count_before || ' wagon(s)');
+    DBMS_OUTPUT.PUT_LINE('Found Freight ' || v_freight_id || ' on Train ' || v_train_id || ' with ' || v_count_before ||
+                         ' wagon(s)');
 
     -- Call the function
     v_result := RemoveFreightFromTrain(v_freight_id, v_train_id, v_date);
@@ -294,29 +305,30 @@ DBMS_OUTPUT.PUT_LINE('Found Freight ' || v_freight_id || ' on Train ' || v_train
     -- Validation
     IF v_result = 1 THEN
         -- Check if any record remains in Assigned_Freight for this link
-SELECT COUNT(*) INTO v_count_after
-FROM Assigned_Freight
-WHERE FreightID = v_freight_id
-  AND PlannedTrainID = v_train_id
-  AND PlannedTrainStartDate = v_date;
+        SELECT COUNT(*)
+        INTO v_count_after
+        FROM Assigned_Freight
+        WHERE FreightID = v_freight_id
+          AND PlannedTrainID = v_train_id
+          AND PlannedTrainStartDate = v_date;
 
-IF v_count_after = 0 THEN
+        IF v_count_after = 0 THEN
             DBMS_OUTPUT.PUT_LINE('SUCCESS: Freight and its wagons successfully removed.');
-ELSE
+        ELSE
             DBMS_OUTPUT.PUT_LINE('FAILED: Records still exist in Assigned_Freight!');
-END IF;
-ELSE
+        END IF;
+    ELSE
         DBMS_OUTPUT.PUT_LINE('FAILED: Function returned ' || v_result);
-END IF;
+    END IF;
 
-ROLLBACK; -- Always rollback to keep the database clean
+    ROLLBACK; -- Always rollback to keep the database clean
 
 EXCEPTION
     WHEN NO_DATA_FOUND THEN
         DBMS_OUTPUT.PUT_LINE('SKIPPED: No Assigned_Freight entries found for testing.');
-WHEN OTHERS THEN
+    WHEN OTHERS THEN
         DBMS_OUTPUT.PUT_LINE('CRITICAL ERROR: ' || SQLERRM);
-ROLLBACK;
+        ROLLBACK;
 END;
 /
 
@@ -325,101 +337,105 @@ END;
 -- ============================================================================
 
 DECLARE
-v_result NUMBER;
-    v_freight_id NUMBER;
-    v_train_id NUMBER;
-    v_date DATE;
-    v_wagon_id_1 NUMBER;
-    v_wagon_id_2 NUMBER;
-    v_wagon_id_3 NUMBER;
+    v_result       NUMBER;
+    v_freight_id   NUMBER;
+    v_train_id     NUMBER;
+    v_date         DATE;
+    v_wagon_id_1   NUMBER;
+    v_wagon_id_2   NUMBER;
+    v_wagon_id_3   NUMBER;
     v_count_before NUMBER;
-    v_count_after NUMBER;
+    v_count_after  NUMBER;
 BEGIN
     DBMS_OUTPUT.PUT_LINE('--- Starting Test Case 6: Multiple Wagons Removal ---');
 
     -- Find an existing freight with multiple wagons, or use a freight with at least one wagon
-SELECT FreightID, PlannedTrainID, PlannedTrainStartDate
-INTO v_freight_id, v_train_id, v_date
-FROM (
-         SELECT FreightID, PlannedTrainID, PlannedTrainStartDate, COUNT(*) as wagon_count
-         FROM Assigned_Freight
-         GROUP BY FreightID, PlannedTrainID, PlannedTrainStartDate
-         HAVING COUNT(*) >= 1
-         ORDER BY COUNT(*) DESC
-     )
-WHERE ROWNUM = 1;
+    SELECT FreightID, PlannedTrainID, PlannedTrainStartDate
+    INTO v_freight_id, v_train_id, v_date
+    FROM (SELECT FreightID, PlannedTrainID, PlannedTrainStartDate, COUNT(*) as wagon_count
+          FROM Assigned_Freight
+          GROUP BY FreightID, PlannedTrainID, PlannedTrainStartDate
+          HAVING COUNT(*) >= 1
+          ORDER BY COUNT(*) DESC)
+    WHERE ROWNUM = 1;
 
 -- Get wagons from this freight that are already assigned
-SELECT WagonID INTO v_wagon_id_1
-FROM Assigned_Freight
-WHERE FreightID = v_freight_id
-  AND PlannedTrainID = v_train_id
-  AND PlannedTrainStartDate = v_date
-  AND ROWNUM = 1;
+    SELECT WagonID
+    INTO v_wagon_id_1
+    FROM Assigned_Freight
+    WHERE FreightID = v_freight_id
+      AND PlannedTrainID = v_train_id
+      AND PlannedTrainStartDate = v_date
+      AND ROWNUM = 1;
 
 -- Try to get additional wagons (may not exist, that's okay)
-BEGIN
-SELECT WagonID INTO v_wagon_id_2
-FROM Assigned_Freight
-WHERE FreightID = v_freight_id
-  AND PlannedTrainID = v_train_id
-  AND PlannedTrainStartDate = v_date
-  AND WagonID != v_wagon_id_1
+    BEGIN
+        SELECT WagonID
+        INTO v_wagon_id_2
+        FROM Assigned_Freight
+        WHERE FreightID = v_freight_id
+          AND PlannedTrainID = v_train_id
+          AND PlannedTrainStartDate = v_date
+          AND WagonID != v_wagon_id_1
           AND ROWNUM = 1;
-EXCEPTION
+    EXCEPTION
         WHEN NO_DATA_FOUND THEN
             v_wagon_id_2 := NULL;
-END;
+    END;
 
-BEGIN
-SELECT WagonID INTO v_wagon_id_3
-FROM Assigned_Freight
-WHERE FreightID = v_freight_id
-  AND PlannedTrainID = v_train_id
-  AND PlannedTrainStartDate = v_date
-  AND WagonID != v_wagon_id_1
+    BEGIN
+        SELECT WagonID
+        INTO v_wagon_id_3
+        FROM Assigned_Freight
+        WHERE FreightID = v_freight_id
+          AND PlannedTrainID = v_train_id
+          AND PlannedTrainStartDate = v_date
+          AND WagonID != v_wagon_id_1
           AND (v_wagon_id_2 IS NULL OR WagonID != v_wagon_id_2)
           AND ROWNUM = 1;
-EXCEPTION
+    EXCEPTION
         WHEN NO_DATA_FOUND THEN
             v_wagon_id_3 := NULL;
-END;
+    END;
 
     -- Count before removal
-SELECT COUNT(*) INTO v_count_before
-FROM Assigned_Freight
-WHERE FreightID = v_freight_id
-  AND PlannedTrainID = v_train_id
-  AND PlannedTrainStartDate = v_date;
+    SELECT COUNT(*)
+    INTO v_count_before
+    FROM Assigned_Freight
+    WHERE FreightID = v_freight_id
+      AND PlannedTrainID = v_train_id
+      AND PlannedTrainStartDate = v_date;
 
-DBMS_OUTPUT.PUT_LINE('Freight ' || v_freight_id || ' has ' || v_count_before || ' wagon(s) linked to Train ' || v_train_id);
+    DBMS_OUTPUT.PUT_LINE('Freight ' || v_freight_id || ' has ' || v_count_before || ' wagon(s) linked to Train ' ||
+                         v_train_id);
 
     -- Call the function
     v_result := RemoveFreightFromTrain(v_freight_id, v_train_id, v_date);
 
     -- Validation: The count must be exactly 0
     IF v_result = 1 THEN
-SELECT COUNT(*) INTO v_count_after
-FROM Assigned_Freight
-WHERE FreightID = v_freight_id
-  AND PlannedTrainID = v_train_id
-  AND PlannedTrainStartDate = v_date;
+        SELECT COUNT(*)
+        INTO v_count_after
+        FROM Assigned_Freight
+        WHERE FreightID = v_freight_id
+          AND PlannedTrainID = v_train_id
+          AND PlannedTrainStartDate = v_date;
 
-IF v_count_after = 0 THEN
+        IF v_count_after = 0 THEN
             DBMS_OUTPUT.PUT_LINE('SUCCESS: All ' || v_count_before || ' wagon(s) were successfully detached.');
-ELSE
+        ELSE
             DBMS_OUTPUT.PUT_LINE('FAILED: Still exists ' || v_count_after || ' wagon(s) linked to the freight!');
-END IF;
-END IF;
+        END IF;
+    END IF;
 
-ROLLBACK;
+    ROLLBACK;
 
 EXCEPTION
     WHEN NO_DATA_FOUND THEN
         DBMS_OUTPUT.PUT_LINE('SKIPPED: No Assigned_Freight entries found for testing.');
-WHEN OTHERS THEN
+    WHEN OTHERS THEN
         DBMS_OUTPUT.PUT_LINE('CRITICAL ERROR: ' || SQLERRM);
-ROLLBACK;
+        ROLLBACK;
 END;
 /
 
@@ -428,87 +444,88 @@ END;
 -- ============================================================================
 
 DECLARE
-v_result NUMBER;
-    v_freight_A NUMBER;
-    v_freight_B NUMBER;
-    v_train_id NUMBER;
-    v_date DATE;
-    v_wagon_A NUMBER;
-    v_wagon_B NUMBER;
+    v_result         NUMBER;
+    v_freight_A      NUMBER;
+    v_freight_B      NUMBER;
+    v_train_id       NUMBER;
+    v_date           DATE;
+    v_wagon_A        NUMBER;
+    v_wagon_B        NUMBER;
     v_count_B_before NUMBER;
-    v_count_B_after NUMBER;
+    v_count_B_after  NUMBER;
 BEGIN
     DBMS_OUTPUT.PUT_LINE('--- Starting Test Case 7: Isolation Test ---');
 
     -- Find two different freights assigned to the same train
-SELECT FreightID, PlannedTrainID, PlannedTrainStartDate, WagonID
-INTO v_freight_A, v_train_id, v_date, v_wagon_A
-FROM Assigned_Freight
-WHERE ROWNUM = 1;
+    SELECT FreightID, PlannedTrainID, PlannedTrainStartDate, WagonID
+    INTO v_freight_A, v_train_id, v_date, v_wagon_A
+    FROM Assigned_Freight
+    WHERE ROWNUM = 1;
 
 -- Find another freight on the same train (or use a different wagon from same freight if only one freight exists)
-BEGIN
-SELECT FreightID, WagonID
-INTO v_freight_B, v_wagon_B
-FROM Assigned_Freight
-WHERE PlannedTrainID = v_train_id
-  AND PlannedTrainStartDate = v_date
-  AND (FreightID != v_freight_A OR WagonID != v_wagon_A)
-  AND ROWNUM = 1;
-EXCEPTION
+    BEGIN
+        SELECT FreightID, WagonID
+        INTO v_freight_B, v_wagon_B
+        FROM Assigned_Freight
+        WHERE PlannedTrainID = v_train_id
+          AND PlannedTrainStartDate = v_date
+          AND (FreightID != v_freight_A OR WagonID != v_wagon_A)
+          AND ROWNUM = 1;
+    EXCEPTION
         WHEN NO_DATA_FOUND THEN
             -- Only one freight on this train, find a different freight that has unassigned wagons
-BEGIN
-SELECT ID INTO v_freight_B
-FROM (
-         SELECT f.ID
-         FROM Freight f
-         WHERE f.ID != v_freight_A
-                      AND EXISTS (
-                        SELECT 1 FROM Unassigned_Freight uf WHERE uf.FreightID = f.ID
-                      )
-     )
-WHERE ROWNUM = 1;
+            BEGIN
+                SELECT ID
+                INTO v_freight_B
+                FROM (SELECT f.ID
+                      FROM Freight f
+                      WHERE f.ID != v_freight_A
+                        AND EXISTS (SELECT 1
+                                    FROM Unassigned_Freight uf
+                                    WHERE uf.FreightID = f.ID))
+                WHERE ROWNUM = 1;
 
 -- Get a wagon from freight B's unassigned wagons that is not already assigned to this train
-SELECT uf.WagonID INTO v_wagon_B
-FROM Unassigned_Freight uf
-WHERE uf.FreightID = v_freight_B
-  AND NOT EXISTS (
-    SELECT 1 FROM Assigned_Wagon aw
-    WHERE aw.WagonID = uf.WagonID
-      AND aw.PlannedTrainID = v_train_id
-      AND aw.PlannedTrainStartDate = v_date
-)
-  AND ROWNUM = 1;
+                SELECT uf.WagonID
+                INTO v_wagon_B
+                FROM Unassigned_Freight uf
+                WHERE uf.FreightID = v_freight_B
+                  AND NOT EXISTS (SELECT 1
+                                  FROM Assigned_Wagon aw
+                                  WHERE aw.WagonID = uf.WagonID
+                                    AND aw.PlannedTrainID = v_train_id
+                                    AND aw.PlannedTrainStartDate = v_date)
+                  AND ROWNUM = 1;
 
 -- Add wagon to train first (if not already there)
-BEGIN
-INSERT INTO Assigned_Wagon (WagonID, PlannedTrainID, PlannedTrainStartDate)
-VALUES (v_wagon_B, v_train_id, v_date);
-EXCEPTION
+                BEGIN
+                    INSERT INTO Assigned_Wagon (WagonID, PlannedTrainID, PlannedTrainStartDate)
+                    VALUES (v_wagon_B, v_train_id, v_date);
+                EXCEPTION
                     WHEN DUP_VAL_ON_INDEX THEN
                         NULL; -- Already assigned, continue
-END;
+                END;
 
                 -- Add freight B to the same train for testing
-INSERT INTO Assigned_Freight (FreightID, WagonID, PlannedTrainID, PlannedTrainStartDate)
-VALUES (v_freight_B, v_wagon_B, v_train_id, v_date);
-EXCEPTION
+                INSERT INTO Assigned_Freight (FreightID, WagonID, PlannedTrainID, PlannedTrainStartDate)
+                VALUES (v_freight_B, v_wagon_B, v_train_id, v_date);
+            EXCEPTION
                 WHEN NO_DATA_FOUND THEN
                     -- No suitable freight found, skip this test
                     RAISE_APPLICATION_ERROR(-20000, 'SKIP_TEST');
-END;
-END;
+            END;
+    END;
 
     -- Count freight B before
-SELECT COUNT(*) INTO v_count_B_before
-FROM Assigned_Freight
-WHERE FreightID = v_freight_B
-  AND PlannedTrainID = v_train_id
-  AND PlannedTrainStartDate = v_date;
+    SELECT COUNT(*)
+    INTO v_count_B_before
+    FROM Assigned_Freight
+    WHERE FreightID = v_freight_B
+      AND PlannedTrainID = v_train_id
+      AND PlannedTrainStartDate = v_date;
 
-DBMS_OUTPUT.PUT_LINE('Setup: Freights ' || v_freight_A || ' and ' || v_freight_B || ' linked to Train ' || v_train_id);
+    DBMS_OUTPUT.PUT_LINE('Setup: Freights ' || v_freight_A || ' and ' || v_freight_B || ' linked to Train ' ||
+                         v_train_id);
 
     -- Call the function to remove ONLY Freight A
     v_result := RemoveFreightFromTrain(v_freight_A, v_train_id, v_date);
@@ -516,33 +533,36 @@ DBMS_OUTPUT.PUT_LINE('Setup: Freights ' || v_freight_A || ' and ' || v_freight_B
     -- Validation: Freight A should be gone, Freight B must remain
     IF v_result = 1 THEN
         -- Check if Freight B is still there
-SELECT COUNT(*) INTO v_count_B_after
-FROM Assigned_Freight
-WHERE FreightID = v_freight_B
-  AND PlannedTrainID = v_train_id
-  AND PlannedTrainStartDate = v_date;
+        SELECT COUNT(*)
+        INTO v_count_B_after
+        FROM Assigned_Freight
+        WHERE FreightID = v_freight_B
+          AND PlannedTrainID = v_train_id
+          AND PlannedTrainStartDate = v_date;
 
-IF v_count_B_after = v_count_B_before THEN
-            DBMS_OUTPUT.PUT_LINE('SUCCESS: Freight ' || v_freight_A || ' removed, but Freight ' || v_freight_B || ' was preserved.');
-ELSE
-            DBMS_OUTPUT.PUT_LINE('FAILED: Freight ' || v_freight_B || ' count changed from ' || v_count_B_before || ' to ' || v_count_B_after);
-END IF;
-END IF;
+        IF v_count_B_after = v_count_B_before THEN
+            DBMS_OUTPUT.PUT_LINE('SUCCESS: Freight ' || v_freight_A || ' removed, but Freight ' || v_freight_B ||
+                                 ' was preserved.');
+        ELSE
+            DBMS_OUTPUT.PUT_LINE('FAILED: Freight ' || v_freight_B || ' count changed from ' || v_count_B_before ||
+                                 ' to ' || v_count_B_after);
+        END IF;
+    END IF;
 
-ROLLBACK;
+    ROLLBACK;
 
 EXCEPTION
     WHEN NO_DATA_FOUND THEN
         DBMS_OUTPUT.PUT_LINE('SKIPPED: Could not find appropriate test data.');
-ROLLBACK;
-WHEN OTHERS THEN
+        ROLLBACK;
+    WHEN OTHERS THEN
         IF SQLCODE = -20000 AND SQLERRM LIKE '%SKIP_TEST%' THEN
             DBMS_OUTPUT.PUT_LINE('SKIPPED: No suitable freight with unassigned wagons found for testing.');
-ROLLBACK;
-ELSE
+            ROLLBACK;
+        ELSE
             DBMS_OUTPUT.PUT_LINE('CRITICAL ERROR: ' || SQLERRM);
-ROLLBACK;
-END IF;
+            ROLLBACK;
+        END IF;
 END;
 /
 
@@ -551,59 +571,62 @@ END;
 -- ============================================================================
 
 DECLARE
-v_result NUMBER;
-    v_freight_id NUMBER;
-    v_train_id NUMBER;
-    v_date DATE;
+    v_result       NUMBER;
+    v_freight_id   NUMBER;
+    v_train_id     NUMBER;
+    v_date         DATE;
     v_count_before NUMBER;
-    v_count_after NUMBER;
+    v_count_after  NUMBER;
 BEGIN
     DBMS_OUTPUT.PUT_LINE('--- Starting Test Case 8: Atomicity ---');
 
     -- Find an existing Assigned_Freight entry
-SELECT FreightID, PlannedTrainID, PlannedTrainStartDate
-INTO v_freight_id, v_train_id, v_date
-FROM Assigned_Freight
-WHERE ROWNUM = 1;
+    SELECT FreightID, PlannedTrainID, PlannedTrainStartDate
+    INTO v_freight_id, v_train_id, v_date
+    FROM Assigned_Freight
+    WHERE ROWNUM = 1;
 
-SELECT COUNT(*) INTO v_count_before
-FROM Assigned_Freight
-WHERE FreightID = v_freight_id
-  AND PlannedTrainID = v_train_id
-  AND PlannedTrainStartDate = v_date;
+    SELECT COUNT(*)
+    INTO v_count_before
+    FROM Assigned_Freight
+    WHERE FreightID = v_freight_id
+      AND PlannedTrainID = v_train_id
+      AND PlannedTrainStartDate = v_date;
 
-DBMS_OUTPUT.PUT_LINE('Testing with Freight ' || v_freight_id || ' on Train ' || v_train_id || ' (' || v_count_before || ' wagon(s))');
+    DBMS_OUTPUT.PUT_LINE('Testing with Freight ' || v_freight_id || ' on Train ' || v_train_id || ' (' ||
+                         v_count_before || ' wagon(s))');
 
     -- Simulate a failure by calling with an invalid freight ID
     -- This should trigger -20102 (Freight not found) and rollback
-BEGIN
+    BEGIN
         v_result := RemoveFreightFromTrain(-999, v_train_id, v_date);
         DBMS_OUTPUT.PUT_LINE('ERROR: Function should have raised an exception!');
-EXCEPTION
+    EXCEPTION
         WHEN OTHERS THEN
             DBMS_OUTPUT.PUT_LINE('Caught expected exception: ' || SQLCODE || ' - ' || SQLERRM);
-END;
+    END;
 
     -- Validation: The original record must still exist because of ROLLBACK in the function
-SELECT COUNT(*) INTO v_count_after
-FROM Assigned_Freight
-WHERE FreightID = v_freight_id
-  AND PlannedTrainID = v_train_id
-  AND PlannedTrainStartDate = v_date;
+    SELECT COUNT(*)
+    INTO v_count_after
+    FROM Assigned_Freight
+    WHERE FreightID = v_freight_id
+      AND PlannedTrainID = v_train_id
+      AND PlannedTrainStartDate = v_date;
 
-IF v_count_before = v_count_after THEN
+    IF v_count_before = v_count_after THEN
         DBMS_OUTPUT.PUT_LINE('SUCCESS: Atomicity preserved. Data remains consistent after failure.');
         DBMS_OUTPUT.PUT_LINE('Count before: ' || v_count_before || ', Count after: ' || v_count_after);
-ELSE
+    ELSE
         DBMS_OUTPUT.PUT_LINE('FAILED: Data was modified even though an error occurred!');
         DBMS_OUTPUT.PUT_LINE('Count before: ' || v_count_before || ', Count after: ' || v_count_after);
-END IF;
+    END IF;
 
 EXCEPTION
     WHEN NO_DATA_FOUND THEN
         DBMS_OUTPUT.PUT_LINE('SKIPPED: No Assigned_Freight entries found for testing.');
-WHEN OTHERS THEN
+    WHEN OTHERS THEN
         DBMS_OUTPUT.PUT_LINE('CRITICAL ERROR in test script: ' || SQLERRM);
-ROLLBACK;
+        ROLLBACK;
 END;
 /

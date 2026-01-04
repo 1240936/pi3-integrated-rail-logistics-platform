@@ -14,7 +14,7 @@ AS
     v_cursor SYS_REFCURSOR;
 BEGIN
     OPEN v_cursor FOR
-        SELECT 
+        SELECT
             ID,
             RailLineID,
             maxWeight,
@@ -37,7 +37,7 @@ AS
     v_cursor SYS_REFCURSOR;
 BEGIN
     OPEN v_cursor FOR
-        SELECT 
+        SELECT
             ID,
             RailLineID,
             maxWeight,
@@ -61,7 +61,7 @@ AS
     v_cursor SYS_REFCURSOR;
 BEGIN
     OPEN v_cursor FOR
-        SELECT 
+        SELECT
             ID,
             RailLineID,
             maxWeight,
@@ -82,7 +82,7 @@ AS
     v_cursor SYS_REFCURSOR;
 BEGIN
     OPEN v_cursor FOR
-        SELECT 
+        SELECT
             ID,
             LineSegmentID,
             position,
@@ -137,7 +137,7 @@ AS
     v_cursor SYS_REFCURSOR;
 BEGIN
     OPEN v_cursor FOR
-        SELECT 
+        SELECT
             ID,
             OwnerID,
             StartFacilityID,
@@ -159,7 +159,7 @@ AS
     v_cursor SYS_REFCURSOR;
 BEGIN
     OPEN v_cursor FOR
-        SELECT 
+        SELECT
             ID,
             OwnerID,
             StartFacilityID,
@@ -183,7 +183,7 @@ AS
     v_cursor SYS_REFCURSOR;
 BEGIN
     OPEN v_cursor FOR
-        SELECT 
+        SELECT
             ID,
             OwnerID,
             StartFacilityID,
@@ -207,13 +207,13 @@ AS
     v_cursor SYS_REFCURSOR;
 BEGIN
     OPEN v_cursor FOR
-        SELECT DISTINCT 
-            CASE 
+        SELECT DISTINCT
+            CASE
                 WHEN StartFacilityID = p_facility_id THEN EndFacilityID
                 WHEN EndFacilityID = p_facility_id THEN StartFacilityID
             END AS ConnectedFacilityID
         FROM RailLine
-        WHERE StartFacilityID = p_facility_id 
+        WHERE StartFacilityID = p_facility_id
            OR EndFacilityID = p_facility_id;
     RETURN v_cursor;
 END;
@@ -240,12 +240,12 @@ BEGIN
         INNER JOIN Assigned_Locomotive AL ON T.ID = AL.PlannedTrainID
         INNER JOIN Assigned_Wagon AW ON T.ID = AW.PlannedTrainID
         WHERE NOT EXISTS (
-            SELECT 1 
-            FROM Planned_Train PT 
+            SELECT 1
+            FROM Planned_Train PT
             WHERE PT.TrainID = T.ID
         )
         GROUP BY T.ID, T.TrainOperatorID
-        HAVING COUNT(DISTINCT AL.LocomotiveID) > 0 
+        HAVING COUNT(DISTINCT AL.LocomotiveID) > 0
            AND COUNT(DISTINCT AW.WagonID) > 0
         ORDER BY T.ID;
     RETURN v_cursor;
@@ -263,7 +263,7 @@ AS
     v_cursor SYS_REFCURSOR;
 BEGIN
     OPEN v_cursor FOR
-        SELECT 
+        SELECT
             TE.ID,
             p_route_id AS RouteID,
             TE.TrainID,
@@ -286,7 +286,7 @@ AS
     v_cursor SYS_REFCURSOR;
 BEGIN
     OPEN v_cursor FOR
-        SELECT 
+        SELECT
             R.ID AS RouteID,
             R.StartFacilityID,
             R.EndFacilityID,
@@ -319,33 +319,33 @@ BEGIN
     OPEN v_cursor FOR
         WITH PathSearch AS (
             -- Base case: start facility
-            SELECT 
+            SELECT
                 p_start_facility_id AS FacilityID,
                 0 AS PathLength,
                 CAST(p_start_facility_id AS VARCHAR2(4000)) AS PathString
             FROM DUAL
             UNION ALL
             -- Recursive case: find next facilities
-            SELECT 
-                CASE 
+            SELECT
+                CASE
                     WHEN RL.StartFacilityID = ps.FacilityID THEN RL.EndFacilityID
                     ELSE RL.StartFacilityID
                 END AS FacilityID,
                 ps.PathLength + 1 AS PathLength,
-                ps.PathString || ',' || 
-                CASE 
+                ps.PathString || ',' ||
+                CASE
                     WHEN RL.StartFacilityID = ps.FacilityID THEN TO_CHAR(RL.EndFacilityID)
                     ELSE TO_CHAR(RL.StartFacilityID)
                 END AS PathString
             FROM PathSearch ps
             INNER JOIN RailLine RL ON (
-                RL.StartFacilityID = ps.FacilityID 
+                RL.StartFacilityID = ps.FacilityID
                 OR RL.EndFacilityID = ps.FacilityID
             )
             WHERE ps.PathLength < 20  -- Prevent infinite loops (max 20 hops)
               AND ps.FacilityID != p_end_facility_id
-              AND INSTR(ps.PathString, 
-                  CASE 
+              AND INSTR(ps.PathString,
+                  CASE
                       WHEN RL.StartFacilityID = ps.FacilityID THEN TO_CHAR(RL.EndFacilityID)
                       ELSE TO_CHAR(RL.StartFacilityID)
                   END) = 0  -- Avoid cycles
@@ -357,19 +357,19 @@ BEGIN
               AND PathLength = (SELECT MIN(PathLength) FROM PathSearch WHERE FacilityID = p_end_facility_id)
             AND ROWNUM = 1
         )
-        SELECT 
+        SELECT
             TO_NUMBER(
-                CASE 
-                    WHEN LEVEL = 1 THEN 
-                        SUBSTR(PathString, 1, 
-                            CASE 
+                CASE
+                    WHEN LEVEL = 1 THEN
+                        SUBSTR(PathString, 1,
+                            CASE
                                 WHEN INSTR(PathString, ',') = 0 THEN LENGTH(PathString)
                                 ELSE INSTR(PathString, ',') - 1
                             END)
                     WHEN INSTR(PathString, ',', 1, LEVEL) = 0 THEN
                         SUBSTR(PathString, INSTR(PathString, ',', 1, LEVEL - 1) + 1)
                     ELSE
-                        SUBSTR(PathString, 
+                        SUBSTR(PathString,
                             INSTR(PathString, ',', 1, LEVEL - 1) + 1,
                             INSTR(PathString, ',', 1, LEVEL) - INSTR(PathString, ',', 1, LEVEL - 1) - 1)
                 END
@@ -403,7 +403,7 @@ BEGIN
     -- Note: Actual crossing detection logic is complex and done in Java
     -- This function returns a placeholder structure
     OPEN v_cursor FOR
-        SELECT 
+        SELECT
             R1.ID AS Route1ID,
             R2.ID AS Route2ID,
             PT1.TrainID AS Train1ID,
@@ -438,15 +438,15 @@ AS
     v_event_id NUMBER;
 BEGIN
     v_event_type := 'ROUTE_' || p_route_id;
-    
+
     -- Get next TrainEvent ID
     SELECT CASE WHEN MAX(ID) IS NULL THEN 1 ELSE MAX(ID) + 1 END
     INTO v_event_id
     FROM TrainEvent;
-    
+
     INSERT INTO TrainEvent (ID, TrainID, FacilityID, eventTime, eventType)
     VALUES (v_event_id, p_train_id, p_facility_id, p_event_time, v_event_type);
-    
+
     RETURN 1;
 EXCEPTION
     WHEN DUP_VAL_ON_INDEX THEN
@@ -454,10 +454,10 @@ EXCEPTION
         SELECT CASE WHEN MAX(ID) IS NULL THEN 1 ELSE MAX(ID) + 1 END
         INTO v_event_id
         FROM TrainEvent;
-        
+
         INSERT INTO TrainEvent (ID, TrainID, FacilityID, eventTime, eventType)
         VALUES (v_event_id, p_train_id, p_facility_id, p_event_time, v_event_type);
-        
+
         RETURN 1;
 END;
 /

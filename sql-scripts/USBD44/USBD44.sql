@@ -55,10 +55,10 @@ CREATE OR REPLACE FUNCTION AddSegmentToLine(
     p_siding_length IN DOUBLE PRECISION DEFAULT NULL
 ) RETURN NUMBER
     IS
-    v_line_exists NUMBER;
+    v_line_exists    NUMBER;
     v_segment_exists NUMBER;
-    v_siding_id NUMBER;
-    v_has_siding NUMBER := 0;
+    v_siding_id      NUMBER;
+    v_has_siding     NUMBER := 0;
 BEGIN
     -- 1. Basic validation: segment ID cannot be null
     IF p_segment_id IS NULL THEN
@@ -71,7 +71,8 @@ BEGIN
     END IF;
 
     -- 3. Validate that the rail line exists
-    SELECT COUNT(*) INTO v_line_exists
+    SELECT COUNT(*)
+    INTO v_line_exists
     FROM RailLine
     WHERE ID = p_rail_line_id;
 
@@ -80,7 +81,8 @@ BEGIN
     END IF;
 
     -- 4. Validate that the segment ID is unique
-    SELECT COUNT(*) INTO v_segment_exists
+    SELECT COUNT(*)
+    INTO v_segment_exists
     FROM LineSegment
     WHERE ID = p_segment_id;
 
@@ -114,11 +116,13 @@ BEGIN
         v_has_siding := 1;
 
         IF p_siding_length IS NULL OR p_siding_length <= 0 THEN
-            RAISE_APPLICATION_ERROR(-20006, 'Siding length must be provided and greater than 0 when siding position is specified.');
+            RAISE_APPLICATION_ERROR(-20006,
+                                    'Siding length must be provided and greater than 0 when siding position is specified.');
         END IF;
 
         IF p_siding_position < 0 OR p_siding_position > p_length THEN
-            RAISE_APPLICATION_ERROR(-20007, 'Siding position must be between 0 and segment length (' || p_length || ').');
+            RAISE_APPLICATION_ERROR(-20007,
+                                    'Siding position must be between 0 and segment length (' || p_length || ').');
         END IF;
     END IF;
 
@@ -146,32 +150,35 @@ END AddSegmentToLine;
 -- Test 1: Happy path - Add segment without siding
 -- Expected: Should successfully add segment and return segment ID
 DECLARE
-    v_segment_id NUMBER := 99991;  -- Use a high number to avoid conflicts
-    v_rail_line_id NUMBER;
-    v_result NUMBER;
+    v_segment_id     NUMBER := 99991; -- Use a high number to avoid conflicts
+    v_rail_line_id   NUMBER;
+    v_result         NUMBER;
     v_verified_count NUMBER;
 BEGIN
     DBMS_OUTPUT.PUT_LINE('Test 1: Happy path - Add segment without siding');
 
     -- Get an existing rail line ID
-    SELECT ID INTO v_rail_line_id
+    SELECT ID
+    INTO v_rail_line_id
     FROM RailLine
     WHERE ROWNUM = 1;
 
     v_result := AddSegmentToLine(
-        p_segment_id => v_segment_id,
-        p_rail_line_id => v_rail_line_id,
-        p_max_weight => 100.5,
-        p_length => 1500.0,
-        p_number_of_tracks => 2,
-        p_speed_limit => 80.0,
-        p_order_num => 1
-    );
+            p_segment_id => v_segment_id,
+            p_rail_line_id => v_rail_line_id,
+            p_max_weight => 100.5,
+            p_length => 1500.0,
+            p_number_of_tracks => 2,
+            p_speed_limit => 80.0,
+            p_order_num => 1
+                );
 
     -- Verify segment was added
-    SELECT COUNT(*) INTO v_verified_count
+    SELECT COUNT(*)
+    INTO v_verified_count
     FROM LineSegment
-    WHERE ID = v_segment_id AND RailLineID = v_rail_line_id;
+    WHERE ID = v_segment_id
+      AND RailLineID = v_rail_line_id;
 
     IF v_verified_count = 1 THEN
         DBMS_OUTPUT.PUT_LINE('  Result: PASSED');
@@ -193,38 +200,42 @@ END;
 -- Test 2: Happy path - Add segment with siding
 -- Expected: Should successfully add segment and siding, return segment ID
 DECLARE
-    v_segment_id NUMBER := 99992;
-    v_rail_line_id NUMBER;
-    v_result NUMBER;
+    v_segment_id             NUMBER := 99992;
+    v_rail_line_id           NUMBER;
+    v_result                 NUMBER;
     v_verified_segment_count NUMBER;
-    v_verified_siding_count NUMBER;
+    v_verified_siding_count  NUMBER;
 BEGIN
     DBMS_OUTPUT.PUT_LINE('Test 2: Happy path - Add segment with siding');
 
     -- Get an existing rail line ID
-    SELECT ID INTO v_rail_line_id
+    SELECT ID
+    INTO v_rail_line_id
     FROM RailLine
     WHERE ROWNUM = 1;
 
     v_result := AddSegmentToLine(
-        p_segment_id => v_segment_id,
-        p_rail_line_id => v_rail_line_id,
-        p_max_weight => 200.0,
-        p_length => 2000.0,
-        p_number_of_tracks => 1,
-        p_speed_limit => 60.0,
-        p_order_num => 2,
-        p_siding_position => 500.0,
-        p_siding_length => 300.0
-    );
+            p_segment_id => v_segment_id,
+            p_rail_line_id => v_rail_line_id,
+            p_max_weight => 200.0,
+            p_length => 2000.0,
+            p_number_of_tracks => 1,
+            p_speed_limit => 60.0,
+            p_order_num => 2,
+            p_siding_position => 500.0,
+            p_siding_length => 300.0
+                );
 
     -- Verify segment was added
-    SELECT COUNT(*) INTO v_verified_segment_count
+    SELECT COUNT(*)
+    INTO v_verified_segment_count
     FROM LineSegment
-    WHERE ID = v_segment_id AND RailLineID = v_rail_line_id;
+    WHERE ID = v_segment_id
+      AND RailLineID = v_rail_line_id;
 
     -- Verify siding was added
-    SELECT COUNT(*) INTO v_verified_siding_count
+    SELECT COUNT(*)
+    INTO v_verified_siding_count
     FROM Siding
     WHERE LineSegmentID = v_segment_id;
 
@@ -250,24 +261,25 @@ END;
 -- Expected: Should raise error -20001
 DECLARE
     v_rail_line_id NUMBER;
-    v_result NUMBER;
+    v_result       NUMBER;
 BEGIN
     DBMS_OUTPUT.PUT_LINE('Test 3: Null segment ID');
 
-    SELECT ID INTO v_rail_line_id
+    SELECT ID
+    INTO v_rail_line_id
     FROM RailLine
     WHERE ROWNUM = 1;
 
     BEGIN
         v_result := AddSegmentToLine(
-            p_segment_id => NULL,
-            p_rail_line_id => v_rail_line_id,
-            p_max_weight => 100.0,
-            p_length => 1000.0,
-            p_number_of_tracks => 1,
-            p_speed_limit => 50.0,
-            p_order_num => 1
-        );
+                p_segment_id => NULL,
+                p_rail_line_id => v_rail_line_id,
+                p_max_weight => 100.0,
+                p_length => 1000.0,
+                p_number_of_tracks => 1,
+                p_speed_limit => 50.0,
+                p_order_num => 1
+                    );
         DBMS_OUTPUT.PUT_LINE('  Result: FAILED - Should have raised exception');
     EXCEPTION
         WHEN OTHERS THEN
@@ -294,14 +306,14 @@ BEGIN
 
     BEGIN
         v_result := AddSegmentToLine(
-            p_segment_id => 99993,
-            p_rail_line_id => NULL,
-            p_max_weight => 100.0,
-            p_length => 1000.0,
-            p_number_of_tracks => 1,
-            p_speed_limit => 50.0,
-            p_order_num => 1
-        );
+                p_segment_id => 99993,
+                p_rail_line_id => NULL,
+                p_max_weight => 100.0,
+                p_length => 1000.0,
+                p_number_of_tracks => 1,
+                p_speed_limit => 50.0,
+                p_order_num => 1
+                    );
         DBMS_OUTPUT.PUT_LINE('  Result: FAILED - Should have raised exception');
     EXCEPTION
         WHEN OTHERS THEN
@@ -322,21 +334,21 @@ END;
 -- Test 5: Non-existent rail line validation
 -- Expected: Should raise error -20003
 DECLARE
-    v_result NUMBER;
+    v_result          NUMBER;
     v_invalid_line_id NUMBER := 999999;
 BEGIN
     DBMS_OUTPUT.PUT_LINE('Test 5: Non-existent rail line');
 
     BEGIN
         v_result := AddSegmentToLine(
-            p_segment_id => 99994,
-            p_rail_line_id => v_invalid_line_id,
-            p_max_weight => 100.0,
-            p_length => 1000.0,
-            p_number_of_tracks => 1,
-            p_speed_limit => 50.0,
-            p_order_num => 1
-        );
+                p_segment_id => 99994,
+                p_rail_line_id => v_invalid_line_id,
+                p_max_weight => 100.0,
+                p_length => 1000.0,
+                p_number_of_tracks => 1,
+                p_speed_limit => 50.0,
+                p_order_num => 1
+                    );
         DBMS_OUTPUT.PUT_LINE('  Result: FAILED - Should have raised exception');
     EXCEPTION
         WHEN OTHERS THEN
@@ -357,32 +369,34 @@ END;
 -- Test 6: Duplicate segment ID validation
 -- Expected: Should raise error -20004
 DECLARE
-    v_rail_line_id NUMBER;
+    v_rail_line_id        NUMBER;
     v_existing_segment_id NUMBER;
-    v_result NUMBER;
+    v_result              NUMBER;
 BEGIN
     DBMS_OUTPUT.PUT_LINE('Test 6: Duplicate segment ID');
 
     -- Get an existing segment ID
-    SELECT ID INTO v_existing_segment_id
+    SELECT ID
+    INTO v_existing_segment_id
     FROM LineSegment
     WHERE ROWNUM = 1;
 
     -- Get the rail line ID for that segment
-    SELECT RailLineID INTO v_rail_line_id
+    SELECT RailLineID
+    INTO v_rail_line_id
     FROM LineSegment
     WHERE ID = v_existing_segment_id;
 
     BEGIN
         v_result := AddSegmentToLine(
-            p_segment_id => v_existing_segment_id,
-            p_rail_line_id => v_rail_line_id,
-            p_max_weight => 100.0,
-            p_length => 1000.0,
-            p_number_of_tracks => 1,
-            p_speed_limit => 50.0,
-            p_order_num => 999
-        );
+                p_segment_id => v_existing_segment_id,
+                p_rail_line_id => v_rail_line_id,
+                p_max_weight => 100.0,
+                p_length => 1000.0,
+                p_number_of_tracks => 1,
+                p_speed_limit => 50.0,
+                p_order_num => 999
+                    );
         DBMS_OUTPUT.PUT_LINE('  Result: FAILED - Should have raised exception');
     EXCEPTION
         WHEN OTHERS THEN
@@ -406,24 +420,25 @@ END;
 -- Expected: Should raise error -20005
 DECLARE
     v_rail_line_id NUMBER;
-    v_result NUMBER;
+    v_result       NUMBER;
 BEGIN
     DBMS_OUTPUT.PUT_LINE('Test 7: Invalid segment attributes - negative length');
 
-    SELECT ID INTO v_rail_line_id
+    SELECT ID
+    INTO v_rail_line_id
     FROM RailLine
     WHERE ROWNUM = 1;
 
     BEGIN
         v_result := AddSegmentToLine(
-            p_segment_id => 99995,
-            p_rail_line_id => v_rail_line_id,
-            p_max_weight => 100.0,
-            p_length => -500.0,  -- Invalid: negative length
-            p_number_of_tracks => 1,
-            p_speed_limit => 50.0,
-            p_order_num => 1
-        );
+                p_segment_id => 99995,
+                p_rail_line_id => v_rail_line_id,
+                p_max_weight => 100.0,
+                p_length => -500.0, -- Invalid: negative length
+                p_number_of_tracks => 1,
+                p_speed_limit => 50.0,
+                p_order_num => 1
+                    );
         DBMS_OUTPUT.PUT_LINE('  Result: FAILED - Should have raised exception');
     EXCEPTION
         WHEN OTHERS THEN
@@ -445,26 +460,27 @@ END;
 -- Expected: Should raise error -20006
 DECLARE
     v_rail_line_id NUMBER;
-    v_result NUMBER;
+    v_result       NUMBER;
 BEGIN
     DBMS_OUTPUT.PUT_LINE('Test 8: Invalid siding - position without length');
 
-    SELECT ID INTO v_rail_line_id
+    SELECT ID
+    INTO v_rail_line_id
     FROM RailLine
     WHERE ROWNUM = 1;
 
     BEGIN
         v_result := AddSegmentToLine(
-            p_segment_id => 99996,
-            p_rail_line_id => v_rail_line_id,
-            p_max_weight => 100.0,
-            p_length => 1000.0,
-            p_number_of_tracks => 1,
-            p_speed_limit => 50.0,
-            p_order_num => 1,
-            p_siding_position => 500.0,
-            p_siding_length => NULL  -- Invalid: position provided but length missing
-        );
+                p_segment_id => 99996,
+                p_rail_line_id => v_rail_line_id,
+                p_max_weight => 100.0,
+                p_length => 1000.0,
+                p_number_of_tracks => 1,
+                p_speed_limit => 50.0,
+                p_order_num => 1,
+                p_siding_position => 500.0,
+                p_siding_length => NULL -- Invalid: position provided but length missing
+                    );
         DBMS_OUTPUT.PUT_LINE('  Result: FAILED - Should have raised exception');
     EXCEPTION
         WHEN OTHERS THEN
@@ -486,26 +502,27 @@ END;
 -- Expected: Should raise error -20007
 DECLARE
     v_rail_line_id NUMBER;
-    v_result NUMBER;
+    v_result       NUMBER;
 BEGIN
     DBMS_OUTPUT.PUT_LINE('Test 9: Invalid siding position - outside segment bounds');
 
-    SELECT ID INTO v_rail_line_id
+    SELECT ID
+    INTO v_rail_line_id
     FROM RailLine
     WHERE ROWNUM = 1;
 
     BEGIN
         v_result := AddSegmentToLine(
-            p_segment_id => 99997,
-            p_rail_line_id => v_rail_line_id,
-            p_max_weight => 100.0,
-            p_length => 1000.0,
-            p_number_of_tracks => 1,
-            p_speed_limit => 50.0,
-            p_order_num => 1,
-            p_siding_position => 1500.0,  -- Invalid: position beyond segment length
-            p_siding_length => 200.0
-        );
+                p_segment_id => 99997,
+                p_rail_line_id => v_rail_line_id,
+                p_max_weight => 100.0,
+                p_length => 1000.0,
+                p_number_of_tracks => 1,
+                p_speed_limit => 50.0,
+                p_order_num => 1,
+                p_siding_position => 1500.0, -- Invalid: position beyond segment length
+                p_siding_length => 200.0
+                    );
         DBMS_OUTPUT.PUT_LINE('  Result: FAILED - Should have raised exception');
     EXCEPTION
         WHEN OTHERS THEN
@@ -529,59 +546,55 @@ END;
 
 -- Validation Query 1: Verify segment registration and association with rail line
 -- Expected: Shows segment details and confirms association with rail line
-SELECT
-    'Segment Registration Validation' AS validation_type,
-    ls.ID AS segment_id,
-    ls.RailLineID AS rail_line_id,
-    rl.StartFacilityID,
-    rl.EndFacilityID,
-    ls.length,
-    ls.numberOfTracks,
-    ls.speedLimit,
-    ls.maxWeight,
-    ls.orderNum,
-    CASE WHEN s.ID IS NOT NULL THEN 'Has Siding' ELSE 'No Siding' END AS siding_status
+SELECT 'Segment Registration Validation'                                 AS validation_type,
+       ls.ID                                                             AS segment_id,
+       ls.RailLineID                                                     AS rail_line_id,
+       rl.StartFacilityID,
+       rl.EndFacilityID,
+       ls.length,
+       ls.numberOfTracks,
+       ls.speedLimit,
+       ls.maxWeight,
+       ls.orderNum,
+       CASE WHEN s.ID IS NOT NULL THEN 'Has Siding' ELSE 'No Siding' END AS siding_status
 FROM LineSegment ls
-JOIN RailLine rl ON ls.RailLineID = rl.ID
-LEFT JOIN Siding s ON ls.ID = s.LineSegmentID
+         JOIN RailLine rl ON ls.RailLineID = rl.ID
+         LEFT JOIN Siding s ON ls.ID = s.LineSegmentID
 ORDER BY ls.ID;
 
 -- Validation Query 2: Verify siding associations
 -- Expected: Shows all sidings and their associated segments
-SELECT
-    'Siding Association Validation' AS validation_type,
-    s.ID AS siding_id,
-    s.LineSegmentID AS segment_id,
-    ls.RailLineID AS rail_line_id,
-    s.position,
-    s.length,
-    ls.length AS segment_length,
-    CASE
-        WHEN s.position BETWEEN 0 AND ls.length THEN 'Valid Position'
-        ELSE 'Invalid Position'
-    END AS position_validation
+SELECT 'Siding Association Validation' AS validation_type,
+       s.ID                            AS siding_id,
+       s.LineSegmentID                 AS segment_id,
+       ls.RailLineID                   AS rail_line_id,
+       s.position,
+       s.length,
+       ls.length                       AS segment_length,
+       CASE
+           WHEN s.position BETWEEN 0 AND ls.length THEN 'Valid Position'
+           ELSE 'Invalid Position'
+           END                         AS position_validation
 FROM Siding s
-JOIN LineSegment ls ON s.LineSegmentID = ls.ID
+         JOIN LineSegment ls ON s.LineSegmentID = ls.ID
 ORDER BY s.ID;
 
 -- Validation Query 3: Referential integrity check
 -- Expected: Should return no rows if referential integrity is maintained
-SELECT
-    'Referential Integrity Check' AS validation_type,
-    'Orphaned Siding' AS issue_type,
-    s.ID AS siding_id,
-    s.LineSegmentID AS segment_id
+SELECT 'Referential Integrity Check' AS validation_type,
+       'Orphaned Siding'             AS issue_type,
+       s.ID                          AS siding_id,
+       s.LineSegmentID               AS segment_id
 FROM Siding s
-LEFT JOIN LineSegment ls ON s.LineSegmentID = ls.ID
+         LEFT JOIN LineSegment ls ON s.LineSegmentID = ls.ID
 WHERE ls.ID IS NULL
 UNION ALL
-SELECT
-    'Referential Integrity Check' AS validation_type,
-    'Orphaned Segment' AS issue_type,
-    ls.ID AS segment_id,
-    ls.RailLineID AS rail_line_id
+SELECT 'Referential Integrity Check' AS validation_type,
+       'Orphaned Segment'            AS issue_type,
+       ls.ID                         AS segment_id,
+       ls.RailLineID                 AS rail_line_id
 FROM LineSegment ls
-LEFT JOIN RailLine rl ON ls.RailLineID = rl.ID
+         LEFT JOIN RailLine rl ON ls.RailLineID = rl.ID
 WHERE rl.ID IS NULL;
 
 COMMIT;

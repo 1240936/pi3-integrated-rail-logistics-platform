@@ -16,24 +16,23 @@
 -- Stored Function: AddNewLine
 -- ============================================================================
 CREATE OR REPLACE FUNCTION AddNewLine(
-    p_owner_id          IN NUMBER,
+    p_owner_id IN NUMBER,
     p_start_facility_id IN NUMBER,
-    p_end_facility_id   IN NUMBER,
-    p_gauge_id          IN NUMBER,
-    p_is_electrified    IN NUMBER,
+    p_end_facility_id IN NUMBER,
+    p_gauge_id IN NUMBER,
+    p_is_electrified IN NUMBER,
     p_segment_max_weight IN NUMBER,
-    p_segment_length     IN NUMBER,
+    p_segment_length IN NUMBER,
     p_segment_num_tracks IN NUMBER,
     p_segment_speed_limit IN NUMBER
 ) RETURN NUMBER
-IS
-    v_owner_exists    NUMBER;
-    v_start_exists    NUMBER;
-    v_end_exists      NUMBER;
-    v_gauge_exists    NUMBER;
-
-    v_new_line_id     NUMBER;
-    v_new_segment_id  NUMBER;
+    IS
+    v_owner_exists   NUMBER;
+    v_start_exists   NUMBER;
+    v_end_exists     NUMBER;
+    v_gauge_exists   NUMBER;
+    v_new_line_id    NUMBER;
+    v_new_segment_id NUMBER;
 BEGIN
     ---------------------------------------------------------------------------
     -- 1. Basic validation
@@ -77,7 +76,8 @@ BEGIN
     ---------------------------------------------------------------------------
     -- 2. Validate referenced entities exist
     ---------------------------------------------------------------------------
-    SELECT COUNT(*) INTO v_owner_exists
+    SELECT COUNT(*)
+    INTO v_owner_exists
     FROM Owner
     WHERE ID = p_owner_id;
 
@@ -85,7 +85,8 @@ BEGIN
         RAISE_APPLICATION_ERROR(-20055, 'Owner does not exist');
     END IF;
 
-    SELECT COUNT(*) INTO v_start_exists
+    SELECT COUNT(*)
+    INTO v_start_exists
     FROM Facility
     WHERE ID = p_start_facility_id;
 
@@ -93,7 +94,8 @@ BEGIN
         RAISE_APPLICATION_ERROR(-20056, 'Start Facility does not exist');
     END IF;
 
-    SELECT COUNT(*) INTO v_end_exists
+    SELECT COUNT(*)
+    INTO v_end_exists
     FROM Facility
     WHERE ID = p_end_facility_id;
 
@@ -101,7 +103,8 @@ BEGIN
         RAISE_APPLICATION_ERROR(-20057, 'End Facility does not exist');
     END IF;
 
-    SELECT COUNT(*) INTO v_gauge_exists
+    SELECT COUNT(*)
+    INTO v_gauge_exists
     FROM Gauge
     WHERE ID = p_gauge_id;
 
@@ -113,9 +116,9 @@ BEGIN
     -- 3. Create RailLine
     ---------------------------------------------------------------------------
     SELECT CASE
-             WHEN MAX(ID) IS NULL THEN 1
-             ELSE MAX(ID) + 1
-           END
+               WHEN MAX(ID) IS NULL THEN 1
+               ELSE MAX(ID) + 1
+               END
     INTO v_new_line_id
     FROM RailLine;
 
@@ -126,14 +129,15 @@ BEGIN
     -- 4. Create mandatory first LineSegment
     ---------------------------------------------------------------------------
     SELECT CASE
-             WHEN MAX(ID) IS NULL THEN 1
-             ELSE MAX(ID) + 1
-           END
+               WHEN MAX(ID) IS NULL THEN 1
+               ELSE MAX(ID) + 1
+               END
     INTO v_new_segment_id
     FROM LineSegment;
 
     INSERT INTO LineSegment (ID, RailLineID, maxWeight, length, numberOfTracks, speedLimit, orderNum)
-    VALUES (v_new_segment_id, v_new_line_id, p_segment_max_weight, p_segment_length, p_segment_num_tracks, p_segment_speed_limit, 1);
+    VALUES (v_new_segment_id, v_new_line_id, p_segment_max_weight, p_segment_length, p_segment_num_tracks,
+            p_segment_speed_limit, 1);
 
     ---------------------------------------------------------------------------
     -- 5. Return new RailLine ID
@@ -150,14 +154,13 @@ END AddNewLine;
 -- Test 1: Happy path
 -- ============================================================================
 DECLARE
-    v_owner_id NUMBER;
+    v_owner_id          NUMBER;
     v_start_facility_id NUMBER;
-    v_end_facility_id NUMBER;
-    v_gauge_id NUMBER;
-
-    v_line_id NUMBER;
-    v_line_count NUMBER;
-    v_segment_count NUMBER;
+    v_end_facility_id   NUMBER;
+    v_gauge_id          NUMBER;
+    v_line_id           NUMBER;
+    v_line_count        NUMBER;
+    v_segment_count     NUMBER;
 BEGIN
     DBMS_OUTPUT.PUT_LINE('Test 1: Happy path');
 
@@ -209,10 +212,10 @@ END;
 -- Test 3: Same start and end facility
 -- ============================================================================
 DECLARE
-    v_result NUMBER;
-    v_owner_id NUMBER;
+    v_result      NUMBER;
+    v_owner_id    NUMBER;
     v_facility_id NUMBER;
-    v_gauge_id NUMBER;
+    v_gauge_id    NUMBER;
 BEGIN
     DBMS_OUTPUT.PUT_LINE('Test 3: Same start and end facility');
 
@@ -240,10 +243,10 @@ END;
 -- Test 4: Non-existent owner
 -- ============================================================================
 DECLARE
-    v_result NUMBER;
+    v_result            NUMBER;
     v_start_facility_id NUMBER;
-    v_end_facility_id NUMBER;
-    v_gauge_id NUMBER;
+    v_end_facility_id   NUMBER;
+    v_gauge_id          NUMBER;
 BEGIN
     DBMS_OUTPUT.PUT_LINE('Test 4: Non-existent owner');
 
@@ -271,15 +274,14 @@ END;
 -- Test 5: Transaction rollback
 -- ============================================================================
 DECLARE
-    v_result NUMBER;
-    v_owner_id NUMBER;
+    v_result            NUMBER;
+    v_owner_id          NUMBER;
     v_start_facility_id NUMBER;
-    v_end_facility_id NUMBER;
-    v_gauge_id NUMBER;
-
-    v_before NUMBER;
-    v_after NUMBER;
-    v_after_rollback NUMBER;
+    v_end_facility_id   NUMBER;
+    v_gauge_id          NUMBER;
+    v_before            NUMBER;
+    v_after             NUMBER;
+    v_after_rollback    NUMBER;
 BEGIN
     DBMS_OUTPUT.PUT_LINE('Test 5: Transaction rollback');
 

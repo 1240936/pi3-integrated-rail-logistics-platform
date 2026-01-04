@@ -30,14 +30,13 @@ CREATE OR REPLACE FUNCTION AssociateFreightWithTrain(
     p_freight_id IN NUMBER,
     p_route_id IN NUMBER
 )
-RETURN NUMBER
+    RETURN NUMBER
 AS
-    v_train_id NUMBER;
-    v_start_date DATE;
-    v_wagon_count NUMBER := 0;
-    v_wagon_id NUMBER;
+    v_train_id         NUMBER;
+    v_start_date       DATE;
+    v_wagon_count      NUMBER := 0;
+    v_wagon_id         NUMBER;
     v_already_assigned NUMBER;
-
     CURSOR c_unassigned_wagons IS
         SELECT WagonID
         FROM Unassigned_Freight
@@ -57,7 +56,8 @@ BEGIN
     DECLARE
         v_freight_exists NUMBER;
     BEGIN
-        SELECT COUNT(*) INTO v_freight_exists
+        SELECT COUNT(*)
+        INTO v_freight_exists
         FROM Freight
         WHERE ID = p_freight_id;
 
@@ -70,7 +70,8 @@ BEGIN
     DECLARE
         v_route_exists NUMBER;
     BEGIN
-        SELECT COUNT(*) INTO v_route_exists
+        SELECT COUNT(*)
+        INTO v_route_exists
         FROM Route
         WHERE ID = p_route_id;
 
@@ -83,12 +84,10 @@ BEGIN
     BEGIN
         SELECT TrainID, startDate
         INTO v_train_id, v_start_date
-        FROM (
-            SELECT TrainID, startDate
-            FROM Planned_Train
-            WHERE RouteID = p_route_id
-            ORDER BY startDate
-        )
+        FROM (SELECT TrainID, startDate
+              FROM Planned_Train
+              WHERE RouteID = p_route_id
+              ORDER BY startDate)
         WHERE ROWNUM = 1;
     EXCEPTION
         WHEN NO_DATA_FOUND THEN
@@ -96,7 +95,8 @@ BEGIN
     END;
 
     -- Check if freight has wagons to associate
-    SELECT COUNT(*) INTO v_wagon_count
+    SELECT COUNT(*)
+    INTO v_wagon_count
     FROM Unassigned_Freight
     WHERE FreightID = p_freight_id;
 
@@ -109,81 +109,87 @@ BEGIN
     v_wagon_count := 0;
 
     -- Process each wagon in the freight
-    FOR wagon_rec IN c_unassigned_wagons LOOP
-        v_wagon_id := wagon_rec.WagonID;
+    FOR wagon_rec IN c_unassigned_wagons
+        LOOP
+            v_wagon_id := wagon_rec.WagonID;
 
-        -- Check if wagon is already assigned to another train
-        BEGIN
-            SELECT COUNT(*) INTO v_already_assigned
-            FROM Assigned_Wagon
-            WHERE WagonID = v_wagon_id
-              AND (PlannedTrainID != v_train_id OR PlannedTrainStartDate != v_start_date);
+            -- Check if wagon is already assigned to another train
+            BEGIN
+                SELECT COUNT(*)
+                INTO v_already_assigned
+                FROM Assigned_Wagon
+                WHERE WagonID = v_wagon_id
+                  AND (PlannedTrainID != v_train_id OR PlannedTrainStartDate != v_start_date);
 
-            IF v_already_assigned > 0 THEN
-                DBMS_OUTPUT.PUT_LINE('Wagon ID ' || v_wagon_id || ' is already assigned to another train. Skipping.');
-                CONTINUE;
-            END IF;
+                IF v_already_assigned > 0 THEN
+                    DBMS_OUTPUT.PUT_LINE('Wagon ID ' || v_wagon_id ||
+                                         ' is already assigned to another train. Skipping.');
+                    CONTINUE;
+                END IF;
 
-            -- Check if wagon is already assigned to this train (duplicate check)
-            SELECT COUNT(*) INTO v_already_assigned
-            FROM Assigned_Wagon
-            WHERE WagonID = v_wagon_id
-              AND PlannedTrainID = v_train_id
-              AND PlannedTrainStartDate = v_start_date;
+                -- Check if wagon is already assigned to this train (duplicate check)
+                SELECT COUNT(*)
+                INTO v_already_assigned
+                FROM Assigned_Wagon
+                WHERE WagonID = v_wagon_id
+                  AND PlannedTrainID = v_train_id
+                  AND PlannedTrainStartDate = v_start_date;
 
-            IF v_already_assigned > 0 THEN
-                -- Already associated with this train, just remove from Unassigned_Freight
-                -- and ensure it's in Assigned_Freight
-                DELETE FROM Unassigned_Freight
+                IF v_already_assigned > 0 THEN
+                    -- Already associated with this train, just remove from Unassigned_Freight
+                    -- and ensure it's in Assigned_Freight
+                    DELETE
+                    FROM Unassigned_Freight
+                    WHERE FreightID = p_freight_id
+                      AND WagonID = v_wagon_id;
+
+                    -- Insert into Assigned_Freight if not already there
+                    BEGIN
+                        INSERT INTO Assigned_Freight (FreightID, WagonID, PlannedTrainID, PlannedTrainStartDate)
+                        VALUES (p_freight_id, v_wagon_id, v_train_id, v_start_date);
+                    EXCEPTION
+                        WHEN DUP_VAL_ON_INDEX THEN
+                            -- Already in Assigned_Freight, ignore
+                            NULL;
+                    END;
+
+                    v_wagon_count := v_wagon_count + 1;
+                    CONTINUE;
+                END IF;
+
+                -- Associate wagon with train
+                INSERT INTO Assigned_Wagon (WagonID, PlannedTrainID, PlannedTrainStartDate)
+                VALUES (v_wagon_id, v_train_id, v_start_date);
+
+                -- Remove from Unassigned_Freight
+                DELETE
+                FROM Unassigned_Freight
                 WHERE FreightID = p_freight_id
                   AND WagonID = v_wagon_id;
 
-                -- Insert into Assigned_Freight if not already there
-                BEGIN
-                    INSERT INTO Assigned_Freight (FreightID, WagonID, PlannedTrainID, PlannedTrainStartDate)
-                    VALUES (p_freight_id, v_wagon_id, v_train_id, v_start_date);
-                EXCEPTION
-                    WHEN DUP_VAL_ON_INDEX THEN
-                        -- Already in Assigned_Freight, ignore
-                        NULL;
-                END;
+                -- Add to Assigned_Freight
+                INSERT INTO Assigned_Freight (FreightID, WagonID, PlannedTrainID, PlannedTrainStartDate)
+                VALUES (p_freight_id, v_wagon_id, v_train_id, v_start_date);
 
                 v_wagon_count := v_wagon_count + 1;
-                CONTINUE;
-            END IF;
 
-            -- Associate wagon with train
-            INSERT INTO Assigned_Wagon (WagonID, PlannedTrainID, PlannedTrainStartDate)
-            VALUES (v_wagon_id, v_train_id, v_start_date);
+            EXCEPTION
+                WHEN DUP_VAL_ON_INDEX THEN
+                    -- Handle duplicate key error (should not happen, but handle gracefully)
+                    DBMS_OUTPUT.PUT_LINE('Wagon ID ' || v_wagon_id || ' already associated. Skipping.');
+                    CONTINUE;
+                WHEN OTHERS THEN
+                    -- Re-raise application errors
+                    IF SQLCODE BETWEEN -20999 AND -20000 THEN
+                        RAISE;
+                    ELSE
+                        RAISE_APPLICATION_ERROR(-20099, 'Error associating wagon ' || v_wagon_id || ': ' || SQLERRM);
+                    END IF;
+            END;
+        END LOOP;
 
-            -- Remove from Unassigned_Freight
-            DELETE FROM Unassigned_Freight
-            WHERE FreightID = p_freight_id
-              AND WagonID = v_wagon_id;
-
-            -- Add to Assigned_Freight
-            INSERT INTO Assigned_Freight (FreightID, WagonID, PlannedTrainID, PlannedTrainStartDate)
-            VALUES (p_freight_id, v_wagon_id, v_train_id, v_start_date);
-
-            v_wagon_count := v_wagon_count + 1;
-
-        EXCEPTION
-            WHEN DUP_VAL_ON_INDEX THEN
-                -- Handle duplicate key error (should not happen, but handle gracefully)
-                DBMS_OUTPUT.PUT_LINE('Wagon ID ' || v_wagon_id || ' already associated. Skipping.');
-                CONTINUE;
-            WHEN OTHERS THEN
-                -- Re-raise application errors
-                IF SQLCODE BETWEEN -20999 AND -20000 THEN
-                    RAISE;
-                ELSE
-                    RAISE_APPLICATION_ERROR(-20099, 'Error associating wagon ' || v_wagon_id || ': ' || SQLERRM);
-                END IF;
-        END;
-    END LOOP;
-
-COMMIT; -- Atomic transaction
-RETURN v_wagon_count;
+    COMMIT; -- Atomic transaction
+    RETURN v_wagon_count;
 
 EXCEPTION
     WHEN OTHERS THEN
@@ -216,14 +222,14 @@ END AssociateFreightWithTrain;
 -- Test Case 1: Happy Path - Successful freight association
 -- ============================================================================
 DECLARE
-v_result NUMBER;
-    v_freight_id NUMBER;
-    v_route_id NUMBER;
-    v_train_id NUMBER;
-    v_start_date DATE;
-    v_wagon_count NUMBER;
-    v_assigned_wagon_count NUMBER;
-    v_assigned_freight_count NUMBER;
+    v_result                   NUMBER;
+    v_freight_id               NUMBER;
+    v_route_id                 NUMBER;
+    v_train_id                 NUMBER;
+    v_start_date               DATE;
+    v_wagon_count              NUMBER;
+    v_assigned_wagon_count     NUMBER;
+    v_assigned_freight_count   NUMBER;
     v_unassigned_freight_count NUMBER;
 BEGIN
     DBMS_OUTPUT.PUT_LINE('--- Starting Test Case 1: Happy Path ---');
@@ -231,13 +237,11 @@ BEGIN
     -- Find a freight with unassigned wagons
     SELECT freight_id, wagon_count
     INTO v_freight_id, v_wagon_count
-    FROM (
-        SELECT FreightID as freight_id, COUNT(*) as wagon_count
-        FROM Unassigned_Freight
-        GROUP BY FreightID
-        HAVING COUNT(*) > 0
-        ORDER BY COUNT(*) DESC
-    )
+    FROM (SELECT FreightID as freight_id, COUNT(*) as wagon_count
+          FROM Unassigned_Freight
+          GROUP BY FreightID
+          HAVING COUNT(*) > 0
+          ORDER BY COUNT(*) DESC)
     WHERE ROWNUM = 1;
 
     -- Find a route with planned train 5435 (has less freight, more capacity)
@@ -262,7 +266,8 @@ BEGIN
     DBMS_OUTPUT.PUT_LINE('Unassigned wagons in freight: ' || v_wagon_count);
 
     -- Count initial state
-    SELECT COUNT(*) INTO v_unassigned_freight_count
+    SELECT COUNT(*)
+    INTO v_unassigned_freight_count
     FROM Unassigned_Freight
     WHERE FreightID = v_freight_id;
 
@@ -270,25 +275,27 @@ BEGIN
     v_result := AssociateFreightWithTrain(v_freight_id, v_route_id);
 
     -- Count after association (check wagons that were in the freight)
-    SELECT COUNT(*) INTO v_assigned_wagon_count
+    SELECT COUNT(*)
+    INTO v_assigned_wagon_count
     FROM Assigned_Wagon aw
     WHERE aw.PlannedTrainID = v_train_id
       AND aw.PlannedTrainStartDate = v_start_date
-      AND EXISTS (
-        SELECT 1 FROM Assigned_Freight af
-        WHERE af.FreightID = v_freight_id
-          AND af.WagonID = aw.WagonID
-          AND af.PlannedTrainID = v_train_id
-          AND af.PlannedTrainStartDate = v_start_date
-    );
+      AND EXISTS (SELECT 1
+                  FROM Assigned_Freight af
+                  WHERE af.FreightID = v_freight_id
+                    AND af.WagonID = aw.WagonID
+                    AND af.PlannedTrainID = v_train_id
+                    AND af.PlannedTrainStartDate = v_start_date);
 
-    SELECT COUNT(*) INTO v_assigned_freight_count
+    SELECT COUNT(*)
+    INTO v_assigned_freight_count
     FROM Assigned_Freight
     WHERE FreightID = v_freight_id
       AND PlannedTrainID = v_train_id
       AND PlannedTrainStartDate = v_start_date;
 
-    SELECT COUNT(*) INTO v_unassigned_freight_count
+    SELECT COUNT(*)
+    INTO v_unassigned_freight_count
     FROM Unassigned_Freight
     WHERE FreightID = v_freight_id;
 
@@ -310,18 +317,19 @@ BEGIN
     WHERE FreightID = v_freight_id
       AND PlannedTrainID = v_train_id
       AND PlannedTrainStartDate = v_start_date
-      AND NOT EXISTS (
-        SELECT 1 FROM Unassigned_Freight UF
-        WHERE UF.FreightID = Assigned_Freight.FreightID
-          AND UF.WagonID = Assigned_Freight.WagonID
-    );
+      AND NOT EXISTS (SELECT 1
+                      FROM Unassigned_Freight UF
+                      WHERE UF.FreightID = Assigned_Freight.FreightID
+                        AND UF.WagonID = Assigned_Freight.WagonID);
 
-    DELETE FROM Assigned_Freight
+    DELETE
+    FROM Assigned_Freight
     WHERE FreightID = v_freight_id
       AND PlannedTrainID = v_train_id
       AND PlannedTrainStartDate = v_start_date;
 
-    DELETE FROM Assigned_Wagon
+    DELETE
+    FROM Assigned_Wagon
     WHERE PlannedTrainID = v_train_id
       AND PlannedTrainStartDate = v_start_date
       AND WagonID IN (SELECT WagonID FROM Unassigned_Freight WHERE FreightID = v_freight_id);
@@ -341,7 +349,7 @@ END;
 -- Test Case 2: Null Freight ID
 -- ============================================================================
 DECLARE
-v_result NUMBER;
+    v_result NUMBER;
 BEGIN
     DBMS_OUTPUT.PUT_LINE('--- Starting Test Case 2: Null Freight ID ---');
 
@@ -363,7 +371,7 @@ END;
 -- Test Case 3: Null Route ID
 -- ============================================================================
 DECLARE
-v_result NUMBER;
+    v_result NUMBER;
 BEGIN
     DBMS_OUTPUT.PUT_LINE('--- Starting Test Case 3: Null Route ID ---');
 
@@ -385,7 +393,7 @@ END;
 -- Test Case 4: Freight Not Found
 -- ============================================================================
 DECLARE
-    v_result NUMBER;
+    v_result             NUMBER;
     v_invalid_freight_id NUMBER := 99999;
 BEGIN
     DBMS_OUTPUT.PUT_LINE('--- Starting Test Case 4: Freight Not Found ---');
@@ -408,18 +416,17 @@ END;
 -- Test Case 5: Route Not Found
 -- ============================================================================
 DECLARE
-    v_result NUMBER;
+    v_result           NUMBER;
     v_invalid_route_id NUMBER := 99999;
 BEGIN
     DBMS_OUTPUT.PUT_LINE('--- Starting Test Case 5: Route Not Found ---');
 
     -- Use a valid freight ID
-    SELECT FreightID INTO v_result
-    FROM (
-        SELECT FreightID
-        FROM Unassigned_Freight
-        WHERE ROWNUM = 1
-    );
+    SELECT FreightID
+    INTO v_result
+    FROM (SELECT FreightID
+          FROM Unassigned_Freight
+          WHERE ROWNUM = 1);
 
     v_result := AssociateFreightWithTrain(v_result, v_invalid_route_id);
     DBMS_OUTPUT.PUT_LINE('ERROR: Function should have raised an error.');
@@ -441,25 +448,23 @@ END;
 -- Test Case 6: Freight with No Unassigned Wagons
 -- ============================================================================
 DECLARE
-    v_result NUMBER;
+    v_result     NUMBER;
     v_freight_id NUMBER;
-    v_route_id NUMBER;
-    v_train_id NUMBER;
+    v_route_id   NUMBER;
+    v_train_id   NUMBER;
 BEGIN
     DBMS_OUTPUT.PUT_LINE('--- Starting Test Case 6: Freight with No Unassigned Wagons ---');
 
     -- Find a freight that has assigned wagons but no unassigned wagons
     SELECT FreightID, RouteID, PlannedTrainID
     INTO v_freight_id, v_route_id, v_train_id
-    FROM (
-        SELECT DISTINCT af.FreightID, pt.RouteID, pt.TrainID AS PlannedTrainID
-        FROM Assigned_Freight af
-        JOIN Planned_Train pt ON af.PlannedTrainID = pt.TrainID AND af.PlannedTrainStartDate = pt.startDate
-        WHERE NOT EXISTS (
-            SELECT 1 FROM Unassigned_Freight uf WHERE uf.FreightID = af.FreightID
-        )
-          AND ROWNUM = 1
-    );
+    FROM (SELECT DISTINCT af.FreightID, pt.RouteID, pt.TrainID AS PlannedTrainID
+          FROM Assigned_Freight af
+                   JOIN Planned_Train pt ON af.PlannedTrainID = pt.TrainID AND af.PlannedTrainStartDate = pt.startDate
+          WHERE NOT EXISTS (SELECT 1
+                            FROM Unassigned_Freight uf
+                            WHERE uf.FreightID = af.FreightID)
+            AND ROWNUM = 1);
 
     v_result := AssociateFreightWithTrain(v_freight_id, v_route_id);
 
@@ -482,15 +487,15 @@ END;
 -- Test Case 7: Wagon Already Assigned to Another Train
 -- ============================================================================
 DECLARE
-    v_result NUMBER;
-    v_freight_id NUMBER;
-    v_wagon_id NUMBER;
-    v_existing_route_id NUMBER;
-    v_existing_train_id NUMBER;
+    v_result              NUMBER;
+    v_freight_id          NUMBER;
+    v_wagon_id            NUMBER;
+    v_existing_route_id   NUMBER;
+    v_existing_train_id   NUMBER;
     v_existing_start_date DATE;
-    v_new_route_id NUMBER;
-    v_new_train_id NUMBER;
-    v_new_start_date DATE;
+    v_new_route_id        NUMBER;
+    v_new_train_id        NUMBER;
+    v_new_start_date      DATE;
 BEGIN
     DBMS_OUTPUT.PUT_LINE('--- Starting Test Case 7: Wagon Already Assigned to Another Train ---');
 
@@ -498,14 +503,15 @@ BEGIN
     SELECT af.FreightID, af.WagonID, pt.RouteID, pt.TrainID, pt.startDate
     INTO v_freight_id, v_wagon_id, v_existing_route_id, v_existing_train_id, v_existing_start_date
     FROM Assigned_Freight af
-    JOIN Planned_Train pt ON af.PlannedTrainID = pt.TrainID AND af.PlannedTrainStartDate = pt.startDate
+             JOIN Planned_Train pt ON af.PlannedTrainID = pt.TrainID AND af.PlannedTrainStartDate = pt.startDate
     WHERE ROWNUM = 1;
 
     -- Find a different route/train
     SELECT pt.RouteID, pt.TrainID, pt.startDate
     INTO v_new_route_id, v_new_train_id, v_new_start_date
     FROM Planned_Train pt
-    WHERE (pt.RouteID != v_existing_route_id OR pt.TrainID != v_existing_train_id OR pt.startDate != v_existing_start_date)
+    WHERE (pt.RouteID != v_existing_route_id OR pt.TrainID != v_existing_train_id OR
+           pt.startDate != v_existing_start_date)
       AND ROWNUM = 1;
 
     -- Move wagon to Unassigned_Freight temporarily
@@ -523,8 +529,10 @@ BEGIN
     DBMS_OUTPUT.PUT_LINE('Expected: Wagon should be skipped (already assigned to another train)');
 
     -- Restore wagon to original state
-    DELETE FROM Unassigned_Freight
-    WHERE FreightID = v_freight_id AND WagonID = v_wagon_id;
+    DELETE
+    FROM Unassigned_Freight
+    WHERE FreightID = v_freight_id
+      AND WagonID = v_wagon_id;
 
     COMMIT;
     DBMS_OUTPUT.PUT_LINE('SUCCESS: Function handled wagon already assigned to another train correctly.');
@@ -544,13 +552,13 @@ END;
 -- Test Case 8: Duplicate Association (Same Freight/Train Again)
 -- ============================================================================
 DECLARE
-    v_result NUMBER;
-    v_freight_id NUMBER;
-    v_route_id NUMBER;
-    v_train_id NUMBER;
-    v_start_date DATE;
+    v_result                 NUMBER;
+    v_freight_id             NUMBER;
+    v_route_id               NUMBER;
+    v_train_id               NUMBER;
+    v_start_date             DATE;
     v_initial_assigned_count NUMBER;
-    v_final_assigned_count NUMBER;
+    v_final_assigned_count   NUMBER;
 BEGIN
     DBMS_OUTPUT.PUT_LINE('--- Starting Test Case 8: Duplicate Association ---');
 
@@ -558,10 +566,11 @@ BEGIN
     SELECT af.FreightID, pt.RouteID, pt.TrainID, pt.startDate
     INTO v_freight_id, v_route_id, v_train_id, v_start_date
     FROM Assigned_Freight af
-    JOIN Planned_Train pt ON af.PlannedTrainID = pt.TrainID AND af.PlannedTrainStartDate = pt.startDate
+             JOIN Planned_Train pt ON af.PlannedTrainID = pt.TrainID AND af.PlannedTrainStartDate = pt.startDate
     WHERE ROWNUM = 1;
 
-    SELECT COUNT(*) INTO v_initial_assigned_count
+    SELECT COUNT(*)
+    INTO v_initial_assigned_count
     FROM Assigned_Freight
     WHERE FreightID = v_freight_id
       AND PlannedTrainID = v_train_id
@@ -573,7 +582,8 @@ BEGIN
     -- Try to associate again (should handle gracefully)
     v_result := AssociateFreightWithTrain(v_freight_id, v_route_id);
 
-    SELECT COUNT(*) INTO v_final_assigned_count
+    SELECT COUNT(*)
+    INTO v_final_assigned_count
     FROM Assigned_Freight
     WHERE FreightID = v_freight_id
       AND PlannedTrainID = v_train_id
