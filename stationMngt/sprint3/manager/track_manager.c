@@ -6,6 +6,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#define _POSIX_C_SOURCE 200809L
+#include <time.h>
 #include "track_manager.h"
 #include "board_comm.h"
 #include "lightsigns_comm.h"
@@ -63,6 +65,7 @@ int init_track_manager(ManagerData* manager_data, const char* board_port, const 
             // Set light to GREEN
             printf("Sending GREEN command to track %d\n", manager_data->tracks[i].id);
             send_light_command(&g_lightsigns_port, LIGHT_CMD_GREEN, manager_data->tracks[i].id);
+            // Note: Small delay removed due to buildroot limitations
         }
     } else {
         // Simulation mode - just print
@@ -486,6 +489,7 @@ void cleanup_track_manager() {
             for (int i = 0; i < g_manager_data->num_tracks; i++) {
                 printf("Turning off lights for track %d\n", g_manager_data->tracks[i].id);
                 turn_off_track_leds(&g_lightsigns_port, g_manager_data->tracks[i].id);
+                // Note: Small delay removed due to buildroot limitations
             }
         } else {
             // Simulation mode - just print

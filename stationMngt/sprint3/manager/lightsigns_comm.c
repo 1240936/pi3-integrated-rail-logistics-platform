@@ -1,6 +1,6 @@
 /*
  * LightSigns Communication Implementation - USAC14
- * 
+ *
  * Uses USAC04 format_command assembly function
  */
 
@@ -44,7 +44,7 @@ int send_light_command(SerialPort* port, LightCommandType command_type, int trac
         if (format_command((char*)cmd_str, track_id, formatted_cmd) != 1) {
             return -1;
         }
-        
+
         // Output command to stdout for demo
         printf("[LIGHTSIGNS] %s\n", formatted_cmd);
         fflush(stdout);
@@ -81,12 +81,16 @@ int send_light_command(SerialPort* port, LightCommandType command_type, int trac
     if (format_command((char*)cmd_str, track_id, formatted_cmd) != 1) {
         return -1;
     }
-    
+
     // Calculate length for serial output
     int len = 0;
     while (formatted_cmd[len] != '\0' && len < 19) {
         len++;
     }
+
+    // Add newline character (Arduino expects commands ending with \n)
+    formatted_cmd[len] = '\n';
+    len++;
 
     // Send formatted command via serial
     return write_serial_port(port, formatted_cmd, len);
@@ -110,10 +114,14 @@ int turn_off_track_leds(SerialPort* port, int track_id) {
     // OFF is not supported by format_command, so we format it manually
     char off_cmd[20];
     int len = sprintf(off_cmd, "OFF,%d", track_id);
-    
+
     if (len <= 0) {
         return -1;
     }
+
+    // Add newline character (Arduino expects commands ending with \n)
+    off_cmd[len] = '\n';
+    len++;
 
     // Send OFF command via serial
     return write_serial_port(port, off_cmd, len);
