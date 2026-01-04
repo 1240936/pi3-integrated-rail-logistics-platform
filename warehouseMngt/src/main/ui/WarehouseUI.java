@@ -22,6 +22,7 @@ public class WarehouseUI {
     private MinimalBackboneService minimalBackboneService;
     private RiskAwarePathService riskAwarePathService;
     private HubCentralityService hubCentralityService;
+    private MaxFlowService maxFlowService;
     private Scanner scanner;
     private boolean dataLoaded = false;
     private boolean stationDataLoaded = false;
@@ -41,6 +42,7 @@ public class WarehouseUI {
         this.minimalBackboneService = new MinimalBackboneService(stationService);
         this.riskAwarePathService = new RiskAwarePathService();
         this.hubCentralityService = new HubCentralityService();
+        this.maxFlowService = new MaxFlowService();
         this.scanner = new Scanner(System.in);
     }
 
@@ -1725,7 +1727,7 @@ public class WarehouseUI {
     }
 
     /**
-     * Shows the Sprint 3 menu for Graph Algorithms (USEI11, USEI12, and USEI15).
+     * Shows the Sprint 3 menu for Graph Algorithms (USEI11, USEI12, USEI13, USEI14, and USEI15).
      */
     private void showSprint3Menu() {
         while (true) {
@@ -1733,7 +1735,8 @@ public class WarehouseUI {
             System.out.println("1. USEI11 - Directed Line Upgrade Plan");
             System.out.println("2. USEI12 - Minimal Backbone Network");
             System.out.println("3. USEI13 - Rail Hub Centrality Analysis");
-            System.out.println("4. USEI15 - Risk-Aware Shortest Paths");
+            System.out.println("4. USEI14 - Maximum Flow Service");
+            System.out.println("5. USEI15 - Risk-Aware Shortest Paths");
             System.out.println("0. Back to Main Menu");
             
             int choice = getIntInput("Enter your choice: ");
@@ -1749,6 +1752,9 @@ public class WarehouseUI {
                     manageUSEI13();
                     break;
                 case 4:
+                    manageUSEI14();
+                    break;
+                case 5:
                     manageUSEI15();
                     break;
                 case 0:
@@ -1934,6 +1940,86 @@ public class WarehouseUI {
             
         } catch (IOException e) {
             System.out.println("Error reading files: " + e.getMessage());
+        } catch (IllegalStateException e) {
+            System.out.println("Error: " + e.getMessage());
+        } catch (Exception e) {
+            System.out.println("Error: " + e.getMessage());
+            e.printStackTrace();
+        }
+        
+        System.out.println("\nPress Enter to continue...");
+        scanner.nextLine();
+    }
+
+    /**
+     * Manages USEI14 - Maximum Flow Service (Edmonds-Karp).
+     */
+    private void manageUSEI14() {
+        System.out.println("\n=== USEI14 - MAXIMUM FLOW SERVICE ===");
+        System.out.println("Computes maximum flow capacity between two stations using the Edmonds-Karp algorithm.");
+        System.out.println("Determines the maximum throughput possible from a source station to a sink station.");
+        
+        try {
+            System.out.println("\nEnter paths to CSV files:");
+            String stationsWithIdCsvPath = getValidFilePath(
+                "Stations with ID CSV path (format: Station id,Station,Lat,Lon,CoordX,CoordY): ", 
+                "stations CSV"
+            );
+            String stationToStationCsvPath = getValidFilePath(
+                "Station connections CSV path (format: departure_stid,arrival_stid,dist,capacity,cost): ", 
+                "connections CSV"
+            );
+            
+            System.out.println("\nEnter station IDs:");
+            String sourceStationId = getStringInput("Source station ID: ");
+            if (sourceStationId.isEmpty()) {
+                System.out.println("Source station ID is required.");
+                System.out.println("\nPress Enter to continue...");
+                scanner.nextLine();
+                return;
+            }
+            
+            String sinkStationId = getStringInput("Sink station ID: ");
+            if (sinkStationId.isEmpty()) {
+                System.out.println("Sink station ID is required.");
+                System.out.println("\nPress Enter to continue...");
+                scanner.nextLine();
+                return;
+            }
+            
+            if (sourceStationId.equals(sinkStationId)) {
+                System.out.println("Source and sink stations must be different.");
+                System.out.println("\nPress Enter to continue...");
+                scanner.nextLine();
+                return;
+            }
+            
+            System.out.println("\nComputing maximum flow...");
+            MaxFlowResult result = maxFlowService.computeMaxFlow(
+                stationsWithIdCsvPath,
+                stationToStationCsvPath,
+                sourceStationId,
+                sinkStationId
+            );
+            
+            System.out.println("\n=== RESULTS ===");
+            System.out.println(result.toString());
+            
+            // Additional detailed output
+            System.out.println("\nDetailed Information:");
+            System.out.println(String.format("  Source Station: %s (ID: %s)", 
+                result.getSource().getName(), sourceStationId));
+            System.out.println(String.format("  Sink Station: %s (ID: %s)", 
+                result.getSink().getName(), sinkStationId));
+            System.out.println(String.format("  Maximum Flow: %.2f units/time period", 
+                result.getMaxFlowValue()));
+            System.out.println("\nNote: The maximum flow represents the maximum capacity");
+            System.out.println("that can be routed from the source to the sink station.");
+            
+        } catch (IOException e) {
+            System.out.println("Error reading files: " + e.getMessage());
+        } catch (IllegalArgumentException e) {
+            System.out.println("Error: " + e.getMessage());
         } catch (IllegalStateException e) {
             System.out.println("Error: " + e.getMessage());
         } catch (Exception e) {
