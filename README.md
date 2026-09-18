@@ -1,8 +1,12 @@
-# sem3-pi-integrated-rail-logistics-platform
+
+
+# pi3-integrated-rail-logistics-platform
 
 Plataforma integrada de logística ferroviária desenvolvida no **Projeto Integrador do 3.º semestre** do curso de **Licenciatura em Engenharia Informática (LEI)** do **ISEP**, pela **Equipa g052** (ano letivo 2025/26).
 
 O projeto modela um operador logístico ferroviário e intermodal, integrando gestão de armazém, análise de redes ferroviárias, operações de carga e controlo embebido de estações.
+
+**Repositório:** [github.com/1240936/pi3-integrated-rail-logistics-platform](https://github.com/1240936/pi3-integrated-rail-logistics-platform)
 
 ---
 
@@ -21,14 +25,16 @@ O projeto modela um operador logístico ferroviário e intermodal, integrando ge
 
 ## Visão geral
 
-| Módulo | Tecnologia | Descrição |
-|--------|------------|-----------|
-| `warehouseMngt` | Java 11, Maven | Inventário, picking, indexação espacial (AVL, KD-tree) e algoritmos de grafos |
-| `freightMngt` | Java 11, Oracle JDBC | Planificação de rotas, montagem de comboios, scheduling e dispatch |
-| `stationMngt` | C, RISC-V Assembly | Sistema embebido multi-componente para controlo de estação |
-| `sql-scripts` | Oracle SQL/PL/SQL | Modelo relacional, triggers e procedimentos armazenados |
-| `doc` | Markdown, SVG | Especificações e modelo físico da base de dados |
-| `scrum` | — | Relatórios de sprint e registos de daily standups |
+
+| Módulo          | Tecnologia           | Descrição                                                                     |
+| --------------- | -------------------- | ----------------------------------------------------------------------------- |
+| `warehouseMngt` | Java 11, Maven       | Inventário, picking, indexação espacial (AVL, KD-tree) e algoritmos de grafos |
+| `freightMngt`   | Java 11, Oracle JDBC | Planificação de rotas, montagem de comboios, scheduling e dispatch            |
+| `stationMngt`   | C, RISC-V Assembly   | Sistema embebido multi-componente para controlo de estação                    |
+| `sql-scripts`   | Oracle SQL/PL/SQL    | Modelo relacional, triggers e procedimentos armazenados                       |
+| `doc`           | Markdown, SVG        | Especificações e modelo físico da base de dados                               |
+| `scrum`         | —                    | Relatórios de sprint e registos de daily standups                             |
+
 
 ### Funcionalidades principais
 
@@ -42,7 +48,7 @@ O projeto modela um operador logístico ferroviário e intermodal, integrando ge
 ## Estrutura do repositório
 
 ```
-sem3-pi-integrated-rail-logistics-platform/
+pi3-integrated-rail-logistics-platform/
 ├── warehouseMngt/          # Aplicação Java — armazém e algoritmos (USEI01–USEI15)
 │   ├── src/main/           # Código-fonte
 │   ├── test_cases/         # Testes JUnit
@@ -64,15 +70,17 @@ sem3-pi-integrated-rail-logistics-platform/
 
 ## Pré-requisitos
 
-| Ferramenta | Versão | Necessário para |
-|------------|--------|-----------------|
-| **JDK** | 11+ | `warehouseMngt`, `freightMngt` |
-| **Maven** | 3.6+ | Compilar e testar módulos Java |
-| **Oracle Database** | 19c+ (ou XE) | `freightMngt` e `sql-scripts` |
-| **SQL*Plus / SQL Developer** | — | Executar scripts SQL |
-| **GCC + Make** | — | Compilar `stationMngt` (Linux/WSL) |
-| **Toolchain RISC-V** | Bootlin | Emulação dos componentes embebidos (`qemu-riscv32`) |
-| **Graphviz** | — | Exportação de grafos (USEI12, opcional) |
+
+| Ferramenta                   | Versão       | Necessário para                                     |
+| ---------------------------- | ------------ | --------------------------------------------------- |
+| **JDK**                      | 11+          | `warehouseMngt`, `freightMngt`                      |
+| **Maven**                    | 3.6+         | Compilar e testar módulos Java                      |
+| **Oracle Database**          | 19c+ (ou XE) | `freightMngt` e `sql-scripts`                       |
+| **SQL*Plus / SQL Developer** | —            | Executar scripts SQL                                |
+| **GCC + Make**               | —            | Compilar `stationMngt` (Linux/WSL)                  |
+| **Toolchain RISC-V**         | Bootlin      | Emulação dos componentes embebidos (`qemu-riscv32`) |
+| **Graphviz**                 | —            | Exportação de grafos (USEI12, opcional)             |
+
 
 ---
 
@@ -81,8 +89,8 @@ sem3-pi-integrated-rail-logistics-platform/
 ### 1. Clonar o repositório
 
 ```bash
-git clone https://github.com/<teu-utilizador>/sem3-pi-integrated-rail-logistics-platform.git
-cd sem3-pi-integrated-rail-logistics-platform
+git clone https://github.com/1240936/pi3-integrated-rail-logistics-platform.git
+cd pi3-integrated-rail-logistics-platform
 ```
 
 ### 2. Warehouse Management (`warehouseMngt`)
@@ -166,23 +174,27 @@ Regras de negócio adicionais documentadas em `doc/USBD31/SUPPLEMENTAL_SPECIFICA
 
 ## Testes
 
-| Módulo | Comando | Framework |
-|--------|---------|-----------|
-| `warehouseMngt` | `mvn test` | JUnit 4 |
-| `freightMngt` | `mvn test` | JUnit 4 |
-| `stationMngt` | `make test` (por USAC) | Unity (C) |
+
+| Módulo          | Comando                | Framework |
+| --------------- | ---------------------- | --------- |
+| `warehouseMngt` | `mvn test`             | JUnit 4   |
+| `freightMngt`   | `mvn test`             | JUnit 4   |
+| `stationMngt`   | `make test` (por USAC) | Unity (C) |
+
 
 ---
 
 ## Equipa
 
-| N.º Estudante | Nome |
-|---------------|------|
-| 1240892 | Maria Pinto |
-| 1240934 | Francisco Vasconcelos |
-| 1240935 | Gabriel Inácio |
-| 1240936 | Gonçalo Azevedo |
-| 1240941 | Paulo Ferreira |
+
+| N.º Estudante | Nome                  |
+| ------------- | --------------------- |
+| 1240892       | Maria Pinto           |
+| 1240934       | Francisco Vasconcelos |
+| 1240935       | Gabriel Inácio        |
+| 1240936       | Gonçalo Azevedo       |
+| 1240941       | Paulo Ferreira        |
+
 
 ---
 
