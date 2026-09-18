@@ -6,8 +6,6 @@ Plataforma integrada de logística ferroviária desenvolvida no **Projeto Integr
 
 O projeto modela um operador logístico ferroviário e intermodal, integrando gestão de armazém, análise de redes ferroviárias, operações de carga e controlo embebido de estações.
 
-**Repositório:** [github.com/1240936/pi3-integrated-rail-logistics-platform](https://github.com/1240936/pi3-integrated-rail-logistics-platform)
-
 ---
 
 ## Índice
