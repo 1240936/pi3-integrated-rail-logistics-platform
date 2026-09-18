@@ -1,0 +1,74 @@
+Francisco Vasconcelos
+
+8 Dec: Started USEI11 (Railway Services topological analysis) including CSV readers and graph methods.
+10 Dec: Implemented CSV readers and graph methods; continued work on railway services computing upgrade order.
+12 Dec: Implemented Topological Result method; began work on Temporal Analysis Complexity.
+15 Dec: Completed USEI11 Temporal Analysis; fixed WarehouseUI imports and moved to USEI12 Utility/UI implementation.
+17 Dec: Completed USEI12 Utility and UI; returned to USEI11 to review and fix Temporal Analysis.
+19 Dec: Finalized USEI11 Temporal Analysis fixes and merged main branch; began USAC10 implementation.
+22 Dec: Completed USAC10; started USBD34 implementation.
+23 Dec: Continued USBD34 development with a focus on detail.
+26 Dec: Fixed USBD34 test bug and spacing; prepared for USAC13 implementation.
+29 Dec: Fixed USEI11 test cases and completed USAC13 using USAC11 data structures.
+30 Dec: Reviewed and finalized USAC13; started USBD44 implementation.
+2 Jan: Completed USBD44 and finalized sprint work.
+
+Gabriel Inácio
+
+8 Dec: Started implementation of USEI14.
+10 Dec: Continued USEI14 development and implementation.
+12 Dec: Progressed further on USEI14 implementation.
+15 Dec: Completed USEI14; started USBD36 function implementation.
+17 Dec: Continued USBD36 function development and testing.
+19 Dec: Added Temporal Analysis to USEI14; started USBD36 function and tests implementation.
+22 Dec: Implemented USBD36 functions and tests; began review for corrections.
+23 Dec: Completed corrections for USBD36; started USBD45 function implementation.
+26 Dec: Added USBD45 functions and tests; performed initial corrections.
+29 Dec: Completed USEI14 tests; started USAC12 (logging system) implementation.
+30 Dec: Completed USAC12 implementation (logging, data structures, and Makefile).
+2 Jan: Finalized review of USAC12 and completed all assigned tasks.
+
+Gonçalo Azevedo
+
+8 Dec: Started USBD31 Relational Model design.
+10 Dec: Continued updates and development of the USBD31 Relational Model
+12 Dec: Updated USBD31 model and began making final refinements.
+15 Dec: Completed USBD31; added USBD33 SQL inserts and USBD32 SQL; started USBD37.
+17 Dec: Corrected USBD33 inserts and USBD31 model; implemented USEI13 with UI and Temporal Analysis.
+19 Dec: Completed USBD33, USBD32 inserts, and USBD39 functions/tests; planned USBD43.
+22 Dec: Fixed database errors in USBD31, 32, 33, and 39; started USLP09 SQL functions.
+23 Dec: Corrected project structure and continued USLP09 logic implementation.
+26 Dec: Finalized USLP09 and USBD32 inserts; started USAC11 embedded systems implementation.
+29 Dec: Completed USAC11, USEI13 unit tests, and USLP10 corrections.
+30 Dec: Finalized USAC11 and USLP10; began reviewing all completed work.
+2 Jan: Implemented and reviewed USAC16 board interface.
+
+Maria Pinto
+
+8 Dec: Started USEI15 implementation planning.
+10 Dec: Completed initial planning for USEI15; started class development.
+12 Dec: Continued coding the classes for USEI15.
+15 Dec: Finished adding USEI15 classes; started UI implementation.
+17 Dec: Completed USEI15 UI and Temporal Analysis Complexity.
+19 Dec: Implemented USBD35 (RegisterFacility) and tests; started USLP08 (RoutePlan/RoutePlannerService).
+22 Dec: Completed USLP08 and USBD42 (RegisterTrainMovement); started USLP09 (Locomotive/Wagon assembly).
+23 Dec: Added USLP09 classes (TrafficManagerUI, TrainAssemblyController) and began review.
+26 Dec: Completed USLP09; started USLP10 (FreightManagerUI, AutomaticPathService).
+29 Dec: Completed USAC14 (lightsigns communication) and USEI15 TestRiskAwarePathService.
+30 Dec: Finished USAC14 corrections in main.c.
+2 Jan: Completed final corrections for USAC14 and prepared for sprint review.
+
+Paulo Ferreira
+
+8 Dec: Started USEI12 implementation.
+10 Dec: Continued USEI12 implementation according to plan.
+12 Dec: Progressed USEI12 toward completion and began preparing for testing.
+15 Dec: Completed USEI12; started USBD37 implementation.
+17 Dec: Completed USBD37 implementation.
+19 Dec: Finalized USBD37 and reviewed for edge cases.
+22 Dec: Completed USBD37 review; started USBD41 implementation.
+23 Dec: Fixed USBD37; completed USBD41 and began testing.
+26 Dec: Applied fixes to USBD41 and continued verification.
+29 Dec: Completed USEI12 temporal analysis and USBD41; started USEI12 tests and USAC15.
+30 Dec: Implemented USEI12 tests and USAC15; began fixing USAC15 issues.
+2 Jan: Completed all fixes for USAC15 and finalized sprint work.

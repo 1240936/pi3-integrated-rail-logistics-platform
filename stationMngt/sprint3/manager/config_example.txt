@@ -1,0 +1,27 @@
+# User configuration
+# Format: USER:name:username:password:caesar_key
+USER:Administrator:admin:PASSWORD:5
+
+# Track configuration
+# Format: TRACK:id:state:train_id
+# State: FREE (0), OCCUPIED (1), MAINTENANCE (2)
+# train_id: 0 if track is free
+TRACK:1:FREE:0
+TRACK:2:FREE:0
+
+# Train configuration
+# Format: TRAIN:id
+TRAIN:101
+TRAIN:102
+
+# Sensor configuration
+# Format: SENSOR:temp_buffer_len:temp_window_len:hum_buffer_len:hum_window_len
+# temp_buffer_len: Circular buffer length for temperature (e.g., 10)
+# temp_window_len: Moving median window length for temperature (e.g., 5)
+# hum_buffer_len: Circular buffer length for humidity (e.g., 10)
+# hum_window_len: Moving median window length for humidity (e.g., 5)
+SENSOR:10:5:10:5
+
+# Log entries (optional - for initial logs)
+# Format: LOG:id:user:action:timestamp
+# LOG:1:admin:Initial system setup:1735689600

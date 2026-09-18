@@ -1,0 +1,76 @@
+Francisco Vasconcelos
+
+Francisco’s sprint shows a consistent pattern of tackling complex, interdependent backend logic, especially around graph processing and temporal analysis. His work on USEI11 required deep understanding of topological ordering and time‑based computation — areas where errors propagate easily — yet he not only implemented them but also returned later to refine and stabilize the module. His contributions to USAC10, USBD34, and USAC13 demonstrate versatility across domains.
+
+Strengths:
+Mastery of algorithmic and graph‑based tasks
+Strong ownership of complex features requiring multiple review cycles
+Reliability in closing tasks and stabilizing modules before merge
+
+Impact:
+Francisco’s work formed the backbone of several system‑critical features. His ability to revisit and refine earlier implementations improved overall system robustness and reduced downstream debugging for the team.
+
+Gabriel Inácio
+
+Gabriel’s sprint is marked by steady, disciplined progression through USEI14 and the USBD36/USBD45 function sets. His timeline shows a clean development arc: implementation → testing → corrections → finalization. Adding Temporal Analysis to USEI14 mid‑sprint shows adaptability and technical breadth. His work on USAC12 (logging system) is especially impactful, as logging infrastructure benefits every other team member.
+
+Strengths:
+Consistent delivery rhythm with strong test coverage
+Ability to integrate new requirements mid‑task without disruption
+High‑value contributions to shared infrastructure (logging, Makefile)
+
+Impact:
+Gabriel’s work improved system observability and reliability. His disciplined testing and corrections reduced integration friction and helped stabilize multiple subsystems.
+
+Gonçalo Azevedo
+Gonçalo handled some of the most database‑heavy and structurally sensitive tasks of the sprint. His work on relational models, SQL inserts, and database corrections shows strong attention to detail and understanding of data integrity. He also contributed to UI and Temporal Analysis (USEI13) and later moved into embedded systems (USAC11, USAC16), demonstrating impressive domain range.
+
+Strengths:
+Deep competence in database modeling and correction
+Cross‑domain flexibility: SQL, UI, embedded systems
+Proactive correction of structural issues across multiple modules
+
+Impact:
+Gonçalo’s corrections prevented cascading database issues and ensured consistency across multiple features. His ability to switch domains made him a stabilizing force during integration phases.
+
+Maria Pinto
+
+Maria’s sprint shows a strong combination of planning, structured implementation, and UI/UX integration. USEI15 required class design, UI development, and temporal analysis — a full‑stack feature in itself. Her work on USLP08, USBD35, USBD42, and USLP09 demonstrates strong command of service‑oriented architecture and controller/UI interactions. Completing USAC14 (lightsigns communication) adds a systems‑level dimension to her contributions.
+
+Strengths:
+Full‑stack capability from class design to UI and temporal analysis
+Strong architectural thinking in service and controller development
+Reliable delivery of complex, multi‑layered features
+
+Impact:
+Maria’s work strengthened both the user‑facing and system‑logic layers. Her consistent delivery across UI, services, and embedded communication helped unify the sprint’s diverse technical areas.
+
+Paulo Ferreira
+
+Paulo’s sprint reflects high reliability and strong execution speed. He completed USEI12 early and moved quickly into USBD37 and USBD41, handling both implementation and thorough review cycles. His work on temporal analysis and testing for USEI12 shows attention to detail and commitment to quality. Completing USAC15 and resolving its issues demonstrates persistence and ownership.
+
+Strengths:
+Fast, consistent delivery of assigned tasks
+Strong follow‑through on testing and edge‑case handling
+Ability to stabilize modules through multiple correction cycles
+
+Impact:
+Paulo’s reliability helped maintain sprint velocity. His thorough testing and corrections reduced risk during integration and ensured that key modules reached production‑ready quality.
+
+Group Summary Report
+The team demonstrated excellent coordination, domain coverage, and cross‑module awareness throughout the sprint. Several patterns stand out:
+
+Collective Strengths:
+High task completion rate across all members
+Strong cross‑domain collaboration (UI, DB, embedded, temporal analysis)
+Consistent testing and correction cycles that improved system stability
+Ability to integrate new requirements mid‑sprint without major delays
+
+Collaborative Impact:
+Temporal Analysis was implemented or refined by multiple team members, showing shared understanding of a complex subsystem.
+Database corrections by Gonçalo and logging infrastructure by Gabriel improved the workflow for everyone.
+Francisco and Maria’s work on services, controllers, and UI ensured that backend logic connected smoothly to user‑facing components.
+Paulo’s rapid delivery and thorough testing helped maintain sprint momentum and reduce integration bottlenecks.
+
+Overall Assessment:
+This sprint reflects a high‑performing, well‑synchronized engineering team. Each member contributed meaningfully within their domain while also reinforcing the work of others. The group demonstrated maturity in handling corrections, cross‑module dependencies, and late‑sprint refinements — all signs of a team that is scaling both technically and collaboratively.
