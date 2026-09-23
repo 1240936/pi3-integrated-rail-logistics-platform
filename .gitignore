@@ -28,10 +28,3 @@ Thumbs.db
 mvnw
 mvnw.cmd
 
-# Project build artifacts
-.build/
-
-# Logs and audit files
-*.log
-audit_log.txt
-
